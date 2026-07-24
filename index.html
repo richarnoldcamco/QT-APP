@@ -1183,6 +1183,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:27, date:"2026-07-24", note:"Quote document\u2019s Operations table now shows S/U hours, cycle minutes, pieces per shift, lead days and cost per piece alongside the operation. Email attachments are named for what they are \u2014 Material-Quote-N, Buyer-RFQ-N or Drawing-N \u2014 instead of every page being called Drawing. The supplier material quote and buyer RFQ were always attaching (they are stored as drawing pages) but were misleadingly named."},
   {rev:26, date:"2026-07-24", note:"New \u21bb Pull Code & Data tile on the main menu \u2014 checks for newer app code and pulls the latest quotes immediately instead of waiting for the 60-second timer. Reports progress and any failure in the tile itself."},
   {rev:25, date:"2026-07-24", note:"Email attachments RESTORED. Rev 21-24 nested the MIME (related/alternative) to get a formatted body with an inline drawing \u2014 Outlook\u2019s compose editor silently discarded every attachment, including the quote sheet that had always worked. Back to the flat layout: plain body, then the drawing (every page) and the quote sheet as normal attachments. Plain body is the trade for reliable attachments."},
   {rev:24, date:"2026-07-24", note:"Email MIME restructured for Outlook\u2019s compose editor: mixed \u2192 related \u2192 alternative(plain+HTML) + inline images, then attachments. Rev 21\u201323 built a valid file but Outlook ignored the HTML part and showed plain text with no drawing. Also sets an explicit img width so Outlook does not collapse it."},
@@ -1210,9 +1211,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 26;
+const APP_REV = 27;
 const BUILD_DATE = "2026-07-24";
-const BUILD_TIME = "02:25";           /* increments every build — check both machines match */
+const BUILD_TIME = "03:00";           /* increments every build — check both machines match */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */
@@ -4228,9 +4229,20 @@ async function emailQuote(){
     if(pg.data) pageImgs.push(`<img src="${pg.data}">`);
   }
   const img=pageImgs.length?`<div class="sec"><h2>Drawing${pageImgs.length>1?'s':''}</h2>${pageImgs.join('')}</div>`:'';
-  const ops=opRows.filter(x=>x.desc&&!x.locked)
-    .map(x=>`<tr><td>${x.op}</td><td>${esc(x.desc)}</td><td>${esc(x.quote||'')}</td></tr>`).join('')
-    || '<tr><td colspan="3">—</td></tr>';
+  const num2=n=>(isFinite(n)&&n!==''?Number(n):0);
+  const ops=opRows.map((x,i)=>({x,i})).filter(o=>o.x.desc&&!o.x.locked)
+    .map(o=>{
+      const d=(r.rowDetail&&r.rowDetail[o.i])||{};
+      const c=(r.rowCosts&&r.rowCosts[o.i])||0;
+      return `<tr><td>${o.x.op}</td><td>${esc(o.x.desc)}</td>`
+        +`<td style="text-align:right">${num2(o.x.su).toFixed(1)}</td>`
+        +`<td style="text-align:right">${num2(o.x.ct).toFixed(2)}</td>`
+        +`<td style="text-align:right">${d.pcsShift||'\u2014'}</td>`
+        +`<td style="text-align:right">${d.lead?d.lead+' d':'\u2014'}</td>`
+        +`<td style="text-align:right">${money(c)}</td>`
+        +`<td>${esc(o.x.quote||'')}</td></tr>`;
+    }).join('')
+    || '<tr><td colspan="8">\u2014</td></tr>';
   const bodyLines=[
     `Quote #${qno} — ${today}`,``,
     `Customer: ${v('customer')}`,
@@ -4285,7 +4297,7 @@ async function emailQuote(){
       <tr class="tot"><td>Batch total (${esc(v('batchSize'))||0} pcs)</td><td style="text-align:right">${money(r.batchTotal)}</td></tr>
     </table>
     <div class="sec"><h2>Operations</h2></div>
-    <table><tr><th>OP #</th><th>Operation</th><th>Notes</th></tr>${ops}</table>
+    <table><tr><th>OP #</th><th>Operation</th><th>S/U hrs</th><th>Cycle min</th><th>Pcs/shift</th><th>Lead</th><th>Cost/pc</th><th>Notes</th></tr>${ops}</table>
     ${img}
   </body></html>`;
   const w=window.open('about:blank','_blank');
@@ -4325,7 +4337,14 @@ function downloadQuoteEml(qno, subject, bodyText, docHtml, pages){
     const mm=/^data:(image\/[a-z+]+);base64,(.*)$/i.exec(pg.data);
     if(!mm) return;
     const ext=(mm[1].split('/')[1]||'png').replace('jpeg','jpg');
-    const nm='Drawing-'+qno+(i?('-p'+(i+1)):'')+'.'+ext;
+    /* name each attachment for what it actually is: the supplier material quote and the
+       buyer RFQ are stored as drawing pages too, so a generic "Drawing-N" misleads. */
+    const raw=String(pg.name||'');
+    let base;
+    if(/^MATERIAL QUOTE/i.test(raw))      base='Material-Quote-'+qno;
+    else if(/^RFQ\b/i.test(raw))          base='Buyer-RFQ-'+qno;
+    else                                  base='Drawing-'+qno+(i?('-p'+(i+1)):'');
+    const nm=base+'.'+ext;
     P.push('--'+BND,
            'Content-Type: '+mm[1]+'; name="'+nm+'"',
            'Content-Transfer-Encoding: base64',

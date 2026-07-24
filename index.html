@@ -1210,6 +1210,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:32, date:"2026-07-24", note:"Customer quotation form now carries the real Camco details \u2014 address, phone, fax, website, Cage Code and DUNS in the header; Richard Arnold\u2019s contact line under the signature; and an AS9100D / ISO 9001 / ISO 17025 certification block at the foot. Replaces the placeholder text."},
   {rev:31, date:"2026-07-24", note:"Buyer RFQ emails and supplier material quotes now live in their OWN collection, separate from drawings. The drawing pane holds prints only; RFQ and material-quote images open in a dedicated viewer from their existing buttons, with next/back and delete. Existing quotes migrate automatically on open \u2014 any page named RFQ\u2026 or MATERIAL QUOTE\u2026 moves out of the drawing pages. All of them still attach to the email."},
   {rev:30, date:"2026-07-24", note:"E-mail button restyled as a glossy blue pill with a circular envelope badge, built in CSS so it stays sharp at any size."},
   {rev:29, date:"2026-07-24", note:"EMAIL button redrawn \u2014 the \ud83d\udce7 emoji was rendering as a muddy brown block, so it is now a clean line-drawn envelope icon, and the button has its own slate-blue colour so the send action stands apart from the dark toolbar chips."},
@@ -1242,9 +1243,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 31;
+const APP_REV = 32;
 const BUILD_DATE = "2026-07-24";
-const BUILD_TIME = "05:00";           /* increments every build — check both machines match */
+const BUILD_TIME = "05:20";           /* increments every build — check both machines match */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */
@@ -4465,7 +4466,11 @@ function buildCustomerQuote(qno, r){
     <div class="bar" style="margin-bottom:14px"><button onclick="print()">\u{1F5A8} Print / Save as PDF</button></div>
     <div class="hd">
       <img src="${CAMCO_LOGO}" alt="CAMCO Manufacturing">
-      <div class="co"><b>CAMCO Manufacturing</b><br>[address line 1]<br>[city, state ZIP]<br>[phone] \u00b7 [email]</div>
+      <div class="co"><b>Camco Manufacturing, Inc</b><br>
+        317 South Thomas Ave. \u00b7 Sayre, PA 18840<br>
+        (570) 731-4109 office \u00b7 (570) 731-4480 fax<br>
+        www.camcomanufacturing.com<br>
+        Cage Code 4RCW9 \u00b7 DUNS 12-853-9348</div>
     </div>
     <h1>QUOTATION</h1>
     <table>
@@ -4488,7 +4493,16 @@ function buildCustomerQuote(qno, r){
       Prices are based on the quantity shown; different quantities will be re-quoted.<br>
       Tooling, fixturing and first-article inspection charges, where applicable, are included in the unit price above unless separately stated.
     </div>
-    <div class="sig">Quoted by: <b>${esc(v('quotedBy'))}</b></div>
+    <div class="sig">
+      Quoted by: <b>${esc(v('quotedBy'))}</b><br>
+      <span style="font-size:11.5px; color:#5f5b56">Richard Arnold, President \u00b7 (607) 760-8775 cell \u00b7 rarnold@camcomfginc.com</span>
+    </div>
+    <div style="margin-top:20px; border-top:1px solid #d8d6cf; padding-top:10px; font-size:10.5px; color:#5f5b56; line-height:1.6">
+      <b>Quality certifications</b><br>
+      AS9100D / ISO 9001 \u2014 Aviation, Space &amp; Defense Quality Management System<br>
+      ISO 9001 \u2014 General Quality System<br>
+      ISO/IEC 17025 \u2014 Inspection &amp; Gage Calibration
+    </div>
   </body></html>`;
 }
 function b64Wrap(s){ return s.replace(/(.{76})/g, '$1\r\n'); }

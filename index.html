@@ -324,13 +324,22 @@
   .btn.topbtn.ghost{background:linear-gradient(180deg,#3a2b2b,#2a1c1c); color:#e7dbd9; border:1px solid #4a3a3a; border-top-color:#5e4c4c}
   .btn.topbtn.ghost:hover{filter:brightness(1.15)}
   /* EMAIL: its own colour so it reads as the send action, not another dark chip */
+  /* glossy blue pill modelled on the reference button */
   .btn.topbtn.mailbtn{
-    background:linear-gradient(180deg,#2f6f8f 0%,#245a76 55%,#1b475e 100%);
-    border:1px solid #16394c; border-top-color:#5b9ab7; color:#fff;
-    display:inline-flex; align-items:center; letter-spacing:.04em;
+    background:linear-gradient(180deg,#4b9fe0 0%,#2b7fc9 45%,#1b64ad 55%,#12508f 100%);
+    border:1px solid #0e3f73; border-top-color:#7cc0f0; color:#fff;
+    border-radius:999px; padding:5px 18px 5px 8px;
+    display:inline-flex; align-items:center; gap:8px; letter-spacing:.02em;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.45), 0 1px 2px rgba(0,0,0,.35);
   }
-  .btn.topbtn.mailbtn:hover{filter:brightness(1.15)}
-  .btn.topbtn.mailbtn:active{filter:brightness(.92)}
+  .btn.topbtn.mailbtn .mi{
+    width:20px; height:20px; border-radius:50%; flex:0 0 20px;
+    background:radial-gradient(circle at 34% 28%, #6fb6ea 0%, #2f7fc4 55%, #15559a 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.35);
+    display:inline-flex; align-items:center; justify-content:center;
+  }
+  .btn.topbtn.mailbtn:hover{filter:brightness(1.12)}
+  .btn.topbtn.mailbtn:active{filter:brightness(.9); box-shadow:inset 0 2px 3px rgba(0,0,0,.3)}
   /* NEW QUOTE in the toolbar wears the menu-screen tile colors */
   .btn.topbtn.menulike{background:var(--cp-panel); color:var(--cp-ink); border:1px solid var(--cp-line); border-top-color:#fff}
   .btn.topbtn.menulike:hover{border-color:var(--cp-signal); color:var(--cp-signal)}
@@ -723,7 +732,7 @@
     <button class="btn topbtn ghost" id="rfqBtn" title="paste or upload a screenshot of the buyer's RFQ email — AI can fill the header from it">📎 UPLOAD BUYER RFQ EMAIL</button>
     <input type="file" id="rfqFile" accept="image/*" hidden>
     <input type="file" id="matQuoteFile" accept="image/*" hidden>
-    <button class="btn topbtn mailbtn" id="emailQuoteBtn" title="build an Outlook draft with the quote, drawing and customer quotation attached"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px;margin-right:6px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>EMAIL</button>
+    <button class="btn topbtn mailbtn" id="emailQuoteBtn" title="build an Outlook draft with the quote, drawing and customer quotation attached"><span class="mi"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" style="fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><rect x="2" y="4" width="20" height="16" rx="1.5"/><path d="m2 7 10 6 10-6"/></svg></span>E-mail</button>
     <button class="btn topbtn ghost" id="addOp">+ Add Op Row</button>
     <button class="btn topbtn ghost" id="priorQuotesBtn">📂 Prior Quotes</button>
     <button class="btn topbtn menulike" id="newQuote">New Quote</button>
@@ -1201,6 +1210,8 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:31, date:"2026-07-24", note:"Buyer RFQ emails and supplier material quotes now live in their OWN collection, separate from drawings. The drawing pane holds prints only; RFQ and material-quote images open in a dedicated viewer from their existing buttons, with next/back and delete. Existing quotes migrate automatically on open \u2014 any page named RFQ\u2026 or MATERIAL QUOTE\u2026 moves out of the drawing pages. All of them still attach to the email."},
+  {rev:30, date:"2026-07-24", note:"E-mail button restyled as a glossy blue pill with a circular envelope badge, built in CSS so it stays sharp at any size."},
   {rev:29, date:"2026-07-24", note:"EMAIL button redrawn \u2014 the \ud83d\udce7 emoji was rendering as a muddy brown block, so it is now a clean line-drawn envelope icon, and the button has its own slate-blue colour so the send action stands apart from the dark toolbar chips."},
   {rev:28, date:"2026-07-24", note:"Split internal vs customer-facing. The emailed quote sheet now carries the FULL calculation grid for internal CAMCO use. A separate CAMCO-Quotation-N.html is attached for the salesman to send out: logo, quote and optional customer RFQ number, qty/price/lead, 90-day validity, FOB and payment terms pulled per-customer from the new Admin \u2192 Customer-Facing Terms table. New optional \u201cCustomer Quote #\u201d field on the header."},
   {rev:27, date:"2026-07-24", note:"Quote document\u2019s Operations table now shows S/U hours, cycle minutes, pieces per shift, lead days and cost per piece alongside the operation. Email attachments are named for what they are \u2014 Material-Quote-N, Buyer-RFQ-N or Drawing-N \u2014 instead of every page being called Drawing. The supplier material quote and buyer RFQ were always attaching (they are stored as drawing pages) but were misleadingly named."},
@@ -1231,9 +1242,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 29;
+const APP_REV = 31;
 const BUILD_DATE = "2026-07-24";
-const BUILD_TIME = "04:00";           /* increments every build — check both machines match */
+const BUILD_TIME = "05:00";           /* increments every build — check both machines match */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */
@@ -1696,8 +1707,9 @@ function snapshot(){
   fields.oddSel=JSON.stringify(oddSel);
   fields.intakePending=intakePending?'1':'';
   fields.matVerified=matVerified?'1':'';
-  const dmeta = drawPages.length ? {pages: drawPages.map(p=>({name:p.name, w:p.w, h:p.h,
-    kb:p.kb, ts:p.ts, ref:p.ref||drawingPath(activeQuoteNo)}))} : null;
+  const _slim=p=>({name:p.name, w:p.w, h:p.h, kb:p.kb, ts:p.ts, ref:p.ref||drawingPath(activeQuoteNo)});
+  const dmeta = (drawPages.length||docPages.length)
+    ? {pages: drawPages.map(_slim), docPages: docPages.map(_slim)} : null;
   return {fields, ops:JSON.parse(JSON.stringify(opRows)), drawing:dmeta};
 }
 function restore(s){
@@ -1714,12 +1726,20 @@ function restore(s){
   Object.entries(s.fields).forEach(([id,v])=>{ if($(id)) $(id).value=v; });
   opRows = s.ops && s.ops.length ? s.ops : (blankOps(),opRows);
   if(s.drawing){
-    drawPages = Array.isArray(s.drawing.pages)
+    let _all = Array.isArray(s.drawing.pages)
       ? s.drawing.pages.map(pg=>Object.assign({},pg))
       : [Object.assign({}, s.drawing)];             /* legacy single-drawing record */
-    curPage=0;
+    docPages = Array.isArray(s.drawing.docPages)
+      ? s.drawing.docPages.map(pg=>Object.assign({},pg)) : [];
+    if(!s.drawing.docPages){
+      /* MIGRATION: older quotes kept RFQ / material-quote pages inside pages[] */
+      docPages = _all.filter(pg=>classifyPage(pg&&pg.name)!=='print');
+      _all     = _all.filter(pg=>classifyPage(pg&&pg.name)==='print');
+    }
+    drawPages=_all;
+    curPage=0; curDoc=0;
     const cache=drwCache(); let cacheTouched=false;
-    for(const pg of drawPages){
+    for(const pg of drawPages.concat(docPages)){
       if(!pg.ref) pg.ref=drawingPath(activeQuoteNo);
       if(pg.data){                                   /* legacy embedded pixels: queue migration */
         if(!cache[pg.ref]){ cache[pg.ref]={data:pg.data, ts:Date.now(), dirty:true}; cacheTouched=true; }
@@ -1731,7 +1751,7 @@ function restore(s){
     }
     if(cacheTouched){ drwSave(cache); scheduleGhPush(); }
   }else{
-    drawPages=[]; curPage=0;
+    drawPages=[]; curPage=0; docPages=[]; curDoc=0;
   }
   renderDrawing();
   renderAll();
@@ -1785,6 +1805,15 @@ function scheduleAutosave(){
 /* multi-page: each page is {data?:dataURL, name, w, h, kb, ts, ref} — data may be absent until fetched.
    curDrawing (used throughout the viewer/AI/email code) is an accessor for the CURRENT page. */
 let drawPages=[]; let curPage=0;
+/* B-FULL: buyer RFQ emails and supplier material quotes live in their OWN collection,
+   never in the drawing pane. Same page shape {name,data,w,h,kb,ts,ref}. */
+let docPages=[]; let curDoc=0;
+function classifyPage(name){
+  const n=String(name||'').trim().toUpperCase();
+  if(n.startsWith('RFQ')) return 'rfq';
+  if(n.startsWith('MATERIAL QUOTE')) return 'matq';
+  return 'print';
+}
 Object.defineProperty(window, 'curDrawing', {
   get(){ return drawPages[curPage]||null; },
   set(v){
@@ -1879,7 +1908,7 @@ function renderThumbs(){
     renderDrawing();
   }));
   /* fetch any missing thumbnails in the background */
-  drawPages.forEach(pg=>{ if(!pg.data && ghEnabled()) ghFetchDrawingRef(pg.ref); });
+  drawPages.concat(docPages).forEach(pg=>{ if(!pg.data && ghEnabled()) ghFetchDrawingRef(pg.ref); });
 }
 
 function renderDrawing(){
@@ -1945,6 +1974,12 @@ function setDrawing(dw, opts){
 /* a NEW paste/browse/PDF page is appended (does not replace existing pages) */
 function addDrawingPage(dw){
   dw.ref=newPageRef();
+  if(classifyPage(dw&&dw.name)!=='print'){
+    docPages.push(dw); curDoc=docPages.length-1;
+    renderDrawing(); scheduleAutosave();
+    if(window.__openDocViewer) window.__openDocViewer();
+    return;
+  }
   drawPages.push(dw);
   curPage=drawPages.length-1;
   const cache=drwCache();
@@ -1995,8 +2030,8 @@ async function ghFetchDrawingRef(refPath){
   const cache=drwCache();
   cache[refPath]={data:dataURL, ts:Date.now(), dirty:false};
   drwSave(cache);
-  const pg=drawPages.find(p=>p.ref===refPath);
-  if(pg){ pg.data=dataURL; renderDrawing(); }
+  const pg=drawPages.concat(docPages).find(p=>p.ref===refPath);
+  if(pg){ pg.data=dataURL; renderDrawing(); if(window.__docViewerRefresh) window.__docViewerRefresh(); }
   return dataURL;
 }
 /* make sure the current drawing's pixels are available (fetch if needed) */
@@ -3123,7 +3158,7 @@ function startNewQuote(){
   matOverride='No'; matOverrideVal=0;
   oddSel=[];
   matVerified=false;
-  drawPages=[]; curPage=0; renderDrawing(); setOpsMode('calc');
+  drawPages=[]; curPage=0; docPages=[]; curDoc=0; renderDrawing(); setOpsMode('calc');
   setHdrMin(false);                     /* expand header for data entry */
   /* mandatory fields start BLANK; FAI and Difficulty must be actively picked */
   GUIDE_ORDER.forEach(id=>{ const el=$(id); if(el && el.tagName==='INPUT') el.value=''; });
@@ -3925,7 +3960,11 @@ function openMaterialVerify(){
     }
     close();
   });
-  ov.querySelector('#mvAttach').addEventListener('click', ()=>{ $('matQuoteFile').click(); });
+  ov.querySelector('#mvAttach').addEventListener('click', ()=>{
+    const i=docPages.findIndex(p=>classifyPage(p&&p.name)==='matq');
+    if(i>=0){ openDocViewer(i); return; }              /* already attached: show it */
+    $('matQuoteFile').click();
+  });
 }
 $('material').addEventListener('change', ()=>{ matVerified=false; openMaterialVerify(); });
 $('matQuoteFile').addEventListener('change', async e=>{
@@ -4225,7 +4264,58 @@ function openRfqPaste(){
   z.focus();
   window.__rfqPasteHandler=onPaste;
 }
-function rfqPageIndex(){ return drawPages.findIndex(p=>p && /^RFQ\b/i.test(p.name||'')); }
+function openDocViewer(startIdx){
+  if(!docPages.length){ alert('No buyer RFQ or supplier material quote attached to this quote yet.'); return; }
+  if(typeof startIdx==='number' && startIdx>=0) curDoc=Math.min(startIdx, docPages.length-1);
+  const ov=document.createElement('div');
+  ov.className='ov'; ov.id='docOv'; ov.style.display='flex';
+  const draw=()=>{
+    const pg=docPages[curDoc]||{};
+    const kind=classifyPage(pg.name)==='rfq'?'\u2709 Buyer RFQ email':'\u{1F4C4} Supplier material quote';
+    ov.querySelector('#dvTitle').textContent=kind;
+    ov.querySelector('#dvLbl').textContent=(curDoc+1)+' / '+docPages.length;
+    ov.querySelector('#dvName').textContent=pg.name||'';
+    const im=ov.querySelector('#dvImg');
+    if(pg.data){ im.src=pg.data; im.style.display='block'; ov.querySelector('#dvWait').hidden=true; }
+    else{ im.removeAttribute('src'); im.style.display='none'; ov.querySelector('#dvWait').hidden=false;
+          if(ghEnabled() && pg.ref) ghFetchDrawingRef(pg.ref); }
+    ov.querySelector('#dvPrev').disabled = curDoc<=0;
+    ov.querySelector('#dvNext').disabled = curDoc>=docPages.length-1;
+  };
+  ov.innerHTML=`<div class="modal" style="width:min(94vw,1050px); max-height:92vh; display:flex; flex-direction:column">
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+      <h3 id="dvTitle" style="margin:0"></h3>
+      <span class="note" id="dvName" style="flex:1"></span>
+      <button class="mini" id="dvPrev" type="button">\u25c0</button>
+      <span class="note" id="dvLbl"></span>
+      <button class="mini" id="dvNext" type="button">\u25b6</button>
+      <button class="mini delb" id="dvDel" type="button" title="remove this document from the quote">\u2715</button>
+      <button class="btn" id="dvClose" type="button">Close</button>
+    </div>
+    <div style="flex:1; overflow:auto; margin-top:10px; background:#efece7; border:1px solid var(--cp-line); border-radius:8px; text-align:center">
+      <img id="dvImg" alt="document" style="max-width:100%; display:block; margin:0 auto">
+      <div id="dvWait" class="note" style="padding:28px" hidden>loading from GitHub\u2026</div>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close=()=>{ ov.remove(); window.__docViewerRefresh=null; };
+  ov.querySelector('#dvClose').addEventListener('click', close);
+  ov.addEventListener('click', e=>{ if(e.target===ov) close(); });
+  ov.querySelector('#dvPrev').addEventListener('click', ()=>{ if(curDoc>0){curDoc--; draw();} });
+  ov.querySelector('#dvNext').addEventListener('click', ()=>{ if(curDoc<docPages.length-1){curDoc++; draw();} });
+  ov.querySelector('#dvDel').addEventListener('click', ()=>{
+    const pg=docPages[curDoc]; if(!pg) return;
+    if(!confirm('Remove "'+(pg.name||'this document')+'" from this quote?')) return;
+    docPages.splice(curDoc,1);
+    if(curDoc>=docPages.length) curDoc=Math.max(0,docPages.length-1);
+    scheduleAutosave(); updateRfqBtn(); renderDrawing();
+    if(!docPages.length) close(); else draw();
+  });
+  window.__docViewerRefresh=draw;
+  draw();
+}
+window.__openDocViewer=openDocViewer;
+function rfqPageIndex(){ return docPages.findIndex(p=>p && /^RFQ\b/i.test(p.name||'')); }
 function updateRfqBtn(){
   const b=$('rfqBtn'); if(!b) return;
   const has = rfqPageIndex()>=0;
@@ -4235,10 +4325,9 @@ function updateRfqBtn(){
 window.__updateRfqBtn=updateRfqBtn;
 $('rfqBtn').addEventListener('click', async ()=>{
   const idx=rfqPageIndex();
-  if(idx>=0){                                          /* already attached: show it */
+  if(idx>=0){                                          /* already attached: open its own viewer */
     switchView('quote');
-    setOpsMode('draw');
-    if(window.gotoDrawPage) window.gotoDrawPage(idx);
+    openDocViewer(idx);
     return;
   }
   const blob=await clipboardImageBlob();               /* screenshot already on the clipboard? one click. */
@@ -4257,7 +4346,7 @@ async function emailQuote(){
   const qno=activeQuoteNo;
   const today=fmtDay(Date.now());
   const pageImgs=[];
-  for(const pg of drawPages){
+  for(const pg of drawPages.concat(docPages)){
     if(!pg.data && ghEnabled()){ try{ await ghFetchDrawingRef(pg.ref); }catch(e){} }
     if(pg.data) pageImgs.push(`<img src="${pg.data}">`);
   }
@@ -4347,7 +4436,7 @@ async function emailQuote(){
   /* Outlook draft with the quote ALREADY ATTACHED: an .eml with X-Unsent:1 opens in
      Outlook as an unsent draft — subject + body prefilled, file attached. */
   let custDoc=''; try{ custDoc=buildCustomerQuote(qno, r); }catch(e){ console.warn('cust quote', e); }
-  try{ downloadQuoteEml(qno, subject, bodyLines, doc, drawPages, custDoc); }catch(e){ console.warn('eml build', e); }
+  try{ downloadQuoteEml(qno, subject, bodyLines, doc, drawPages.concat(docPages), custDoc); }catch(e){ console.warn('eml build', e); }
 }
 function buildCustomerQuote(qno, r){
   const v=id=>($(id)&&$(id).value)||'';

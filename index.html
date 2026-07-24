@@ -1210,6 +1210,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:33, date:"2026-07-24", note:"Customer quotation always shows a \u201cYour RFQ / Quote #\u201d line \u2014 an em-dash when none was entered, rather than the row vanishing \u2014 and pairs it with a Valid Through date. Quote # relabelled \u201cOur Quote #\u201d so the two reference numbers cannot be confused."},
   {rev:32, date:"2026-07-24", note:"Customer quotation form now carries the real Camco details \u2014 address, phone, fax, website, Cage Code and DUNS in the header; Richard Arnold\u2019s contact line under the signature; and an AS9100D / ISO 9001 / ISO 17025 certification block at the foot. Replaces the placeholder text."},
   {rev:31, date:"2026-07-24", note:"Buyer RFQ emails and supplier material quotes now live in their OWN collection, separate from drawings. The drawing pane holds prints only; RFQ and material-quote images open in a dedicated viewer from their existing buttons, with next/back and delete. Existing quotes migrate automatically on open \u2014 any page named RFQ\u2026 or MATERIAL QUOTE\u2026 moves out of the drawing pages. All of them still attach to the email."},
   {rev:30, date:"2026-07-24", note:"E-mail button restyled as a glossy blue pill with a circular envelope badge, built in CSS so it stays sharp at any size."},
@@ -1243,9 +1244,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 32;
+const APP_REV = 33;
 const BUILD_DATE = "2026-07-24";
-const BUILD_TIME = "05:20";           /* increments every build — check both machines match */
+const BUILD_TIME = "05:35";           /* increments every build — check both machines match */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */
@@ -4474,8 +4475,8 @@ function buildCustomerQuote(qno, r){
     </div>
     <h1>QUOTATION</h1>
     <table>
-      <tr><th>Quote #</th><td>${qno}</td><th>Date</th><td>${fmtDay(today)}</td></tr>
-      ${cq?`<tr><th>Your Quote / RFQ #</th><td colspan="3">${esc(cq)}</td></tr>`:''}
+      <tr><th>Our Quote #</th><td>${qno}</td><th>Date</th><td>${fmtDay(today)}</td></tr>
+      <tr><th>Your RFQ / Quote #</th><td>${cq?esc(cq):'\u2014'}</td><th>Valid Through</th><td>${fmtDay(exp)}</td></tr>
       <tr><th>Customer</th><td>${esc(cust)}</td><th>Buyer</th><td>${esc(v('buyer'))}</td></tr>
       <tr><th>Part Number</th><td>${esc(v('partNo'))}</td><th>Material</th><td>${esc(v('material'))}</td></tr>
     </table>

@@ -869,6 +869,11 @@
       <td><input id="sawCost" type="number" step="0.05" value="0.5" hidden></td>
       <td></td>
     </tr>
+    <tr>
+      <td class="lbl-r">Customer Quote # <span class="note">(optional)</span></td>
+      <td class="c-yellow val-c"><input id="custQuoteNo" type="text" placeholder="their RFQ / quote no."></td>
+      <td></td><td></td><td></td><td></td><td></td><td></td>
+    </tr>
   </table>
 
   <!-- ===== OPERATIONS GRID (rendered by JS) ===== -->
@@ -1002,6 +1007,7 @@
       <button class="railitem prem" data-sec="tolprem">Tolerance Premium</button>
       <button class="railitem prem" data-sec="oddprem">Odd-Feature Premium</button>
       <button class="railitem prem" data-sec="custprem">Customer Premiums</button>
+      <button class="railitem" data-sec="custface">Customer-Facing Terms</button>
       <button class="railitem" data-sec="customers">Customer List</button>
       <button class="railitem prem" data-sec="annvol">Annual Volume Discount</button>
       <button class="railitem prem" data-sec="repeat">Repeat-Parts Discount</button>
@@ -1034,6 +1040,10 @@ const ADMINDATA = {"custPremium": [{"name": "ADVANTAGE METALWORK AND FINISHING",
 /* ============ Machining Quote Sheet — logic ============ */
 const $ = id => document.getElementById(id);
 const money = n => (isFinite(n)?n:0).toLocaleString('en-US',{style:'currency',currency:'USD'});
+const CAMCO_LOGO='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZ0AAACgAgMAAACqIln2AAAADFBMVEX8/v3Xx8ZfBgdWAgPJ4AEuAAAWzklEQVR42u2bT2xl133fP+fxvBHQmYaXEGnUFhCtukkciwayytDgITICCkiBn2pSqP8A6cJexDYir7OoFaDLAp0Csg3UKeCF/yDzaL07tQw4IsV7CFNZBRAFSAhQdKGFbCe8T7yHMNWMeA7vt4tz73uPM1T/wG2AADqrd/+d3/n9//sM/RqOYMxvtNaeHtXV7uxyZ83Fcdld2P7u8zvbxFF/32z399V/uNPfqT2sue4ilnM4z39+BDv0Hzz/Jw6eprx6mI9VUpRORvnyhjQ+uIg61QfdC6ZS1MGBajngKcX64EDS8eIW7cv37lXtS/1lPDkY6+/dFTjDSjq9GN+r/j5fP9aoW6/1gPobtQO+WXVXxwtbtHuNLqQPHICZSFUbpZeuAHqhrVudnE7iZb6+2W/b/vhhQOMXFwBdvDPb4msXe5LUnlQvAjyhsaSoSYbLIFPqrimML94sjnz32RQIgrOV2U4d7VcBcEAFwzlC28M7AGZlHcB8n23AMroxWkSo0Ulso9qqQ+CJqlXVXEjj1vUYjaVTSdVdICMUW80wekI9NaPLTJbUSrr4YI7Rjf+YWLH71sOtThjXDWDQtul3ChbMwuEC2MvQS635fgIofSfIf5LvAsPX3QzQWvi5LE/jQN2Hy4QpFpPmO49gueyoBhT5tZ5y7sgBo24LM0qQ2RB+bzQD9OW/+ecGkp9vWhxSrBaATT3pCB4z8kndSdOiFvLxafdePulw8wgceCg008lBzLStpOpnHdOqLN9Vo7vdS3Uvh++AUeyuznstm+TrSmqBJy56jvVMGgAfD52RKAkbPV0UELiiP6ntD+yvXnaU677r6bptXcdHsMNeZ1+QTsaSpNODV/KtSlJVSWpip5I3mnoBow6h2HbvP9E2UVKU1F6C2csI1ZV6OR2AeRaKzxGoKm864CnBJkBxXvQUflwBD2cWzFKPZvf+42b5SD7jmWD4lIMEjwOq6k6TBifaa1/WOJ6oOTnvDVvTxBO145NeU27U7UHVtPVFcw4DNTo4iLXajqcHe42i1Eg6/Su4OW6a2DRSU7WtTjtGPla3OqnVxLlJMdLpQTwZH1y0erd7a+/i9OCibtScww1VOni1rqWf9e9fxLpuJUkfwG9XUt10Otu0nb18Uq1OVL0cq1bd+QdtJzHNaS9Xj11o0qqSJudwQxNpIvWAbsSoSk2WxQfwp1Js9Govd6eZRyPe82+ysXV+26iXorNeZo5nunI/ZcPgjsB48HOZY+0c1v1yPCd6EvyRF4WeBrx8oOP8q6r3NK6ltmna485LVLV0IE2q+KAn8KmqSRXVPIDHVE0yR/LTJxtpko1d1DnmQjM9ag8a1XcBzIVOJdUnqquLugd0UEtVFeuZQ7p5UqmRNGl+Bo9NDiaSoppsMf/dpPchbdS73IitWkk61USqO69141SNYjvRwenMkd2ctLViFfcqqfdQEx00ktrmA7hZVVnxmsuZ2sWL08yQd3msUVa6RmpjI70LA4aHFDoCuRVmJjSZY1g/co2fWeyEAV8e+qyj23ips47GyXNu8yFXwBb1KkRlm1vAMQxYHVEZUnFo4re/8LX86WpBCD+pYnhu0Q0HPwHnCiiCqv1mP3VGxmAIHMKufvj8FxOrHGcnc1hiLPLnAJ+SDmLTSs1L9PLx25V0qqY6aKqm83xPtK3USFGvwRNNo1at6kzYxyRJB1XT/AIY8ZSk00oXv/jiWGrb5uA1GPAcOAtp+s92oSNGAbwJfJr1oiOdTSZReA9nYJcLDKYXfeshseWK5S8CJZsejMOMx5/FY7wxMEA+nbFsrK8X/BEJx82wXBTzW9FGnDvKHi+fqMgKt+qyOa//IW+x4qDwUMbXweBwjoFxWJ/eS7Jfmu/pHJ7Gb5oAvvcTZ7WFtA4OLo1DHYcyAQKJle/m6w2ggSUvjxO4+zDg9wKj8BbhtxYQWtH5VMfCFyG4Dinz+JoJlS38OhSWkM7StHt90+PfqCxLOSo1lmr3zdtMoPEYltlwMJA0iXHmKwH4M0lR7zevatJ2qvVknCibyYnjU40UG0knrQP+TJO2atUHhabRwSSe6AP41ESqG8W7DGxAspYwXQC01ZHk0xSmu79sR5kzHtgq2LXUsBYA7jAyDo7+oQ8v2HrGriEIBaV9A+sYmH3Mc8DxQjBuAqjz2n5RHswnEQXgpyMoyBG8uczMuj2de/2hqBNcOkaFg4KBvcM+THGLUf+mphyZJr0F6mTYJHZvsSrj1h3Fxqpl+XXIvvMOx+DDMMwwChhWA5lOh34fBtyKVtVypUXhXjHFe4605OL6Vn/vaHrHelLGCFQaB+oiZhfKreM0P+utKm+XlrzSurtjGRS8j0lDqgU4xsKqesnNG2+6VZjyCvgCZ+EmRM9+Rhb/LM52Z7XHWV8T8KZLR2TSkW6XT3u3sQDIgsUQXmMY+sjK+LrAaiNHVBGG+J/CHcA2MILQdICKdawjpgBs8Pp0GTwDzq2/hUt7ixgRUxAsQaHOfBduGMqRAbwzWLzHjZwHMKsEzstiFh8vJ9/JhM7ZWDVlsAyWb/H0nb2F4BYgDI/eSAkjPz2zs0fHBTozOMCwroSPqYu3jilGqXcy1lhHGnahpl9nVBgGJhQEt3+2vki647TOEB/Mhu2FO+nYbZRAGQrWwSeLy8bemgmA1UKmUZWdyRQRBINNAjdf/32/kDZQ8OvjLSze24Iqk84eurA0MlAUgGfZevbtEQDlH7mxn2fFomCrT78u7RqYOwyK1VTiit4+ArDEiiMQcClbX4BNbr03i7c3CbjUBaqFs2HNqdjvz+nLUhYCCBsCHs/ApNXi/YfqBYYwFYFQgt/IGG0a7ONeKWCsuWWmI2Bzz1AABQU6dPP8ezQyvWmvlovS4Rhgsx9Y1Ndlx1sUhVcRUBdIGODMGXAUWFbTGUvmaXrmuNnOXUoRwzHAza2NsAGHDCihaPTsFYzK5AzAJ1fZwnYnjSpKfAFYpgD3IYQsgyI9NTfJQhwVeGAIxSo4BozAX3K0yKNR8TjguSzmSSR+iHrXxKqqbOgKQOI+tqjTXOgO++CpU8PgBrCJrLla33BneL8JllI+5UM7jHEIj8VjHCFM6YX/GdLZ2uzzN6ebXj4AHMqmbIIcPm0dp6twKFJw+ADPHjo7T+UmaaqExxFTVRRHdUcHDaevLLD49uN+fb2z7CaIaZeIWZ5aekjuyp/fFCBZ1xMs4NmymDve9NLxrCmydzKsjhZt8uVGcatP6TRkFRh4QtDKaw9JN5fuPqTDEm+nti8IUOwjf9vZEHN1JVdRChNmnOwgDbG+S3Y7RzJwoTiGpUXpZuO4+PXhsmDjOYV+i7NyNCmtcMMj/JAALHllTnvSFf2IZerLBimXexj4YprS9JOLXgLrHOdbgNXhqN+heLb8zMhhIBTL+ySl1fduH2ZLMEqhnIutYon/acw1JYvHY+CbUlUp6sU5nIEkVe1fdQUdPejvSfrzutHlE5X0zqfyjXfhqWr2E4BvXtSSolwupklS4wbAprvqJSyASws8W1gejHXzZA9oAlekVsPVWSWi6M30AOL9UvUVXvr9xvujTVIoIWZhCAlS8H75VoU8l+EMQOMCCoSf10Qx2gfGXdRQ+9JPPXzzkVJilxzoQU+vy1lZTNFVUvvHko6fnNVonrparplt6cD0GaazdVcZ/uUC6vnWRf8DmBeQ6zHEMfwy9m/Rb3Gx8Eq/VX2l8Fzk+tcMddcF+n2hZ1HFiiufdSW0/02Zemdnh4/WR+uj9dH6aH20Plr/pJdhOLpyY9y3kLXL7FntZze7nrN2588e3qJ+++EgQruLLddceO87knowD7J03IdQsxDsvA/K9OL8tW7dfVIPrQcwWAgyQwizaJSrwWduJs3j0xQWUlbiQwgk//ANGCwEt8dFAc4E3MILJE8qMP5KurCUFqLdq5k2uPAw6aYwIMXdRICwd3s8CQZGBEhdWc2jaS2MmGo/zpp8icXoW3vez8oZabcnRpqV5kLX/dKkUhvVRKlyA0mnL1cH3wdMcxH31Lbn5qA62FNsH2Di3qnixTE3JMWDcXUMfKqaqI3SRK+q1vENtXuSFOOFVGc+dqFy1Xec99yg0UWrqn03l2ErqdW5ebnqeoe5MxqPGeSO6sEx8ERVz5qhlY7NonQ1auVgAGUCR1AKBizDhDVhURiMulqMTQ4qO2egdfnB1K3O4udAIZ/LM13OYyoPA5hayBlx6dlwrGJyJQQocJnTK67LnGQCEPxiW5m4UGIYAd4XcDhr6XZS+VjbaU7bSnrx5mIe0z25NE0lNWrPu1vxxU6hmuqd3FVboP87fSLTLOQzA7i4dLswBWM6OU0zlUmdjph8tsMAEaVgyYU4iizJP5XH54a8iTANsQR/Cw8E/nsGpKNyO89DyENRpMQ+5Kr8URh22crvQi6THXJpCw/IztVn12x61x/IUhd2BC6ztghl1yv/tz2FLzccLB1Z61Ce1cjFjAisgetUxwacz40QSBagJldkAshCXOijEd94sQP0K7cLlMEvAc5shPRKFT7Z9brw+GFW9V9DgvPYTTHY6IFcc4l+Y1lAETAJ9OI4j4p4C8Pbffc/vvVZD8vH7swCy7awo40i57RNNg8rixU9Ey7zbbuBugqYvnF/q+NjAvjeyBO2kCOprntA+p4JaIu9vb4BoiGZAYcelzY2wh28d4YAeIojBHhj50bubx0g5LG2gL8zjgIMWN7+0mxC40fW8RpuuE1ZcQvCYd/sE8CSLcA5FUaAAusr/cNZQyG+hcdgXCIBF0fTXmcv/8DPAF18443KwlOGYqsQFK7sxDs4sIeeFVJtCCZ3t4tc+TEkdTxCX8IBCZub23/hu86JXqnnUzR8Z+vMyRdME2w1e8206Fniy/0wRa6ufBmOnwHk4/jXHhSjr/y0NxAnnsz7XNobb4cqgCUtf2nRYXxREynWe2r/09zVAk90puFvu3rGO/Bk/7TKFqWbaOALirV0ogN9P499vLpXKar+xZVRkh8WL5Hs45YffePzGZXHM+nqaQXwmdzSHAVI4+5p3A9jsH0Z40drd4t05Ha37/0FwHdGd1Kpn6xs/uurBaXhV74FxPF3D7cX4omHww5imW9pl8UgJm/xw22804++m0/6hR80t8z58re//lDlavjcNtr9jSb5hl9xUI97kX/+8yPq8deuK5H9xmvnymDfmlsoeX20PlrzCGfN/WOA0e6sAPr/dz1g0KCmmgX1AlLa1z4kEvszdzdzPPswxUNDClczgb19UBOuYjJ3l3+6MbovKHIcAM5DEQB3HAwCe+t9V4yd5+ljh36s7nFx9rkfqwhm1Y1hq9rRfsAdbjPGJmx3Aod3dh/4rX/FC6oqtY2kg5hDszy3FdX2gz3tq+NKUqzG906qSTda18Z7L0tSe6+RpJOX53TqZ1jnc576Gbzw/5QX8xh8IX7MPALUxFoE7/cTTEld68TvBzVeVYyTElKaVhUqJ3UJlNpruj5+w2S8lwLsNgRsqsPET/YAJMF0P+HLnPHtF+WRT8vrwYZmd5XJXthf9wrJ8p5p9jE/NfJg7Zbh/mdXVkegEWeJrek+8rcas/O0LYju0HtX2JUEz7lqH8/lZfB26ScNI+CFPO64J8XJwasnUe3pvYvTqmkkKTYTqY3qovM4I8VBqyg1sal1kfkhXWSWSq9OJLVqLyRVrRpN4oPMo5w2jatKF7Xa9uDiIE+PnmqB5O0i5Q8OFHPupYumydlWq7ZpqivyIM2n415Qq3y8ptqLL0dNLtp+vzbWsf+Zp9xiq9NTVaoOpEqTqKZRIzVqq1o9RjPU227aNXaAmnYv5kOp1cFp08ZuGKeN0qSVYiaDNDm4kNqqzeNzbZvHmGPevl7EP7+gSqqlVg9m4t0N2lZq1dTSy2ryx80VQW2quMCptlWcJ6WZYrG7aCTFqA6lLN7VQufEYfxyASsq/CWwWuBRZ2oShSx+qbc8wZR2nkACfHLfdplEqpTskVwxhZRHQQIgxgoS6wre8ev9EC/DUwp+mgClUFhS05T7TJk6A5YQg/dhObBRsp+qSUg0Xp5KYX+sUMmUPgVINk1yTDmzDKczuepo0Tyq+E033BzzB1dswnWGIipbNz3AfPUfxR+1/+Yj1/9PoQLZB84jtLvmiKXZhliuOerXR7o/on7bUY4A6tdHuU/6sZfqb/Thv368TRzmAGTNsbtNLHeoPWvf0o/mAfKsznJjh6Xdr6zzB6X5lud/lDuOX/71jv56h1/+juP+DsC313ZyafNb23GYCwND9F93+OV/c6z9bio/vsPZDhflV87e9uY/j3DBPwKIHVqGO/wCu+a8nQUXjyznWdNDWUcBsPZSaXb0X56z78P223xiRPqYmwEazN7dS2dsaL9YSDDsdcQu+vG9h1bgE04pwL41JPjcLkcL444zQNyxBfbwDxe2L64Dwmw891F+O2OPWbpjGFrMf1gleH8NIJOn73IMZz8UIbqWdrjmwSgnyhbgBo5nlq7ByHrIZb7CfWh+5oCCVcAcXoPtah5+PAT4F0OVi4npYGETY4CjOSLXY2QpgLGu8gdKKFCBD+sOGHk++50F0j00wLds3PyPMVfR+tW/d/53erwu7g1vrjnG6fMz3u26Z8AIeBPBTS5Pvvrx6zACbGE8uLqfJr8iDarH84L4lDgG+v+uBaB2w+786+4S47BjfnUNIMF0Szgo3nYLTH3EjFjjePivbFcr/6kQ/D6TKy/N9aiL+w/79sD/MmP3j4q9RaG/GJZmhWV/LSC8Y3XX4/hMP6aYwodZRz2irGD2O/0KOJesNq82NwZzbfOWbVcemTkmVyzAJ75611xLs25tSwnB7VgU2jYm3b4eEGwWmHIUuOOAa5R/Nvh9rQnkyzvvlRg4LLApwfthbefeXz4KyLGfMTBo2gmce0SFmP9t6+FV8/MSwNmjgiPLMl+4t7N9nTAA+OQ6Zbh+N8prkc3rGZ+lJFnjaExSjNfZOsQqsmb4iEz9n601vgM4LJ4leA2MWTjU4IoaKFPfdggWj5Lu2Q+HVGZxTJyfGfhD4OfDdK1l2AcusbAD9tGGGhSwDe5DrODGKAtKYHU/H3zjYf7OfgRvr/dqQCw7yMvXPw+rH3TiWN69Q1rDxlduLV0r3vgqcPhhXmj+Z93rbYZ4C4DX6cekv/3n9hrSOfnKjcDh1XWKPsTBfmg89el8goJXCCIVBHeNMHC5YQmGonBmbtBWHvF7sHy9M/8b3w2TKTiKpOp1CnOtZbBn3MoU9HPi2EexsP5aQOeuF+bkQcndQboWUPLd31XcaIZRk8J1Jkerj6qt79pzwcsBnvtu0d8PZhS2MPWRYsTki7kqdJ5J93E3J10cA6/Av3x+Jpzmy3kWL5Cy8q0nQIfe/MA5e60ehVVnwMC4nFm0swULR555tJfw/vYVznkP0107ch5C7m6dOz5xN3Kd1EGzj7zPVHEEuhHL3mJ0wEw9t4Nd7zgUkByrcnhy52l3OEqLs4aDRVd8y4X3nOONTpgDFA/Z14S/xmQ4vw5xleFKDtl8bo9rsb8+WHCSKQTegr6xXyZw0Rm6Id0ZnvJznSoBKu9BHZE3s+hc+GBdxbVGNZhEqqZx4cRed9VvR+dgDeXcdk1nqYD2yjPXtwVBZeV1tvEooNUhrMKdrdU1l3ujLkHD9wB5kx0A4LHUzMKkCPB3FMDro5UcyWaCjJ/bMqPvPmpUx1zEcR4+vchHzKPPNVCjmZMKJOfLEV/PbVOVI1QSUDeeqrEY3wZ+9fWX+OHX/y8c2sfufeuabsdMvM0X/nL7Q3KBr/5gQav/J+DrzST6+NSIAAAAAElFTkSuQmCC';
+const QUOTE_VALID_DAYS=90;
+const DEFAULT_FOB='FOB Origin';
+
 /* "July 23, 2026 8:36pm" — one formatter so every quote date matches */
 function fmtWhen(v){
   if(!v) return '';
@@ -1183,6 +1193,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:28, date:"2026-07-24", note:"Split internal vs customer-facing. The emailed quote sheet now carries the FULL calculation grid for internal CAMCO use. A separate CAMCO-Quotation-N.html is attached for the salesman to send out: logo, quote and optional customer RFQ number, qty/price/lead, 90-day validity, FOB and payment terms pulled per-customer from the new Admin \u2192 Customer-Facing Terms table. New optional \u201cCustomer Quote #\u201d field on the header."},
   {rev:27, date:"2026-07-24", note:"Quote document\u2019s Operations table now shows S/U hours, cycle minutes, pieces per shift, lead days and cost per piece alongside the operation. Email attachments are named for what they are \u2014 Material-Quote-N, Buyer-RFQ-N or Drawing-N \u2014 instead of every page being called Drawing. The supplier material quote and buyer RFQ were always attaching (they are stored as drawing pages) but were misleadingly named."},
   {rev:26, date:"2026-07-24", note:"New \u21bb Pull Code & Data tile on the main menu \u2014 checks for newer app code and pulls the latest quotes immediately instead of waiting for the 60-second timer. Reports progress and any failure in the tile itself."},
   {rev:25, date:"2026-07-24", note:"Email attachments RESTORED. Rev 21-24 nested the MIME (related/alternative) to get a formatted body with an inline drawing \u2014 Outlook\u2019s compose editor silently discarded every attachment, including the quote sheet that had always worked. Back to the flat layout: plain body, then the drawing (every page) and the quote sheet as normal attachments. Plain body is the trade for reliable attachments."},
@@ -1211,9 +1222,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 27;
+const APP_REV = 28;
 const BUILD_DATE = "2026-07-24";
-const BUILD_TIME = "03:00";           /* increments every build — check both machines match */
+const BUILD_TIME = "03:40";           /* increments every build — check both machines match */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */
@@ -1646,7 +1657,7 @@ $('addOp').addEventListener('click', ()=>{
 /* ---- recompute on any header input ---- */
 const HDR_FIELDS = ['customer','partNo','annualUsage','batchSize','minOrderQty','buyer','quotedBy','salesman',
  'material','priceLevel','stockForm','barForm','barOverride','difficulty','nreSep','barDia','partLength',
- 'extraLength','chuckExtra','scrapPct','barLen','faiReq','faiDims','faiQty','margin','meCost','suCost',
+ 'extraLength','chuckExtra','scrapPct','barLen','faiReq','faiDims','custQuoteNo','faiQty','margin','meCost','suCost',
  'soFee','coFee','sawCost'];
 HDR_FIELDS.forEach(id=>{ const el=$(id); if(!el) return; el.addEventListener('input',renderAll); el.addEventListener('change',renderAll); });
 
@@ -3262,6 +3273,19 @@ const ADMIN_SECTIONS = {
         add:()=>{ rows.push({min:0,adj:0}); }};
     }
   },
+  custface: {
+    title:'Customer-Facing Terms', src:'Printed on the customer quote form',
+    desc:'What each customer sees on the formal quote PDF: FOB point and any payment wording. These never affect pricing \u2014 they are text only. Blank falls back to the defaults below.',
+    render(){
+      const cols=[
+        {key:'name',label:'Customer',type:'txt'},
+        {key:'fob',label:'FOB',type:'txt'},
+        {key:'payTerms',label:'Payment Terms (text)',type:'txt'},
+      ];
+      return {html:editableTable(TABLES.custPremium,cols,{deletable:false}), rows:TABLES.custPremium, cols,
+        add:()=>TABLES.custPremium.push({name:'NEW CUSTOMER',extra:0,terms:30,fob:'',payTerms:''})};
+    }
+  },
   custprem: {
     title:'Customer Premiums', src:'Workbook · "Customer Premium" sheet',
     desc:'Per-customer extra margin and net payment terms. When a quote\'s customer matches a name here, the extra margin and a terms-based premium ((terms−10)/3000) are added. Linked to the Customer List: renaming a customer here also renames it in the master list.',
@@ -4230,19 +4254,26 @@ async function emailQuote(){
   }
   const img=pageImgs.length?`<div class="sec"><h2>Drawing${pageImgs.length>1?'s':''}</h2>${pageImgs.join('')}</div>`:'';
   const num2=n=>(isFinite(n)&&n!==''?Number(n):0);
+  const m2s=n=>(isFinite(n)&&n?('$'+Number(n).toFixed(2)):'');
   const ops=opRows.map((x,i)=>({x,i})).filter(o=>o.x.desc&&!o.x.locked)
     .map(o=>{
       const d=(r.rowDetail&&r.rowDetail[o.i])||{};
       const c=(r.rowCosts&&r.rowCosts[o.i])||0;
+      const t=v=>`<td style="text-align:right">${v===''||v==null?'':v}</td>`;
       return `<tr><td>${o.x.op}</td><td>${esc(o.x.desc)}</td>`
-        +`<td style="text-align:right">${num2(o.x.su).toFixed(1)}</td>`
-        +`<td style="text-align:right">${num2(o.x.ct).toFixed(2)}</td>`
-        +`<td style="text-align:right">${d.pcsShift||'\u2014'}</td>`
-        +`<td style="text-align:right">${d.lead?d.lead+' d':'\u2014'}</td>`
-        +`<td style="text-align:right">${money(c)}</td>`
+        +t(num2(o.x.fixture).toFixed(1))+t(num2(o.x.extraInsp))
+        +t(num2(o.x.su).toFixed(1))+t(num2(o.x.ct).toFixed(2))
+        +t(num2(o.x.loadMin).toFixed(1))+t(num2(o.x.inspMin).toFixed(1))
+        +t(num2(o.x.pcsReload))+t(num2(o.x.tol001))+t(num2(o.x.tol0002))
+        +t(d.machP?Math.round(d.machP*100)+'%':'')
+        +t(m2s(o.x.subPc))+t(num2(o.x.subBatch))+t(m2s(o.x.subCostBatch))
+        +`<td style="text-align:right;font-weight:bold">${money(c)}</td>`
+        +t(m2s(d.perShift))+t(d.pcsShift||'')+t(m2s(d.ctCost))
+        +t(m2s(d.longCyc))+t(m2s(d.lowVol))+t(m2s(d.suPc))
+        +t(d.lead?d.lead+' d':'')
         +`<td>${esc(o.x.quote||'')}</td></tr>`;
     }).join('')
-    || '<tr><td colspan="8">\u2014</td></tr>';
+    || '<tr><td colspan="23">\u2014</td></tr>';
   const bodyLines=[
     `Quote #${qno} — ${today}`,``,
     `Customer: ${v('customer')}`,
@@ -4271,6 +4302,7 @@ async function emailQuote(){
     .grand td{font-weight:800; font-size:15px; background:#f3e7e7}
     .sec h2{font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#6e1414; margin:20px 0 6px}
     img{max-width:100%; max-height:520px; border:1px solid #c8c3bb}
+    table.grid{font-size:9.5px} table.grid th,table.grid td{padding:3px 4px; white-space:nowrap}
     @media print{ .bar{display:none} body{margin:14px} }
   </style></head><body>
     <div class="bar">
@@ -4297,7 +4329,7 @@ async function emailQuote(){
       <tr class="tot"><td>Batch total (${esc(v('batchSize'))||0} pcs)</td><td style="text-align:right">${money(r.batchTotal)}</td></tr>
     </table>
     <div class="sec"><h2>Operations</h2></div>
-    <table><tr><th>OP #</th><th>Operation</th><th>S/U hrs</th><th>Cycle min</th><th>Pcs/shift</th><th>Lead</th><th>Cost/pc</th><th>Notes</th></tr>${ops}</table>
+    <div style="overflow-x:auto"><table class="grid"><tr><th>OP</th><th>Operation</th><th>Fixture hrs</th><th>Extra insp</th><th>S/U hrs</th><th>Cycle min</th><th>Load min</th><th>Insp min</th><th>Pcs b/4 reload</th><th>#.001"</th><th>#.0002"</th><th>Mach %</th><th>Sub $/pc</th><th>Sub batch</th><th>Sub $/batch</th><th>Cost/pc</th><th>Per shift $</th><th>Pcs/shift</th><th>C/T cost</th><th>Long cyc</th><th>Low vol</th><th>S/U cost</th><th>Lead</th><th>Notes</th></tr>${ops}</table></div>
     ${img}
   </body></html>`;
   const w=window.open('about:blank','_blank');
@@ -4305,10 +4337,64 @@ async function emailQuote(){
   w.document.write(doc); w.document.close();
   /* Outlook draft with the quote ALREADY ATTACHED: an .eml with X-Unsent:1 opens in
      Outlook as an unsent draft — subject + body prefilled, file attached. */
-  try{ downloadQuoteEml(qno, subject, bodyLines, doc, drawPages); }catch(e){ console.warn('eml build', e); }
+  let custDoc=''; try{ custDoc=buildCustomerQuote(qno, r); }catch(e){ console.warn('cust quote', e); }
+  try{ downloadQuoteEml(qno, subject, bodyLines, doc, drawPages, custDoc); }catch(e){ console.warn('eml build', e); }
+}
+function buildCustomerQuote(qno, r){
+  const v=id=>($(id)&&$(id).value)||'';
+  const cust=v('customer');
+  const cp=(TABLES.custPremium||[]).find(c=>String(c.name||'').trim().toUpperCase()===cust.trim().toUpperCase())||{};
+  const fob=(cp.fob||'').trim()||DEFAULT_FOB;
+  const payText=(cp.payTerms||'').trim()|| (cp.terms? ('Net '+cp.terms+' days') : 'Net 30 days');
+  const today=new Date();
+  const exp=new Date(today.getTime()+QUOTE_VALID_DAYS*86400000);
+  const cq=v('custQuoteNo').trim();
+  return `<!doctype html><html><head><meta charset="utf-8"><title>CAMCO Quotation ${qno}</title><style>
+    body{font-family:Segoe UI,Arial,sans-serif; color:#1a1a1a; margin:34px; font-size:13px}
+    .hd{display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #6e1414; padding-bottom:12px}
+    .hd img{height:54px}
+    .co{text-align:right; font-size:11px; color:#5f5b56; line-height:1.5}
+    h1{font-size:20px; letter-spacing:.06em; color:#6e1414; margin:18px 0 4px}
+    table{border-collapse:collapse; width:100%; margin:10px 0 16px}
+    th,td{border:1px solid #d8d6cf; padding:7px 9px; text-align:left}
+    th{background:#f5f2ef; font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:#5f5b56}
+    .pr{background:#f7f2f2}
+    .pr td{font-size:17px; font-weight:bold; color:#6e1414}
+    .terms{font-size:11.5px; color:#3a3a3a; line-height:1.7; margin-top:18px; border-top:1px solid #d8d6cf; padding-top:12px}
+    .sig{margin-top:26px; font-size:12px}
+    @media print{ .bar{display:none} body{margin:14px} }
+  </style></head><body>
+    <div class="bar" style="margin-bottom:14px"><button onclick="print()">\u{1F5A8} Print / Save as PDF</button></div>
+    <div class="hd">
+      <img src="${CAMCO_LOGO}" alt="CAMCO Manufacturing">
+      <div class="co"><b>CAMCO Manufacturing</b><br>[address line 1]<br>[city, state ZIP]<br>[phone] \u00b7 [email]</div>
+    </div>
+    <h1>QUOTATION</h1>
+    <table>
+      <tr><th>Quote #</th><td>${qno}</td><th>Date</th><td>${fmtDay(today)}</td></tr>
+      ${cq?`<tr><th>Your Quote / RFQ #</th><td colspan="3">${esc(cq)}</td></tr>`:''}
+      <tr><th>Customer</th><td>${esc(cust)}</td><th>Buyer</th><td>${esc(v('buyer'))}</td></tr>
+      <tr><th>Part Number</th><td>${esc(v('partNo'))}</td><th>Material</th><td>${esc(v('material'))}</td></tr>
+    </table>
+    <table>
+      <tr><th>Quantity</th><th>Unit Price</th><th>Extended</th><th>Lead Time</th></tr>
+      <tr class="pr"><td>${esc(v('batchSize'))||0} pcs</td><td>${money(r.perPc)}</td>
+          <td>${money(r.batchTotal)}</td><td>${r.maxLead||0} days ARO</td></tr>
+    </table>
+    <div class="terms">
+      <b>Terms &amp; Conditions</b><br>
+      Validity: this quotation is valid for <b>${QUOTE_VALID_DAYS} days</b> from the date above (through ${fmtDay(exp)}).<br>
+      Shipping: <b>${esc(fob)}</b><br>
+      Payment: <b>${esc(payText)}</b><br>
+      Lead time is quoted After Receipt of Order and is subject to material availability at time of order.<br>
+      Prices are based on the quantity shown; different quantities will be re-quoted.<br>
+      Tooling, fixturing and first-article inspection charges, where applicable, are included in the unit price above unless separately stated.
+    </div>
+    <div class="sig">Quoted by: <b>${esc(v('quotedBy'))}</b></div>
+  </body></html>`;
 }
 function b64Wrap(s){ return s.replace(/(.{76})/g, '$1\r\n'); }
-function downloadQuoteEml(qno, subject, bodyText, docHtml, pages){
+function downloadQuoteEml(qno, subject, bodyText, docHtml, pages, custHtml){
   /* NOTE: Rev 21-24 tried multipart/related + alternative for a formatted body with an
      inline drawing. Outlook's compose editor silently dropped EVERY attachment.
      This is the flat multipart/mixed layout from Rev 15 that demonstrably worked:
@@ -4353,6 +4439,15 @@ function downloadQuoteEml(qno, subject, bodyText, docHtml, pages){
            b64Wrap(mm[2]),
            '');
   });
+  if(custHtml){
+    P.push('--'+BND,
+           'Content-Type: text/html; charset=utf-8; name="CAMCO-Quotation-'+qno+'.html"',
+           'Content-Transfer-Encoding: base64',
+           'Content-Disposition: attachment; filename="CAMCO-Quotation-'+qno+'.html"',
+           '',
+           b64Wrap(b64e(custHtml)),
+           '');
+  }
   P.push('--'+BND,
          'Content-Type: text/html; charset=utf-8; name="Quote-'+qno+'.html"',
          'Content-Transfer-Encoding: base64',

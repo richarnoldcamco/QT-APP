@@ -1182,6 +1182,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:24, date:"2026-07-24", note:"Email MIME restructured for Outlook\u2019s compose editor: mixed \u2192 related \u2192 alternative(plain+HTML) + inline images, then attachments. Rev 21\u201323 built a valid file but Outlook ignored the HTML part and showed plain text with no drawing. Also sets an explicit img width so Outlook does not collapse it."},
   {rev:23, date:"2026-07-24", note:"FIXED: auto-update never actually applied. The in-place code swap (document.write) failed with \u201cIdentifier APPDATA has already been declared\u201d and the error could not be caught, so the fallback reload never ran and the app stayed on the old rev forever. It now reloads with a cache-busting URL instead \u2014 slightly slower, always works, token and data survive."},
   {rev:22, date:"2026-07-24", note:"Quote dates now read \u201cJuly 23, 2026 8:36pm\u201d instead of 7/23/2026 08:36 PM \u2014 applied everywhere a quote date shows (past-quotes table, sort values, recycle bin, records list, email). Also fixed the REV badge showing a stale build date."},
   {rev:21, date:"2026-07-24", note:"Email rebuilt: the body is now formatted HTML (maroon heading, labelled fields, unit price called out in a highlight box) instead of flat plain text, the drawing is shown inline in the body, and every drawing page is also attached as its own image file alongside the quote sheet. Why: the old plain-text draft looked bare and made the buyer open an attachment to see the print."},
@@ -1206,9 +1207,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 23;
+const APP_REV = 24;
 const BUILD_DATE = "2026-07-24";
-const BUILD_TIME = "01:10";           /* increments every build — check both machines match */
+const BUILD_TIME = "01:40";           /* increments every build — check both machines match */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */
@@ -4274,75 +4275,71 @@ async function emailQuote(){
 }
 function b64Wrap(s){ return s.replace(/(.{76})/g, '$1\r\n'); }
 function downloadQuoteEml(qno, subject, bodyText, docHtml, pages){
-  /* attachment = the printable doc minus its button bar */
   const attach=docHtml.replace(/<div class="bar">[\s\S]*?<\/div>/, '');
   const attB64=b64Wrap(b64e(attach));
-  const BND='=_qs_'+Date.now();
+  const MIX='=_mix_'+Date.now();
+  const REL='=_rel_'+Date.now();
   const ALT='=_alt_'+Date.now();
 
-  /* --- formatted HTML body, drawing shown inline --- */
+  /* ---- formatted HTML body ---- */
   const L=String(bodyText).split('\n');
   const esc2=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  let hb='<div style="font-family:Segoe UI,Arial,sans-serif; font-size:14px; color:#1a1a1a">';
+  let hb='<html><body style="margin:0"><div style="font-family:Segoe UI,Arial,sans-serif; font-size:14px; color:#1a1a1a">';
   L.forEach(line=>{
     const t=line.trim();
-    if(!t){ hb+='<div style="height:10px"></div>'; return; }
+    if(!t){ hb+='<div style="height:10px">&nbsp;</div>'; return; }
     if(/^Quote #/.test(t)){
-      hb+='<div style="font-size:19px; font-weight:700; color:#6e1414; border-bottom:2px solid #6e1414; padding-bottom:6px; margin-bottom:10px">'+esc2(t)+'</div>'; return;
+      hb+='<div style="font-size:19px; font-weight:bold; color:#6e1414; border-bottom:2px solid #6e1414; padding-bottom:6px; margin-bottom:10px">'+esc2(t)+'</div>'; return;
     }
     if(/^UNIT PRICE:/.test(t)){
-      hb+='<div style="font-size:17px; font-weight:700; color:#6e1414; background:#f7f2f2; border-left:4px solid #6e1414; padding:8px 12px; margin:4px 0">'+esc2(t)+'</div>'; return;
+      hb+='<div style="font-size:17px; font-weight:bold; color:#6e1414; background:#f7f2f2; border-left:4px solid #6e1414; padding:8px 12px; margin:4px 0">'+esc2(t)+'</div>'; return;
     }
     const m=t.match(/^([^:]{2,28}):\s*(.*)$/);
     if(m){ hb+='<div style="padding:2px 0"><span style="color:#5f5b56">'+esc2(m[1])+':</span> <b>'+esc2(m[2])+'</b></div>'; return; }
     hb+='<div style="padding:2px 0">'+esc2(t)+'</div>';
   });
 
-  /* inline the drawing pages by CID */
   const imgs=[];
   (pages||[]).forEach((pg,i)=>{
     if(!pg || !pg.data) return;
     const mm=/^data:(image\/[a-z+]+);base64,(.*)$/i.exec(pg.data);
     if(!mm) return;
-    const cid='draw'+i+'@quote';
-    imgs.push({cid:cid, mime:mm[1], b64:b64Wrap(mm[2]),
-               name:'Drawing-'+qno+(imgs.length?('-p'+(i+1)):'')+'.'+(mm[1].split('/')[1]||'png')});
-    hb+='<div style="margin-top:14px"><img src="cid:'+cid+'" style="max-width:640px; border:1px solid #d8d6cf"></div>';
+    const ext=(mm[1].split('/')[1]||'png').replace('jpeg','jpg');
+    imgs.push({cid:'draw'+i+'@quote', mime:mm[1], b64:b64Wrap(mm[2]),
+               name:'Drawing-'+qno+(i?('-p'+(i+1)):'')+'.'+ext});
+    hb+='<div style="margin-top:14px"><img src="cid:draw'+i+'@quote" width="640" style="max-width:640px; border:1px solid #d8d6cf"></div>';
   });
-  hb+='<div style="margin-top:14px; font-size:12px; color:#5f5b56">The full quote sheet is attached.</div></div>';
+  hb+='<div style="margin-top:14px; font-size:12px; color:#5f5b56">The full quote sheet is attached.</div></div></body></html>';
 
-  const parts=[];
-  parts.push('X-Unsent: 1','To: ','Subject: '+subject.replace(/[\r\n]/g,' '),
-             'MIME-Version: 1.0','Content-Type: multipart/mixed; boundary="'+BND+'"','',
-             '--'+BND,
-             'Content-Type: multipart/related; boundary="'+ALT+'"','',
-             '--'+ALT,
-             'Content-Type: text/html; charset=utf-8','Content-Transfer-Encoding: base64','',
-             b64Wrap(b64e(hb)),'');
+  const P=[];
+  P.push('X-Unsent: 1','To: ','Subject: '+subject.replace(/[\r\n]/g,' '),
+         'MIME-Version: 1.0','Content-Type: multipart/mixed; boundary="'+MIX+'"','');
+  /* related: alternative(plain+html) + inline images */
+  P.push('--'+MIX,'Content-Type: multipart/related; type="multipart/alternative"; boundary="'+REL+'"','');
+  P.push('--'+REL,'Content-Type: multipart/alternative; boundary="'+ALT+'"','');
+  P.push('--'+ALT,'Content-Type: text/plain; charset=utf-8','Content-Transfer-Encoding: base64','',
+         b64Wrap(b64e(String(bodyText).replace(/\n/g,'\r\n'))),'');
+  P.push('--'+ALT,'Content-Type: text/html; charset=utf-8','Content-Transfer-Encoding: base64','',
+         b64Wrap(b64e(hb)),'');
+  P.push('--'+ALT+'--','');
   imgs.forEach(im=>{
-    parts.push('--'+ALT,
-               'Content-Type: '+im.mime+'; name="'+im.name+'"',
-               'Content-Transfer-Encoding: base64',
-               'Content-ID: <'+im.cid+'>',
-               'Content-Disposition: inline; filename="'+im.name+'"','',
-               im.b64,'');
+    P.push('--'+REL,'Content-Type: '+im.mime+'; name="'+im.name+'"',
+           'Content-Transfer-Encoding: base64','Content-ID: <'+im.cid+'>',
+           'Content-Disposition: inline; filename="'+im.name+'"','',im.b64,'');
   });
-  parts.push('--'+ALT+'--','');
-  /* drawing also as real attachments */
+  P.push('--'+REL+'--','');
+  /* real attachments */
   imgs.forEach(im=>{
-    parts.push('--'+BND,
-               'Content-Type: '+im.mime+'; name="'+im.name+'"',
-               'Content-Transfer-Encoding: base64',
-               'Content-Disposition: attachment; filename="'+im.name+'"','',
-               im.b64,'');
+    P.push('--'+MIX,'Content-Type: '+im.mime+'; name="'+im.name+'"',
+           'Content-Transfer-Encoding: base64',
+           'Content-Disposition: attachment; filename="'+im.name+'"','',im.b64,'');
   });
-  parts.push('--'+BND,
-             'Content-Type: text/html; charset=utf-8; name="Quote-'+qno+'.html"',
-             'Content-Transfer-Encoding: base64',
-             'Content-Disposition: attachment; filename="Quote-'+qno+'.html"','',
-             attB64,'','--'+BND+'--','');
-  const eml=parts.join('\r\n');
-  const blob=new Blob([eml],{type:'message/rfc822'});
+  P.push('--'+MIX,'Content-Type: text/html; charset=utf-8; name="Quote-'+qno+'.html"',
+         'Content-Transfer-Encoding: base64',
+         'Content-Disposition: attachment; filename="Quote-'+qno+'.html"','',attB64,'');
+  P.push('--'+MIX+'--','');
+
+  const blob=new Blob([P.join('\r\n')],{type:'message/rfc822'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download='Quote-'+qno+'.eml';

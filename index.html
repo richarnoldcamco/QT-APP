@@ -736,6 +736,7 @@
       <button class="menu-big" id="menuNew">🆕 New Quote<span>start a fresh quote — everything autosaves as you type</span></button>
       <button class="menu-big" id="menuPrior">📂 Prior Quotes<span>search &amp; reopen any past quote to keep working on it</span></button>
       <button class="menu-big" id="menuAdmin">⚙ Admin<span>materials, machine rates, customers, GitHub sync</span></button>
+      <button class="menu-big" id="menuPullAll">↻ Pull Code &amp; Data<span>get the newest app code and quotes from GitHub right now — don’t wait for the timer</span></button>
     </div>
   </div>
 </main>
@@ -1182,6 +1183,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:26, date:"2026-07-24", note:"New \u21bb Pull Code & Data tile on the main menu \u2014 checks for newer app code and pulls the latest quotes immediately instead of waiting for the 60-second timer. Reports progress and any failure in the tile itself."},
   {rev:25, date:"2026-07-24", note:"Email attachments RESTORED. Rev 21-24 nested the MIME (related/alternative) to get a formatted body with an inline drawing \u2014 Outlook\u2019s compose editor silently discarded every attachment, including the quote sheet that had always worked. Back to the flat layout: plain body, then the drawing (every page) and the quote sheet as normal attachments. Plain body is the trade for reliable attachments."},
   {rev:24, date:"2026-07-24", note:"Email MIME restructured for Outlook\u2019s compose editor: mixed \u2192 related \u2192 alternative(plain+HTML) + inline images, then attachments. Rev 21\u201323 built a valid file but Outlook ignored the HTML part and showed plain text with no drawing. Also sets an explicit img width so Outlook does not collapse it."},
   {rev:23, date:"2026-07-24", note:"FIXED: auto-update never actually applied. The in-place code swap (document.write) failed with \u201cIdentifier APPDATA has already been declared\u201d and the error could not be caught, so the fallback reload never ran and the app stayed on the old rev forever. It now reloads with a cache-busting URL instead \u2014 slightly slower, always works, token and data survive."},
@@ -1208,9 +1210,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 25;
+const APP_REV = 26;
 const BUILD_DATE = "2026-07-24";
-const BUILD_TIME = "02:05";           /* increments every build — check both machines match */
+const BUILD_TIME = "02:25";           /* increments every build — check both machines match */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */
@@ -3115,6 +3117,25 @@ function startNewQuote(){
 }
 $('newQuote').addEventListener('click', ()=>{ startNewQuote(); updateOddBtn(); startGuide(); });
 $('menuNew').addEventListener('click', ()=>{ startNewQuote(); switchView('quote'); updateOddBtn(); setTimeout(startGuide, 100); });
+$('menuPullAll') && $('menuPullAll').addEventListener('click', async ()=>{
+  const b=$('menuPullAll'); if(!b || b.disabled) return;
+  const html=b.innerHTML;
+  const say=t=>{ b.innerHTML='\u21bb Pull Code &amp; Data<span>'+t+'</span>'; };
+  if(!ghEnabled()){ say('GitHub is not set up yet \u2014 open Admin \u2192 GitHub Sync first.'); setTimeout(()=>b.innerHTML=html, 4000); return; }
+  b.disabled=true;
+  try{
+    say('checking for newer app code\u2026');
+    /* if a newer rev exists this reloads the page and never returns */
+    await checkAppUpdate(true);
+    say('pulling quotes and tables\u2026');
+    await ghPull(true);
+    say('up to date \u2014 code and data pulled just now.');
+  }catch(e){
+    say('pull failed: '+((e&&e.message)||e));
+  }
+  b.disabled=false;
+  setTimeout(()=>{ if(b) b.innerHTML=html; }, 5000);
+});
 $('menuPrior').addEventListener('click', ()=>switchView('quotes'));
 $('menuAdmin').addEventListener('click', ()=>switchView('admin'));
 $('trashToggle').addEventListener('click', ()=>{

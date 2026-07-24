@@ -207,12 +207,18 @@
   }
   .guide-cur{outline:3px solid var(--cp-signal) !important; outline-offset:-1px; background:#fff8c4 !important}
   .oddbtn.on{background:linear-gradient(180deg,#fdf29a,#f3df57); color:#5a4a00; border-color:#c9b23a}
+  /* operation dropdown: keep the open list at a readable, compact size */
+  select[data-k="desc"]{font-size:12px}
+  select[data-k="desc"] option{font-size:12px; padding:2px 4px}
   /* generic overlay used by the material-verify, odd-features, RFQ-paste, and photo modals */
   .ov{position:fixed; inset:0; z-index:300; display:none; align-items:center; justify-content:center;
       background:rgba(30,20,18,.45); backdrop-filter:blur(2px); padding:20px}
   .ov .modal{background:var(--cp-panel,#fff); border:1px solid var(--cp-line,#d8d6cf); border-radius:12px;
       box-shadow:0 18px 50px rgba(40,20,15,.35); padding:18px 20px; max-height:88vh; overflow-y:auto}
   .ov .modal h3{margin:0 0 8px; font:700 15px var(--ui); color:var(--cp-signal)}
+  /* odd-features only: no dim, no blur, docked left so the print stays readable */
+  #oddOv{background:transparent; backdrop-filter:none; justify-content:flex-start; pointer-events:none}
+  #oddOv .modal{pointer-events:auto; margin-left:24px; box-shadow:0 18px 60px rgba(20,10,10,.55)}
   .lbtag{font-size:8.5px; color:var(--cp-dim); margin-left:3px; letter-spacing:.04em}
   .mat-modal{padding:28px 32px !important; font-size:16px}
   .mat-modal h3{font-size:22px !important; margin-bottom:14px !important}
@@ -289,7 +295,8 @@
   .opgrid tr.foot td.void{border:none; background:#fff}
   .opgrid td.flbl{border:none; background:#fff; text-align:left; font-weight:700; padding:0 5px; white-space:nowrap; overflow:visible}
   .opgrid td.flbl.big{font-size:15px}
-  .opgrid td.flbl-sm{font-size:9px; font-weight:700; text-align:center; overflow:visible}
+  .opgrid td.flbl-sm{font-size:7.5px; font-weight:700; text-align:center; overflow:visible;
+      line-height:1.1; letter-spacing:-.01em; white-space:nowrap}
   .opgrid tr.foot td.calc{font-weight:700}
   .opgrid tr.trow td.calc{font-size:14px}
   .opgrid td.redc{background:var(--red); color:#fff; text-align:right; font-weight:700; padding:0 3px}
@@ -316,6 +323,9 @@
   }
   .btn.topbtn.ghost{background:linear-gradient(180deg,#3a2b2b,#2a1c1c); color:#e7dbd9; border:1px solid #4a3a3a; border-top-color:#5e4c4c}
   .btn.topbtn.ghost:hover{filter:brightness(1.15)}
+  /* NEW QUOTE in the toolbar wears the menu-screen tile colors */
+  .btn.topbtn.menulike{background:var(--cp-panel); color:var(--cp-ink); border:1px solid var(--cp-line); border-top-color:#fff}
+  .btn.topbtn.menulike:hover{border-color:var(--cp-signal); color:var(--cp-signal)}
   .btn{
     font-size:13px; font-weight:700; letter-spacing:.03em; padding:9px 20px; border-radius:var(--r);
     border:1px solid #4a0d0d; border-top-color:#b54a4a; color:#fff; cursor:pointer;
@@ -708,7 +718,7 @@
     <button class="btn topbtn ghost" id="emailQuoteBtn">📧 Email</button>
     <button class="btn topbtn ghost" id="addOp">+ Add Op Row</button>
     <button class="btn topbtn ghost" id="priorQuotesBtn">📂 Prior Quotes</button>
-    <button class="btn topbtn ghost" id="newQuote">New Quote</button>
+    <button class="btn topbtn menulike" id="newQuote">New Quote</button>
   </div>
   <div class="spacer"></div>
   <div class="qbadge">
@@ -848,7 +858,7 @@
       <td class="c-green"><select id="difficulty"><option value="" hidden>— PICK —</option><option>Easy</option><option selected>Medium</option><option>Complex</option><option>IE Required</option><option>Un-Machinable</option></select></td>
       <td></td>
       <td class="lbl-r">IF FAI, how many dimensions</td>
-      <td class="c-yellow val-c"><input id="faiDims" type="number" value="9"></td>
+      <td class="c-yellow val-c" style="white-space:nowrap"><input id="faiDims" type="number" value="9" style="width:52px"><button class="mini" id="faiCount" type="button" style="margin-left:4px; padding:2px 6px; font-size:10px" title="AI counts the dimension callouts on the drawing — always check the number">🤖 #</button></td>
       <td class="val-c" id="hFloat">0.0</td>
       <td class="lbl-r"></td>
       <td class="c-blue val-r" id="hBigMatl">$ —</td>
@@ -902,7 +912,7 @@
           <button class="mini" id="dzClarify" type="button" title="auto-contrast + sharpen">✨ Clarify</button>
           <button class="mini" id="dzCrop" type="button" title="crop to a selected area">✂ Crop</button>
           <span class="dz-sep"></span>
-          <button class="mini" id="dzEdit" type="button" title="mark up the drawing">✏ Edit</button>
+          <button class="mini" id="dzEdit" type="button" title="highlight the drawing">🖍 Highlighter</button>
           <button class="mini" id="aiWeight" type="button" title="AI reads the drawing and estimates part weight">🤖 Weight</button>
           <button class="mini" id="dzUndoBake" type="button" title="undo the last change to this page (crop, darken, highlights…)">↩ Undo</button>
           <button class="mini" id="drawDownload" type="button">⬇ Save</button>
@@ -917,11 +927,21 @@
           <span class="dz-meta" id="drawMeta"></span>
         </div>
         <div class="dz-edittools" id="dzEditTools" hidden>
-          <span class="etlbl">MARKUP:</span>
+          <span class="etlbl">HIGHLIGHTER:</span>
           <button class="mini pen hl on" data-pen="#f0ff3d" data-hl="1" type="button"
-                  style="background:#f0ff3d; color:#5a5a00" title="swipe across tight tolerances">🖍 Tol</button>
+                  style="background:#f0ff3d; color:#5a5a00" title="yellow — tolerances">🖍 Tol</button>
           <button class="mini pen hl" data-pen="#e3aaf8" data-hl="1" type="button"
-                  style="background:#e3aaf8; color:#5a1f7a" title="swipe across datums">🖍 Datum</button>
+                  style="background:#e3aaf8; color:#5a1f7a" title="lavender — datums">🖍 Datum</button>
+          <button class="mini pen hl" data-pen="#8ef7a8" data-hl="1" type="button"
+                  style="background:#8ef7a8; color:#0d5a28" title="green — unassigned">🖍 Green</button>
+          <button class="mini pen hl" data-pen="#8fd8ff" data-hl="1" type="button"
+                  style="background:#8fd8ff; color:#0b4a6e" title="blue — unassigned">🖍 Blue</button>
+          <button class="mini pen hl" data-pen="#ffb38a" data-hl="1" type="button"
+                  style="background:#ffb38a; color:#7a3410" title="orange — unassigned">🖍 Orange</button>
+          <button class="mini pen hl" data-pen="#ff9fc4" data-hl="1" type="button"
+                  style="background:#ff9fc4; color:#7a1440" title="pink — unassigned">🖍 Pink</button>
+          <button class="mini pen hl" data-pen="#c9f0f5" data-hl="1" type="button"
+                  style="background:#c9f0f5; color:#0d5560" title="cyan — unassigned">🖍 Cyan</button>
           <span class="dz-sep"></span>
           <button class="mini" id="dzUndo" type="button">↩ Undo</button>
           <button class="mini saveb" id="dzApply" type="button">✔ Save edits</button>
@@ -1148,6 +1168,11 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:20, date:"2026-07-23", note:"Estimated leadtime now reads \u201c48 days\u201d instead of a bare number, and the REQUESTED LEADTIME label was shrunk so it no longer overlaps LEADTIME PREMIUM in the totals block."},
+  {rev:19, date:"2026-07-23", note:"Drawing pane now hugs the image instead of stretching to a fixed width \u2014 a tall portrait print no longer leaves a large empty area to its right. Why: wasted screen space beside the drawing."},
+  {rev:18, date:"2026-07-23", note:"New \u{1F916} # button beside IF FAI HOW MANY DIMENSIONS \u2014 AI reads the attached drawing and counts the callouts (sub-callouts like IA/IB/IC count separately, material note counts as 1, reference dims in parentheses do not count, drawing notes do count). It fills the field and shows its working; ALWAYS check the number against the print before quoting. Operation dropdown text reduced to 12px so the open list is not oversized."},
+  {rev:17, date:"2026-07-23", note:"Odd-features popup no longer dims or blurs the screen and now sits on the left, so the print stays readable while you tick features. Drawing toolbar \u201cEdit\u201d renamed \u201cHighlighter\u201d and expanded from 2 to 7 colors (Tol, Datum, Green, Blue, Orange, Pink, Cyan) \u2014 the five new ones are unassigned for now. NEW QUOTE button in the toolbar recolored to match the menu-screen tile."},
+  {rev:16, date:"2026-07-23", note:"Alt-tabbing away and back no longer highlights what you already typed in a field \u2014 the cursor stays where you left it so you can keep typing. Why: looking up a part number mid-entry used to wipe the partial number on the next keystroke."},
   {rev:15, date:"2026-07-22", note:"Converted to CP-app architecture: hosted on GitHub Pages, auto-updates on every device, Admin screen rebuilt (Advanced section, Test Connection, auto-sync switches), never-downgrade guard, cache-proof GitHub calls. Why: end file downloads forever — open one website address, always current."},
   {rev:14, date:"2026-07-22", note:"Live material $/lb readout beside Mill/Distributor (shows override with OVR tag)."},
   {rev:13, date:"2026-07-21", note:"Material price popup: doubled in size, one check per quote, focus returns to the field you were on."},
@@ -1164,9 +1189,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 15;
+const APP_REV = 20;
 const BUILD_DATE = "2026-07-22";
-const BUILD_TIME = "09:05";           /* increments every build — check both machines match */
+const BUILD_TIME = "23:50";           /* increments every build — check both machines match */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */
@@ -1577,7 +1602,7 @@ function renderSummary(){
   set('tLeadPrem', money(0));
   set('tFai', money(r.faiPerPc));
   set('totalPerPc', money(r.perPc));
-  set('leadEst', r.maxLead||0);
+  set('leadEst', (r.maxLead||0)+' days');
   if(window.__updHdrSum) window.__updHdrSum();
   /* hidden legacy */
   set('batchTotal', money(r.batchTotal));
@@ -2080,7 +2105,17 @@ document.addEventListener('paste', e=>{
     const rect=vp.getBoundingClientRect();               /* screen px (post-zoom) */
     const avail=window.innerHeight - rect.top - 10;
     const z=(typeof sheetZoom!=='undefined' && sheetZoom)||1.2;
-    vp.style.height=Math.max(420, Math.round(avail/z))+'px';
+    const hPx=Math.max(420, Math.round(avail/z));
+    vp.style.height=hPx+'px';
+    /* width hugs the image: no dead space beside a tall portrait scan */
+    vp.style.maxWidth='';
+    const w=imgW(), hgt=imgH();
+    if(w>0 && hgt>0){
+      const dw=document.querySelector('.drawwrap');
+      const room=dw? dw.clientWidth : vp.clientWidth;
+      const want=Math.round(hPx * (w/hgt));              /* width at full fitted height */
+      if(room>0 && want>0) vp.style.maxWidth=Math.min(room, want)+'px';
+    }
   }
   /* pull the panel up over the empty right side of the hdr-bar / VIEW rows */
   function applyDrawLift(){
@@ -2462,9 +2497,65 @@ document.addEventListener('paste', e=>{
   $('pgNext').addEventListener('click', ()=>gotoPage(curPage+1));
   $('pgAdd').addEventListener('click', ()=>$('drawFile').click());
   $('aiWeight').addEventListener('click', aiEstimateWeight);
+  $('faiCount') && $('faiCount').addEventListener('click', aiCountFaiDims);
 })();
 
 /* ===== AI: estimate finished-part weight from the drawing ===== */
+async function aiCountFaiDims(){
+  const btn=$('faiCount'); const fld=$('faiDims');
+  const out=$('aiWeightOut');
+  const say=t=>{ if(out){ out.hidden=false; out.textContent=t; } };
+  const reset=()=>{ if(btn){ btn.disabled=false; btn.textContent='\u{1F916} #'; } };
+  try{
+    if(!curDrawing){ say('\u26a0 Attach a drawing to this quote first.'); return; }
+    const key=(localStorage.getItem('qs_ai_key')||'').trim();
+    if(!key){ say('\u26a0 No API key saved yet. Admin \u2192 AI Assistant.'); return; }
+    if(!/^sk-/.test(key)){ say('\u26a0 That is not an Anthropic API key (they start with "sk-ant-"). Admin \u2192 AI Assistant.'); return; }
+    if(btn){ btn.disabled=true; btn.textContent='\u2026'; }
+    say('\u{1F916} Loading drawing\u2026');
+    const data=await ensureDrawingData();
+    if(!data){ say('\u26a0 Could not load the drawing image.'); reset(); return; }
+    say('\u{1F916} Counting dimension callouts\u2026 (5\u201320 seconds)');
+    const body={
+      model:'claude-sonnet-4-6',
+      max_tokens:1200,
+      messages:[{role:'user', content:[
+        {type:'image', source:{type:'base64', media_type:'image/jpeg', data:data.split(',')[1]}},
+        {type:'text', text:'Count the FAI dimension callouts on this machining drawing. Rules: '
+          +'(1) Each lettered/balloon callout counts as one. '
+          +'(2) Sub-callouts such as IA, IB, IC, Id each count SEPARATELY, not as one group. '
+          +'(3) The material specification note counts as exactly 1. '
+          +'(4) Reference dimensions shown in parentheses, e.g. (.214), DO NOT count. '
+          +'(5) Drawing notes DO count. '
+          +'List the callout identifiers you counted, grouped compactly. '
+          +'Then end with exactly one final line formatted: COUNT: <integer>'}
+      ]}]
+    };
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':key,
+               'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify(body)
+    });
+    if(!r.ok){
+      const t=await r.text().catch(()=>'');
+      throw new Error('API '+r.status+(r.status===401?' \u2014 key rejected.':'')+(t?' \u00b7 '+t.slice(0,160):''));
+    }
+    const j=await r.json();
+    const text=(j.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\n').trim();
+    const m=text.match(/COUNT:\s*(\d+)/i);
+    if(m && fld){
+      fld.value=m[1];
+      fld.dispatchEvent(new Event('input',{bubbles:true}));
+      fld.dispatchEvent(new Event('change',{bubbles:true}));
+      if(out){ out.hidden=false;
+        out.innerHTML='<b>\u{1F916} AI counted '+m[1]+' dimensions \u2014 CHECK THIS against the print before quoting.</b>\n'+esc(text); }
+    }else{
+      say('\u26a0 No clear count returned:\n'+text);
+    }
+  }catch(e){ say('\u26a0 '+(e.message||e)); }
+  reset();
+}
 async function aiEstimateWeight(){
   const out=$('aiWeightOut');
   out.hidden=false;
@@ -4480,8 +4571,12 @@ $('hdrToggle').addEventListener('click', ()=>setHdrMin(!hdrMin));
 window.__updHdrSum = updHdrSummary;
 
 /* ===== click into a field -> select its contents so typing replaces it ===== */
+window.__winReturning=false;
+window.addEventListener('blur', ()=>{ window.__winReturning=true; });
+window.addEventListener('focus', ()=>{ setTimeout(()=>{ window.__winReturning=false; }, 300); });
 document.addEventListener('focusin', e=>{
   if(window.__noSelectRestore) return;               /* skip during grid focus-restore */
+  if(window.__winReturning) return;                  /* alt-tab back: keep caret, don't re-select */
   const el=e.target;
   if(!el || el.tagName!=='INPUT') return;
   if(!el.closest('#view-quote')) return;             /* quote screen only */

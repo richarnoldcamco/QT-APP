@@ -323,6 +323,14 @@
   }
   .btn.topbtn.ghost{background:linear-gradient(180deg,#3a2b2b,#2a1c1c); color:#e7dbd9; border:1px solid #4a3a3a; border-top-color:#5e4c4c}
   .btn.topbtn.ghost:hover{filter:brightness(1.15)}
+  /* EMAIL: its own colour so it reads as the send action, not another dark chip */
+  .btn.topbtn.mailbtn{
+    background:linear-gradient(180deg,#2f6f8f 0%,#245a76 55%,#1b475e 100%);
+    border:1px solid #16394c; border-top-color:#5b9ab7; color:#fff;
+    display:inline-flex; align-items:center; letter-spacing:.04em;
+  }
+  .btn.topbtn.mailbtn:hover{filter:brightness(1.15)}
+  .btn.topbtn.mailbtn:active{filter:brightness(.92)}
   /* NEW QUOTE in the toolbar wears the menu-screen tile colors */
   .btn.topbtn.menulike{background:var(--cp-panel); color:var(--cp-ink); border:1px solid var(--cp-line); border-top-color:#fff}
   .btn.topbtn.menulike:hover{border-color:var(--cp-signal); color:var(--cp-signal)}
@@ -715,7 +723,7 @@
     <button class="btn topbtn ghost" id="rfqBtn" title="paste or upload a screenshot of the buyer's RFQ email — AI can fill the header from it">📎 UPLOAD BUYER RFQ EMAIL</button>
     <input type="file" id="rfqFile" accept="image/*" hidden>
     <input type="file" id="matQuoteFile" accept="image/*" hidden>
-    <button class="btn topbtn ghost" id="emailQuoteBtn">📧 Email</button>
+    <button class="btn topbtn mailbtn" id="emailQuoteBtn" title="build an Outlook draft with the quote, drawing and customer quotation attached"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px;margin-right:6px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>EMAIL</button>
     <button class="btn topbtn ghost" id="addOp">+ Add Op Row</button>
     <button class="btn topbtn ghost" id="priorQuotesBtn">📂 Prior Quotes</button>
     <button class="btn topbtn menulike" id="newQuote">New Quote</button>
@@ -1193,6 +1201,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:29, date:"2026-07-24", note:"EMAIL button redrawn \u2014 the \ud83d\udce7 emoji was rendering as a muddy brown block, so it is now a clean line-drawn envelope icon, and the button has its own slate-blue colour so the send action stands apart from the dark toolbar chips."},
   {rev:28, date:"2026-07-24", note:"Split internal vs customer-facing. The emailed quote sheet now carries the FULL calculation grid for internal CAMCO use. A separate CAMCO-Quotation-N.html is attached for the salesman to send out: logo, quote and optional customer RFQ number, qty/price/lead, 90-day validity, FOB and payment terms pulled per-customer from the new Admin \u2192 Customer-Facing Terms table. New optional \u201cCustomer Quote #\u201d field on the header."},
   {rev:27, date:"2026-07-24", note:"Quote document\u2019s Operations table now shows S/U hours, cycle minutes, pieces per shift, lead days and cost per piece alongside the operation. Email attachments are named for what they are \u2014 Material-Quote-N, Buyer-RFQ-N or Drawing-N \u2014 instead of every page being called Drawing. The supplier material quote and buyer RFQ were always attaching (they are stored as drawing pages) but were misleadingly named."},
   {rev:26, date:"2026-07-24", note:"New \u21bb Pull Code & Data tile on the main menu \u2014 checks for newer app code and pulls the latest quotes immediately instead of waiting for the 60-second timer. Reports progress and any failure in the tile itself."},
@@ -1222,9 +1231,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 28;
+const APP_REV = 29;
 const BUILD_DATE = "2026-07-24";
-const BUILD_TIME = "03:40";           /* increments every build — check both machines match */
+const BUILD_TIME = "04:00";           /* increments every build — check both machines match */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */

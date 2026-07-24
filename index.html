@@ -1033,6 +1033,20 @@ const ADMINDATA = {"custPremium": [{"name": "ADVANTAGE METALWORK AND FINISHING",
 /* ============ Machining Quote Sheet — logic ============ */
 const $ = id => document.getElementById(id);
 const money = n => (isFinite(n)?n:0).toLocaleString('en-US',{style:'currency',currency:'USD'});
+/* "July 23, 2026 8:36pm" — one formatter so every quote date matches */
+function fmtWhen(v){
+  if(!v) return '';
+  const d=new Date(v); if(isNaN(d)) return '';
+  const day=d.toLocaleDateString('en-US',{month:'long', day:'numeric', year:'numeric'});
+  let hh=d.getHours(); const mm=String(d.getMinutes()).padStart(2,'0');
+  const ap=hh>=12?'pm':'am'; hh=hh%12||12;
+  return day+' '+hh+':'+mm+ap;
+}
+function fmtDay(v){
+  if(!v) return '';
+  const d=new Date(v); if(isNaN(d)) return '';
+  return d.toLocaleDateString('en-US',{month:'long', day:'numeric', year:'numeric'});
+}
 const num = id => { const v = parseFloat($(id).value); return isFinite(v)?v:0; };
 
 /* ---- deep clone helper ---- */
@@ -1168,6 +1182,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:22, date:"2026-07-24", note:"Quote dates now read \u201cJuly 23, 2026 8:36pm\u201d instead of 7/23/2026 08:36 PM \u2014 applied everywhere a quote date shows (past-quotes table, sort values, recycle bin, records list, email). Also fixed the REV badge showing a stale build date."},
   {rev:21, date:"2026-07-24", note:"Email rebuilt: the body is now formatted HTML (maroon heading, labelled fields, unit price called out in a highlight box) instead of flat plain text, the drawing is shown inline in the body, and every drawing page is also attached as its own image file alongside the quote sheet. Why: the old plain-text draft looked bare and made the buyer open an attachment to see the print."},
   {rev:20, date:"2026-07-23", note:"Estimated leadtime now reads \u201c48 days\u201d instead of a bare number, and the REQUESTED LEADTIME label was shrunk so it no longer overlaps LEADTIME PREMIUM in the totals block."},
   {rev:19, date:"2026-07-23", note:"Drawing pane now hugs the image instead of stretching to a fixed width \u2014 a tall portrait print no longer leaves a large empty area to its right. Why: wasted screen space beside the drawing."},
@@ -1190,9 +1205,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 21;
-const BUILD_DATE = "2026-07-22";
-const BUILD_TIME = "00:15";           /* increments every build — check both machines match */
+const APP_REV = 22;
+const BUILD_DATE = "2026-07-24";
+const BUILD_TIME = "00:45";           /* increments every build — check both machines match */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */
@@ -2809,7 +2824,7 @@ function qDisp(k,q){
     case 'no':   return '#'+q.no;
     case 'part': return f.partNo||'—';
     case 'cust': return f.customer||'—';
-    case 'date': return q.updated? new Date(q.updated).toLocaleDateString() : '—';
+    case 'date': return q.updated? fmtDay(q.updated) : '—';
     case 'qty':  return qty? String(qty) : '—';
     case 'pc':   return money(q.perPc);
     case 'tot':  return qty? money((q.perPc||0)*qty) : '—';
@@ -2886,7 +2901,7 @@ function renderSaved(){
     </tr></thead>
     <tbody>` + rows.map(q=>{
       const f=q.fields||{};
-      const when=q.updated? new Date(q.updated).toLocaleDateString()+' '+new Date(q.updated).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+      const when=fmtWhen(q.updated);
       const isActive=q.no==activeQuoteNo;
       const qty=parseFloat(f.batchSize)||0;
       return `<tr class="${isActive?'active':''}">
@@ -3009,7 +3024,7 @@ function renderTrash(){
   if(list.hidden===false || true){
     list.innerHTML = t.length? t.map(q=>{
       const f=q.fields||{};
-      const when=q.deletedAt? new Date(q.deletedAt).toLocaleDateString()+' '+new Date(q.deletedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+      const when=fmtWhen(q.deletedAt);
       return `<div class="q trashq">
         <div class="qmain">
           <div class="qtitle">#${q.no} · ${esc(f.customer||'—')} · ${esc(f.partNo||'no part #')}</div>
@@ -3484,7 +3499,7 @@ const ADMIN_SECTIONS = {
       if(!arr.length) return {custom:search+`<div class="adm-empty">No quotes yet — they autosave as you type on the Quote screen.</div>`};
       const head=['Quote ID','Customer','Part #','Material','Batch','Annual','Quoted By','$ / Pc','Updated',''];
       const body=arr.slice().sort((a,b)=>(b.updated||0)-(a.updated||0)).map(q=>{
-        const when=q.updated? new Date(q.updated).toLocaleDateString() : '';
+        const when=fmtDay(q.updated);
         return `<tr>
         <td class="k">#${q.no}</td><td class="k">${esc(q.fields.customer)}</td><td>${esc(q.fields.partNo)}</td>
         <td>${esc(q.fields.material)}</td><td>${esc(q.fields.batchSize)}</td><td>${esc(q.fields.annualUsage)}</td>
@@ -4182,7 +4197,7 @@ async function emailQuote(){
   const r=compute();
   const v=id=>($(id)&&$(id).value)||'';
   const qno=activeQuoteNo;
-  const today=new Date().toLocaleDateString();
+  const today=fmtDay(Date.now());
   const pageImgs=[];
   for(const pg of drawPages){
     if(!pg.data && ghEnabled()){ try{ await ghFetchDrawingRef(pg.ref); }catch(e){} }

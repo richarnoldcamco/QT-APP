@@ -933,7 +933,7 @@
   <div class="ops-flex">
    <div class="ops-scroll">
     <table class="opgrid" id="opSheet">
-      <colgroup><col style="width:74px"><col style="width:150px"><col style="width:70px"><col style="width:30px"><col style="width:30px"><col style="width:42px"><col style="width:63px"><col style="width:63px"><col style="width:63px"><col style="width:44px"><col style="width:44px"><col style="width:44px"><col style="width:58px"><col style="width:46px"><col style="width:38px"><col style="width:50px"><col class="d2col" style="width:78px"><col class="dcol" style="width:78px"><col class="dcol" style="width:44px"><col class="dcol" style="width:43px"><col class="dcol" style="width:43px"><col class="dcol" style="width:43px"><col class="dcol" style="width:43px"><col class="dcol" style="width:43px"><col class="dcol" style="width:43px"><col class="dcol" style="width:48px"><col class="dcol" style="width:44px"><col class="dcol" style="width:43px"><col class="dcol" style="width:48px"><col class="dcol" style="width:44px"><col class="dcol" style="width:51px"><col style="width:82px"><col class="d2col" style="width:82px"><col class="d2col" style="width:74px"></colgroup>
+      <colgroup><col style="width:74px"><col style="width:150px"><col style="width:70px"><col style="width:30px"><col style="width:30px"><col style="width:42px"><col style="width:63px"><col style="width:63px"><col style="width:63px"><col style="width:44px"><col style="width:44px"><col style="width:44px"><col style="width:58px"><col style="width:46px"><col style="width:38px"><col style="width:50px"><col class="dcol" style="width:48px"><col class="d2col" style="width:78px"><col class="dcol" style="width:78px"><col class="dcol" style="width:44px"><col class="dcol" style="width:43px"><col class="dcol" style="width:43px"><col class="dcol" style="width:43px"><col class="dcol" style="width:43px"><col class="dcol" style="width:43px"><col class="dcol" style="width:43px"><col class="dcol" style="width:48px"><col class="dcol" style="width:44px"><col class="dcol" style="width:43px"><col class="dcol" style="width:44px"><col class="dcol" style="width:51px"><col style="width:82px"><col class="d2col" style="width:82px"><col class="d2col" style="width:74px"></colgroup>
       <thead id="opHead"></thead>
       <tbody id="opsBody"></tbody>
     </table>
@@ -1260,6 +1260,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:52, date:"2026-07-25", note:"S/U COST PER PC moved out of the premium block \u2014 it now sits immediately left of the first cost column, beside the figure it feeds. Same 34 columns, same widths, same drawing-mode behaviour, and no calculation changed."},
   {rev:51, date:"2026-07-25", note:"The FIRST cost column now shows cycle-time cost plus setup cost only \u2014 none of the premium columns to its right. The LAST cost column is unchanged and still carries everything, and it is still what feeds Price, TOTAL PRICE and the Extended Quote Amount. Nothing about what you quote has changed; the first column is now a clean machining-cost figure to sanity-check against. Its header total shows the sum of that column, so the two headers will read differently by the amount of the premiums."},
   {rev:50, date:"2026-07-25", note:"Totals block now prints ink-black instead of washed-out grey. Cause: those rows carry the class name \u201cfoot\u201d, which an unrelated page-footer style elsewhere in the file paints light grey \u2014 so Price, the three premiums and TOTAL PRICE were all faded next to the black figures in the grid above. The FAI cell keeps its white-on-red."},
   {rev:49, date:"2026-07-25", note:"Weight corrected in the ops grid: the per-row figures in the money column, the NRE column and the leadtime column are now normal weight instead of semi-bold, and the two double-ruled totals (Price and Estimated Leadtime) are bold. The totals now stand out from the rows they sum instead of the other way round."},
@@ -1312,9 +1313,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 51;
+const APP_REV = 52;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "18:04";           /* increments every build — check both machines match */
+const BUILD_TIME = "18:31";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1532,6 +1533,7 @@ const OP_COLS = [
   {h:'Sub-Contract Cost Per Piece ($)'},
   {h:'Sub-Contract Batch Size'},
   {h:'Sub-Contract Cost Per Batch ($)'},
+  {h:'S/U Cost Per Pc'},
   {total:true, base:true},
   {h:'Per Shift Output'},
   {h:'Pcs /Shift "Smell Test"', rot:true},
@@ -1544,7 +1546,6 @@ const OP_COLS = [
   {h:'Machinability Premium', rot:true},
   {h:'Weight Premium', rot:true},
   {h:'Part Difficulty Premium', rot:true},
-  {h:'S/U Cost Per Pc'},
   {h:'Sub-Contract Cost Per Pc'},
   {h:'Batch Sub-Contract Cost Per Pc'},
   {total:true},
@@ -1600,12 +1601,13 @@ function renderOps(){
         <td class="op">${row.op}<span class="rowbtns"><button class="rb rb-add" data-i="${i}" title="insert row below">+</button></span></td>
         <td class="desc"><input value="${row.desc}" disabled></td>
         ${ovrCells}
+        ${blk}
         ${calc(m2(cost))}
         ${blk.repeat(3)}
         ${ row.locked==='mat'
             ? `<td class="black" colspan="3" style="text-align:center"><span class="costlb-pill">COST/LB $${r.costLb.toFixed(2)}</span></td>`
             : blk.repeat(3) }
-        ${blk.repeat(8)}
+        ${blk.repeat(7)}
         ${calc(m2(cost))}
         <td class="calc"></td>
         <td class="lead">${d.lead||''}</td>
@@ -1628,6 +1630,7 @@ function renderOps(){
       <td class="yellow">${num('subPc','0.01')}</td>
       <td class="yellow">${num('subBatch','1')}</td>
       <td class="yellow">${num('subCostBatch','0.01')}</td>
+      <td>${d.suPc?('$'+d.suPc.toFixed(2)):(showRow?'$0.00':'')}</td>
       ${calc(showRow?m2(d.base||0):'$0.00')}
       ${calc(d.perShift!==''&&d.perShift!=null?('$'+Number(d.perShift).toFixed(2)):'')}
       <td>${d.pcsShift||(showRow?0:'')}</td>
@@ -1640,7 +1643,6 @@ function renderOps(){
       <td>${d.machP?('$'+d.machP.toFixed(2)):(showRow?'$0.00':'')}</td>
       <td>${d.wtP?('$'+d.wtP.toFixed(2)):(showRow?'$0.00':'')}</td>
       <td>${d.diffP?('$'+d.diffP.toFixed(2)):(showRow?'$0.00':'')}</td>
-      <td>${d.suPc?('$'+d.suPc.toFixed(2)):(showRow?'$0.00':'')}</td>
       <td>${d.subPc?('$'+d.subPc.toFixed(2)):(showRow?'$0.00':'')}</td>
       <td>${d.subBatchPc?('$'+d.subBatchPc.toFixed(2)):(showRow?'$0.00':'')}</td>
       ${calc(showRow?m2(cost):'$0.00')}

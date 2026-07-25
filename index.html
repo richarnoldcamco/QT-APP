@@ -1260,6 +1260,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:51, date:"2026-07-25", note:"The FIRST cost column now shows cycle-time cost plus setup cost only \u2014 none of the premium columns to its right. The LAST cost column is unchanged and still carries everything, and it is still what feeds Price, TOTAL PRICE and the Extended Quote Amount. Nothing about what you quote has changed; the first column is now a clean machining-cost figure to sanity-check against. Its header total shows the sum of that column, so the two headers will read differently by the amount of the premiums."},
   {rev:50, date:"2026-07-25", note:"Totals block now prints ink-black instead of washed-out grey. Cause: those rows carry the class name \u201cfoot\u201d, which an unrelated page-footer style elsewhere in the file paints light grey \u2014 so Price, the three premiums and TOTAL PRICE were all faded next to the black figures in the grid above. The FAI cell keeps its white-on-red."},
   {rev:49, date:"2026-07-25", note:"Weight corrected in the ops grid: the per-row figures in the money column, the NRE column and the leadtime column are now normal weight instead of semi-bold, and the two double-ruled totals (Price and Estimated Leadtime) are bold. The totals now stand out from the rows they sum instead of the other way round."},
   {rev:48, date:"2026-07-25", note:"Totals block now uses the accounting double rule \u2014 a double line sits above the Price figure and above the Estimated Leadtime figure, so it reads at a glance that the number below is the total of the column above it. Removed the \u201cPrice\u201d label beside that figure and the stray \u201cREQUESTED LEADTIME\u201d text that was colliding with the Leadtime Premium label."},
@@ -1311,9 +1312,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 50;
+const APP_REV = 51;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "17:38";           /* increments every build — check both machines match */
+const BUILD_TIME = "18:04";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1392,7 +1393,7 @@ function compute(){
   const sawPc    = pcsBar>0 ? costCut - costCut*(pcsBar/(3+pcsBar)) : costCut; // B13
 
   /* --- operation costs --- */
-  let opCostSum = 0, setupSum = 0, cycleCostSum = 0, maxLead = 0;
+  let opCostSum = 0, setupSum = 0, cycleCostSum = 0, maxLead = 0, baseCostSum = 0;
   const rowCosts = [];
   const rowDetail = [];
   for(const r of opRows){
@@ -1436,9 +1437,15 @@ function compute(){
       det.perShift = (ctCost>0 && pcsShift>0) ? pcsShift*pc : '';   /* =IF(C/T>0, Pcs/Shift × Cost/Pc) */
     }
     if(!isFinite(pc)) pc=0;
+    /* FIRST cost column = C/T cost + S/U cost per pc only, none of the premium
+       columns to its right. Locked rows (material / saw / sub-contract fee) carry
+       no premiums at all, so their base is just the row cost. */
+    det.base = (!r.locked && r.desc) ? ((det.ctCost||0) + (det.suPc||0)) : pc;
+    if(!isFinite(det.base)) det.base = 0;
     rowCosts.push(pc);
     rowDetail.push(det);
     opCostSum += pc;
+    baseCostSum += det.base;
   }
 
   /* --- premiums / adders (AC34..AC40) --- */
@@ -1469,7 +1476,7 @@ function compute(){
 
   return {
     perPc, price, matlPc, matlPrem, salesPrem, slugPrem, faiPerPc, custPrem, volDisc,
-    sawPc, opCostSum, batchTotal, nre, maxLead, faiTotal,
+    sawPc, opCostSum, baseCostSum, batchTotal, nre, maxLead, faiTotal,
     pcsBar, slugWeight, costLb, mach:mat.mach, rowCosts, rowDetail, margin,
     oddPct: (TABLES.oddFeatures||[]).reduce((s2,f)=>s2+(oddSel.includes(f.name)?(parseFloat(f.pct)||0):0),0),
     oddSel: oddSel.slice(),
@@ -1525,7 +1532,7 @@ const OP_COLS = [
   {h:'Sub-Contract Cost Per Piece ($)'},
   {h:'Sub-Contract Batch Size'},
   {h:'Sub-Contract Cost Per Batch ($)'},
-  {total:true},
+  {total:true, base:true},
   {h:'Per Shift Output'},
   {h:'Pcs /Shift "Smell Test"', rot:true},
   {h:'C/T COST', rot:true},
@@ -1545,9 +1552,9 @@ const OP_COLS = [
   {h:'ESTIMATED LEADTIME', flat:true},
 ];
 
-function renderOpHead(totalTxt){
+function renderOpHead(totalTxt, baseTxt){
   $('opHead').innerHTML = '<tr>' + OP_COLS.map(c=>{
-    if(c.total) return `<th class="hmoney">${totalTxt||''}</th>`;
+    if(c.total) return `<th class="hmoney">${(c.base?baseTxt:totalTxt)||''}</th>`;
     if(c.flat)  return `<th class="flat">${c.h}</th>`;
     if(c.rot)   return `<th><span class="rot">${c.h}</span></th>`;
     return `<th class="hwrap">${c.h}</th>`;
@@ -1559,7 +1566,7 @@ const plain = n => (isFinite(n)&&n!==0)? n.toFixed(2) : '';
 
 function renderOps(){
   const r = compute();
-  renderOpHead(money(r.opCostSum));   /* live column total in the header, like the sheet */
+  renderOpHead(money(r.opCostSum), money(r.baseCostSum));   /* live column totals in the header, like the sheet */
   const b = $('opsBody');
   /* preserve focus + raw in-progress text across the rebuild (so typing 6.5 works) */
   const ae=document.activeElement;
@@ -1621,7 +1628,7 @@ function renderOps(){
       <td class="yellow">${num('subPc','0.01')}</td>
       <td class="yellow">${num('subBatch','1')}</td>
       <td class="yellow">${num('subCostBatch','0.01')}</td>
-      ${calc(showRow?m2(cost):'$0.00')}
+      ${calc(showRow?m2(d.base||0):'$0.00')}
       ${calc(d.perShift!==''&&d.perShift!=null?('$'+Number(d.perShift).toFixed(2)):'')}
       <td>${d.pcsShift||(showRow?0:'')}</td>
       <td>${d.ctCost?('$'+d.ctCost.toFixed(2)):(showRow?'':'')}</td>

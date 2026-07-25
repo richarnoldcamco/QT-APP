@@ -299,7 +299,12 @@
   .opgrid tr.empty td.op{color:#888}
   .opgrid td.lead{background:var(--blue2); text-align:center; font-weight:600}
   .opgrid tr.foot td.void{border:none; background:#fff}
-  .opgrid td.flbl{border:none; background:#fff; text-align:left; font-weight:700; padding:0 5px; white-space:nowrap; overflow:visible}
+  .opgrid td.flbl{border:none; background:#fff; text-align:left; font-weight:700; padding:0 5px; white-space:nowrap; overflow:visible;
+     font-size:10.5px; letter-spacing:-.01em}
+  .opgrid td.flbl.big{font-size:12px}
+  /* the price/premium figures beside those labels, scaled to match */
+  .opgrid tr.foot td.calc, .opgrid tr.foot td.lead{font-size:10.5px}
+  .opgrid tr.foot td.total, .opgrid tr.foot td.calc.bold{font-size:12px}
   .opgrid td.flbl.big{font-size:15px}
   .opgrid td.flbl-sm{font-size:7.5px; font-weight:700; text-align:center; overflow:visible;
       line-height:1.1; letter-spacing:-.01em; white-space:nowrap}
@@ -1243,6 +1248,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:38, date:"2026-07-25", note:"The whole totals block on the quote sheet (Price, Material Cost Premium, Salesman Premium, Leadtime Premium, FAI, Total Price) is now smaller and tighter \u2014 completing what Rev 20 only did for the one colliding label."},
   {rev:37, date:"2026-07-25", note:"The drawing toolbar \u26f6 button is now Maximize/Restore \u2014 it hides the ops grid and fills the screen width and full window height with the drawing, then restores the split view. Replaces the old \u201copen in new tab\u201d behaviour."},
   {rev:36, date:"2026-07-25", note:"Drawing toolbar (page nav, darken, lighten, clarify, crop, highlighter, weight, undo, save, full tab) now stays on a single line with tighter spacing instead of wrapping to two rows. If a window is ever too narrow to fit, it scrolls sideways rather than stacking."},
   {rev:35, date:"2026-07-25", note:"Customers can have a default material (Admin \u2192 Customer-Facing Terms \u2192 Default Material). Picking that customer auto-fills the material \u2014 but only when material is still blank, so a material you chose on purpose is never overwritten. Set EATON\u2019s to Copper to use it."},
@@ -1281,9 +1287,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 37;
+const APP_REV = 38;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "13:45";           /* increments every build — check both machines match */
+const BUILD_TIME = "14:05";           /* increments every build — check both machines match */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */

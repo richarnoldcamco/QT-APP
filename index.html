@@ -314,6 +314,8 @@
   .opgrid tr.foot td.calc{font-weight:700}
   .opgrid tr.trow td.calc{font-size:14px}
   .opgrid td.redc{background:var(--red); color:#fff; text-align:right; font-weight:700; padding:0 3px}
+  /* accounting double rule — the figure below is a total */
+  .opgrid tr.foot td.dbltop{border-top:3px double #000}
   .opgrid td.yellow input#reqLead{background:var(--yellow); font-weight:700; text-align:center}
 
   .addop{margin:8px; font-size:12px; font-weight:600; color:#fff; background:var(--xlgreen); border:1px solid #581010; border-radius:8px; padding:6px 14px; cursor:pointer}
@@ -1252,6 +1254,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:48, date:"2026-07-25", note:"Totals block now uses the accounting double rule \u2014 a double line sits above the Price figure and above the Estimated Leadtime figure, so it reads at a glance that the number below is the total of the column above it. Removed the \u201cPrice\u201d label beside that figure and the stray \u201cREQUESTED LEADTIME\u201d text that was colliding with the Leadtime Premium label."},
   {rev:47, date:"2026-07-25", note:"FIXED: the manual Pull Code & Data button did nothing when newer code existed \u2014 the Rev 44 loop-guard was refusing its reload too. The button now bypasses the guard entirely (a human click means reload now), fetches the remote rev directly, clears the guard bookkeeping, and hard-reloads with a fresh cache-buster. The auto-updater keeps its once-per-rev guard; only the manual button overrides it."},
   {rev:46, date:"2026-07-25", note:"Handoff prompt now tells the new chat to fetch the latest code itself from the public raw URL (no upload needed) and includes your GitHub token so it can push right away. The token is read from this browser\u2019s saved settings only \u2014 it is never written into the app file on GitHub. A warning notes the copied text is sensitive."},
   {rev:45, date:"2026-07-25", note:"New Admin section New Chat Handoff \u2014 a copy button giving a ready-made prompt to paste into a fresh Claude chat, so it starts knowing the repos, the push mechanism, the hard-won rules and the current rev. The token is never stored; the prompt tells the new chat to ask for it."},
@@ -1300,9 +1303,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 47;
+const APP_REV = 48;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "16:40";           /* increments every build — check both machines match */
+const BUILD_TIME = "17:05";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1632,10 +1635,10 @@ function renderOps(){
   }).join('')
   /* ===== footer: totals aligned bottom-right, exactly like the sheet ===== */
   + `
-  <tr class="foot"><td class="void" colspan="31"></td><td class="calc bold" id="tPrice"></td><td class="flbl">Price</td><td class="lead bold" id="leadEst"></td></tr>
+  <tr class="foot"><td class="void" colspan="31"></td><td class="calc bold dbltop" id="tPrice"></td><td class="flbl"></td><td class="lead bold dbltop" id="leadEst"></td></tr>
   <tr class="foot"><td class="void" colspan="31"></td><td class="calc" id="tMatlPrem"></td><td class="flbl">Material Cost Premium</td><td class="void"></td></tr>
   <tr class="foot"><td class="void" colspan="31"></td><td class="calc" id="tSalesPrem"></td><td class="flbl">Salesman Premium</td><td class="void"><input id="reqLead" type="hidden" value=""></td></tr>
-  <tr class="foot"><td class="void" colspan="31"></td><td class="calc" id="tLeadPrem"></td><td class="flbl">Leadtime Premium</td><td class="void flbl-sm">REQUESTED LEADTIME</td></tr>
+  <tr class="foot"><td class="void" colspan="31"></td><td class="calc" id="tLeadPrem"></td><td class="flbl">Leadtime Premium</td><td class="void"></td></tr>
   <tr class="foot"><td class="void" colspan="31"></td><td class="redc" id="tFai"></td><td class="flbl">FAI</td><td class="void"></td></tr>
   <tr class="foot trow"><td class="void" colspan="31"></td><td class="calc bold" id="totalPerPc"></td><td class="flbl big">TOTAL PRICE</td><td class="void"></td></tr>`;
   b.querySelectorAll('input,select').forEach(el=>{

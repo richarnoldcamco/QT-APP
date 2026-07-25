@@ -290,6 +290,9 @@
   .opgrid td.desc{text-align:left}
   .opgrid td.calc{background:var(--blue); text-align:right; font-family:var(--sans); padding:0 3px; font-weight:600}
   .opgrid td.black{background:#000}
+  .costlb-pill{display:inline-block; background:var(--blue); color:var(--cp-ink,#1a1a1a);
+     font-weight:700; font-size:11px; padding:2px 12px; border-radius:999px; white-space:nowrap;
+     box-shadow:0 1px 2px rgba(0,0,0,.4)}
   .opgrid td.yellow{background:var(--yellow)}
   .opgrid input, .opgrid select{border:none; background:transparent; font-size:13px; width:100%; height:22px; padding:0 2px; text-align:center; border-radius:0}
   .opgrid td.yellow input{background:var(--yellow)}
@@ -1248,6 +1251,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:43, date:"2026-07-25", note:"COST/LB now sits in the material black band as a light-blue oval pill. The Cost/Pc Over-Ride and Mat\u2019l $ Over-ride labels and fields are hidden while the override is set to No \u2014 they appear only when you switch it to Yes."},
   {rev:42, date:"2026-07-25", note:"Badge now shows \u201cREV N \u00b7 loaded <time>\u201d using this machine\u2019s own clock, instead of a hand-typed build time that kept coming out in the wrong timezone. It reflects when your copy loaded, so it is always right and needs no timezone math."},
   {rev:41, date:"2026-07-25", note:"REV badge now shows the build time in Eastern (ET) instead of a hand-typed UTC-ish time. The build instant is stored as real UTC and rendered in America/New_York, so the clock on the badge always matches your wall time."},
   {rev:40, date:"2026-07-25", note:"The big blue header figure is now labelled \u201cExtended Quote Amount\u201d and shows the batch extended total (qty \u00d7 unit price) instead of the annual-dollar figure that was there before."},
@@ -1291,9 +1295,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 42;
+const APP_REV = 43;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "15:05";           /* increments every build — check both machines match */
+const BUILD_TIME = "15:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1561,21 +1565,24 @@ function renderOps(){
     const blk = '<td class="black"></td>';
     if(locked){
       /* Material (op5) & Saw (op15): black input band, cost only in calc columns */
+      const ovrOn = matOverride==='Yes';
       const ovrCells = row.locked==='mat'
         ? `${blk.repeat(5)}
-           <td class="ovrlbl" colspan="3">Cost/Pc Over-Ride</td>
+           ${ovrOn ? '<td class="ovrlbl" colspan="3">Cost/Pc Over-Ride</td>' : blk.repeat(3)}
            <td class="ovrcell"><select id="matOvr"><option${matOverride==='No'?' selected':''}>No</option><option${matOverride==='Yes'?' selected':''}>Yes</option></select></td>
-           <td class="ovrlbl" colspan="2">Mat'l $ Over-ride</td>
-           <td class="ovrcell" colspan="3"><input id="matOvrVal" type="text" inputmode="decimal" data-i="mat" data-k="ovrVal" value="${matOverrideVal||''}" placeholder="$"></td>`
+           ${ovrOn ? '<td class="ovrlbl" colspan="2">Mat\'l $ Over-ride</td>' : blk.repeat(2)}
+           ${ovrOn ? `<td class="ovrcell" colspan="3"><input id="matOvrVal" type="text" inputmode="decimal" data-i="mat" data-k="ovrVal" value="${matOverrideVal||''}" placeholder="$"></td>` : blk.repeat(3)}`
         : blk.repeat(14);
       return `<tr>
         <td class="op">${row.op}<span class="rowbtns"><button class="rb rb-add" data-i="${i}" title="insert row below">+</button></span></td>
         <td class="desc"><input value="${row.desc}" disabled></td>
         ${ovrCells}
         ${calc(m2(cost))}
-        <td class="calc" style="white-space:nowrap;text-align:right">${row.locked==='mat'?('COST/LB $'+r.costLb.toFixed(2)):''}</td>
-        ${blk.repeat(2)}
-        ${blk.repeat(11)}
+        ${blk.repeat(3)}
+        ${ row.locked==='mat'
+            ? `<td class="black" colspan="3" style="text-align:center"><span class="costlb-pill">COST/LB $${r.costLb.toFixed(2)}</span></td>`
+            : blk.repeat(3) }
+        ${blk.repeat(8)}
         ${calc(m2(cost))}
         <td class="calc"></td>
         <td class="lead">${d.lead||''}</td>

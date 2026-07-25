@@ -199,6 +199,11 @@
   body.guiding .ops-modebar, body.guiding .ops-flex, body.guiding .mini-totals, body.guiding .summary-strip{
     pointer-events:none; opacity:.35; filter:saturate(.6);
   }
+  /* intake step 1 — the print upload is the one thing that stays live */
+  body.await-print .ops-modebar, body.await-print .ops-flex{
+    pointer-events:auto; opacity:1; filter:none;
+  }
+  body.await-print .ops-modebar > *:not(#modeDraw){pointer-events:none; opacity:.35}
   .guide-banner{
     margin:8px 8px 0; padding:9px 14px; border-radius:8px;
     font:700 12.5px var(--ui); letter-spacing:.03em; color:#fff;
@@ -894,7 +899,7 @@
       <td class="c-blue" id="mFeetUsed">—</td>
       <td></td>
       <td><input id="suCost" type="number" value="125" hidden></td>
-      <td class="c-blue val-c" id="hSuMetric">3.419</td>
+      <td></td>
     </tr>
 
     <tr>
@@ -1260,6 +1265,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:53, date:"2026-07-25", note:"The print is now a hard mandatory first step on a New Quote \u2014 step 1 of 25, before the customer name. The sheet stays locked until a drawing page is on the quote, with UPLOAD DRAWING the only live control; as soon as a print lands the field walk starts by itself. Also deleted the unlabeled blue box in the top right of the header \u2014 it showed the admin setup rate divided by 25.4 and 1.15, had no label and fed no calculation."},
   {rev:52, date:"2026-07-25", note:"S/U COST PER PC moved out of the premium block \u2014 it now sits immediately left of the first cost column, beside the figure it feeds. Same 34 columns, same widths, same drawing-mode behaviour, and no calculation changed."},
   {rev:51, date:"2026-07-25", note:"The FIRST cost column now shows cycle-time cost plus setup cost only \u2014 none of the premium columns to its right. The LAST cost column is unchanged and still carries everything, and it is still what feeds Price, TOTAL PRICE and the Extended Quote Amount. Nothing about what you quote has changed; the first column is now a clean machining-cost figure to sanity-check against. Its header total shows the sum of that column, so the two headers will read differently by the amount of the premiums."},
   {rev:50, date:"2026-07-25", note:"Totals block now prints ink-black instead of washed-out grey. Cause: those rows carry the class name \u201cfoot\u201d, which an unrelated page-footer style elsewhere in the file paints light grey \u2014 so Price, the three premiums and TOTAL PRICE were all faded next to the black figures in the grid above. The FAI cell keeps its white-on-red."},
@@ -1313,9 +1319,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 52;
+const APP_REV = 53;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "18:31";           /* increments every build — check both machines match */
+const BUILD_TIME = "19:12";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1711,7 +1717,6 @@ function renderSummary(){
   const bm=$('hBigMatl'); if(bm) bm.textContent = (r.batchTotal!=null && isFinite(r.batchTotal)) ? ('$ '+Number(r.batchTotal).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})) : '$ —';
   const cl=$('mCostLb'); if(cl) cl.textContent = r.costLb? money(r.costLb):'—';
   const mm=$('mMach'); if(mm) mm.textContent = r.mach!=null? r.mach:'—';
-  const sm=$('hSuMetric'); if(sm) sm.textContent = (r.suHr/25.4/1.15).toFixed(3);
   const mem=$('hMeMetric'); if(mem) mem.textContent = (r.meHr/1.382).toFixed(2);
   /* material $/lb readout beside Mill-or-Distributor — the number the quote is actually using */
   const mlb=$('hMillPrice');
@@ -2071,6 +2076,7 @@ function addDrawingPage(dw){
   setOpsMode('draw');
   renderDrawing();
   autosaveNow();
+  if(window.__printArrived) window.__printArrived();
 }
 /* toggle buttons */
 (function(){
@@ -4105,9 +4111,42 @@ const GUIDE_ORDER=['customer','partNo','annualUsage','batchSize','minOrderQty','
                    'scrapPct','quotedBy','salesman','faiQty','nreSep','barLen'];
 let guideIdx=-1;
 let intakePending=false;     /* true from New Quote until the guided pass completes — persisted per quote */
-function guiding(){ return guideIdx>=0; }
+let printGate=false;   /* step 1 of intake: a print must be on the quote before the field walk starts */
+function printOnFile(){ return typeof drawPages!=='undefined' && drawPages.length>0; }
+function guiding(){ return guideIdx>=0 || printGate; }
+function intakeBanner(){
+  let b=$('guideBanner');
+  if(!b){
+    b=document.createElement('div');
+    b.id='guideBanner'; b.className='guide-banner';
+    const anchor=document.querySelector('.ops-modebar');
+    anchor.parentNode.insertBefore(b, anchor);
+  }
+  b.hidden=false;
+  return b;
+}
+function startPrintGate(){
+  printGate=true; guideIdx=-1;
+  document.body.classList.add('guiding','await-print');
+  intakeBanner().textContent='📐 New quote — step 1 of '+(GUIDE_ORDER.length+1)+': upload the print. The header fields stay locked until a drawing is on this quote.';
+  try{ setOpsMode('draw'); }catch(e){}
+  const md=$('modeDraw'); if(md) md.focus();
+}
+function clearPrintGate(){
+  printGate=false;
+  document.body.classList.remove('await-print');
+}
+/* a print landed on the quote -> release the gate and start the field walk */
+function printArrived(){
+  if(!printGate) return;
+  clearPrintGate();
+  guideIdx=0;
+  guideFocus();
+}
+window.__printArrived=printArrived;
 function startGuide(){
   intakePending=true;
+  if(!printOnFile()){ startPrintGate(); return; }   /* hard gate: print first */
   guideIdx=0;
   document.body.classList.add('guiding');
   let b=$('guideBanner');
@@ -4122,7 +4161,7 @@ function startGuide(){
 }
 function guideMsg(){
   const b=$('guideBanner'); if(!b) return;
-  b.textContent='📝 New quote — fill or TAB through the header fields ('+(guideIdx+1)+' of '+GUIDE_ORDER.length+'). The calculation grid unlocks when the header is complete.';
+  b.textContent='📝 New quote — fill or TAB through the header fields (step '+(guideIdx+2)+' of '+(GUIDE_ORDER.length+1)+'). The calculation grid unlocks when the header is complete.';
 }
 function guideFocus(){
   document.querySelectorAll('.guide-cur').forEach(x=>x.classList.remove('guide-cur'));
@@ -4137,6 +4176,7 @@ function guideFocus(){
 function endGuide(){
   guideIdx=-1;
   intakePending=false;
+  clearPrintGate();
   document.body.classList.remove('guiding');
   const b=$('guideBanner'); if(b) b.hidden=true;
   document.querySelectorAll('.guide-cur').forEach(x=>x.classList.remove('guide-cur'));
@@ -4144,6 +4184,7 @@ function endGuide(){
   setTimeout(openOddFeatures, 150);          /* header done -> odd-features checklist */
 }
 function resumeGuide(){
+  if(!printOnFile()){ startPrintGate(); return; }   /* hard gate: print first */
   /* pick up at the first field still at its untouched startup value */
   let idx=GUIDE_ORDER.findIndex(id=>{
     const el=$(id); if(!el) return false;
@@ -4167,12 +4208,14 @@ function resumeGuide(){
 function cancelGuide(){
   guideIdx=-1;
   intakePending=false;
+  clearPrintGate();
   document.body.classList.remove('guiding');
   const b=$('guideBanner'); if(b) b.hidden=true;
   document.querySelectorAll('.guide-cur').forEach(x=>x.classList.remove('guide-cur'));
 }
 document.addEventListener('keydown', e=>{
   if(!guiding()) return;
+  if(printGate) return;            /* still on the print step — no field to advance */
   if(e.key!=='Tab' && e.key!=='Enter') return;
   const cur=$(GUIDE_ORDER[guideIdx]);
   if(e.target!==cur) return;

@@ -384,11 +384,17 @@
   .drawzone:focus{border-color:var(--cp-signal); box-shadow:0 0 0 3px rgba(110,20,20,.12)}
   .drawzone.dragover{border-color:var(--cp-signal); background:#f3e7e7}
   .dz-empty{font-size:13px; color:var(--cp-dim); text-align:center; padding:14px 6px; line-height:1.7}
-  .dz-toolbar,.dz-edittools{display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:5px}
+  .dz-edittools{display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:5px}
+  /* drawing toolbar: single line, scrolls sideways only if truly too narrow */
+  .dz-toolbar{display:flex; align-items:center; gap:3px; flex-wrap:nowrap; margin-bottom:5px;
+    overflow-x:auto; overflow-y:hidden; scrollbar-width:thin; padding-bottom:1px}
+  .dz-toolbar .mini{white-space:nowrap; flex:0 0 auto; padding:3px 7px}
   .dz-edittools{background:#fff8dc; border:1px solid #d9c26a; border-radius:7px; padding:5px 8px}
   .dz-edittools .etlbl{font-size:10px; font-weight:800; letter-spacing:.1em; color:#8a6d00}
   .dz-sep{width:1px; height:16px; background:var(--cp-line-strong); margin:0 3px}
-  .dz-toolbar .mini,.dz-edittools .mini{min-width:26px}
+  .dz-edittools .mini{min-width:26px}
+  .dz-toolbar .mini{min-width:0}
+  .dz-toolbar .dz-sep{margin:0 2px}
   .dz-toolbar .mini:disabled{opacity:.4; cursor:default}
   .dz-edittools .pen.on{outline:2px solid var(--cp-signal); outline-offset:-1px}
   .dz-viewport{
@@ -1231,6 +1237,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:36, date:"2026-07-25", note:"Drawing toolbar (page nav, darken, lighten, clarify, crop, highlighter, weight, undo, save, full tab) now stays on a single line with tighter spacing instead of wrapping to two rows. If a window is ever too narrow to fit, it scrolls sideways rather than stacking."},
   {rev:35, date:"2026-07-25", note:"Customers can have a default material (Admin \u2192 Customer-Facing Terms \u2192 Default Material). Picking that customer auto-fills the material \u2014 but only when material is still blank, so a material you chose on purpose is never overwritten. Set EATON\u2019s to Copper to use it."},
   {rev:34, date:"2026-07-25", note:"FIXED: the toolbar NEW QUOTE button appeared to do nothing when clicked from the Prior Quotes screen \u2014 it created the quote but never switched back to the quote sheet, so you stayed on the list. It now opens the new quote like the menu tile does."},
   {rev:33, date:"2026-07-24", note:"Customer quotation always shows a \u201cYour RFQ / Quote #\u201d line \u2014 an em-dash when none was entered, rather than the row vanishing \u2014 and pairs it with a Valid Through date. Quote # relabelled \u201cOur Quote #\u201d so the two reference numbers cannot be confused."},
@@ -1267,9 +1274,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 35;
+const APP_REV = 36;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "12:50";           /* increments every build — check both machines match */
+const BUILD_TIME = "13:20";           /* increments every build — check both machines match */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */

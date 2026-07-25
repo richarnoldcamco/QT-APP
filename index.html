@@ -895,7 +895,7 @@
       <td class="lbl-r">IF FAI, how many dimensions</td>
       <td class="c-yellow val-c" style="white-space:nowrap"><input id="faiDims" type="number" value="9" style="width:52px"><button class="mini" id="faiCount" type="button" style="margin-left:4px; padding:2px 6px; font-size:10px" title="AI counts the dimension callouts on the drawing — always check the number">🤖 #</button></td>
       <td class="val-c" id="hFloat">0.0</td>
-      <td class="lbl-r"></td>
+      <td class="lbl-r">Extended Quote Amount</td>
       <td class="c-blue val-r" id="hBigMatl">$ —</td>
       <td class="lbl-r">Preferred Bar Length</td>
       <td class="c-yellow val-c"><input id="barLen" type="number" value="144"></td>
@@ -1248,6 +1248,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:40, date:"2026-07-25", note:"The big blue header figure is now labelled \u201cExtended Quote Amount\u201d and shows the batch extended total (qty \u00d7 unit price) instead of the annual-dollar figure that was there before."},
   {rev:39, date:"2026-07-25", note:"COST/LB readout moved left into the material row (right after the material cost) instead of sitting far out on the right. Removed the stray yellow \u201c30\u201d Requested-Leadtime box from the Salesman-Premium row \u2014 it was never used in any calculation; kept as a hidden holder so the RFQ auto-fill doesn\u2019t error."},
   {rev:38, date:"2026-07-25", note:"The whole totals block on the quote sheet (Price, Material Cost Premium, Salesman Premium, Leadtime Premium, FAI, Total Price) is now smaller and tighter \u2014 completing what Rev 20 only did for the one colliding label."},
   {rev:37, date:"2026-07-25", note:"The drawing toolbar \u26f6 button is now Maximize/Restore \u2014 it hides the ops grid and fills the screen width and full window height with the drawing, then restores the split view. Replaces the old \u201copen in new tab\u201d behaviour."},
@@ -1288,9 +1289,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 39;
+const APP_REV = 40;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "14:30";           /* increments every build — check both machines match */
+const BUILD_TIME = "14:50";           /* increments every build — check both machines match */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */
@@ -1672,7 +1673,7 @@ function renderSummary(){
   $('mMatlWt').textContent   = r.matlWt? Math.round(r.matlWt):'—';
   $('mFeetNeeded').textContent = r.feetNeeded? r.feetNeeded.toFixed(1):'—';
   $('mFeetUsed').textContent = r.feetUsed? Math.round(r.feetUsed):'—';
-  const bm=$('hBigMatl'); if(bm) bm.textContent = r.annualDollars? ('$ '+r.annualDollars.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})):'$ —';
+  const bm=$('hBigMatl'); if(bm) bm.textContent = (r.batchTotal!=null && isFinite(r.batchTotal)) ? ('$ '+Number(r.batchTotal).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})) : '$ —';
   const cl=$('mCostLb'); if(cl) cl.textContent = r.costLb? money(r.costLb):'—';
   const mm=$('mMach'); if(mm) mm.textContent = r.mach!=null? r.mach:'—';
   const sm=$('hSuMetric'); if(sm) sm.textContent = (r.suHr/25.4/1.15).toFixed(3);

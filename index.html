@@ -1248,6 +1248,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:41, date:"2026-07-25", note:"REV badge now shows the build time in Eastern (ET) instead of a hand-typed UTC-ish time. The build instant is stored as real UTC and rendered in America/New_York, so the clock on the badge always matches your wall time."},
   {rev:40, date:"2026-07-25", note:"The big blue header figure is now labelled \u201cExtended Quote Amount\u201d and shows the batch extended total (qty \u00d7 unit price) instead of the annual-dollar figure that was there before."},
   {rev:39, date:"2026-07-25", note:"COST/LB readout moved left into the material row (right after the material cost) instead of sitting far out on the right. Removed the stray yellow \u201c30\u201d Requested-Leadtime box from the Salesman-Premium row \u2014 it was never used in any calculation; kept as a hidden holder so the RFQ auto-fill doesn\u2019t error."},
   {rev:38, date:"2026-07-25", note:"The whole totals block on the quote sheet (Price, Material Cost Premium, Salesman Premium, Leadtime Premium, FAI, Total Price) is now smaller and tighter \u2014 completing what Rev 20 only did for the one colliding label."},
@@ -1289,9 +1290,10 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 40;
+const APP_REV = 41;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "14:50";           /* increments every build — check both machines match */
+const BUILD_TIME = "14:55";           /* increments every build — check both machines match */
+const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */
@@ -5058,7 +5060,14 @@ $('priorQuotesBtn').addEventListener('click', ()=>switchView('quotes'));
 suspendAutosave = false;                 /* from here on, every edit autosaves */
 (function(){
   const bs=$('buildStamp'); if(!bs) return;
-  bs.textContent='REV '+APP_REV+' · '+BUILD_DATE+' '+BUILD_TIME;
+  try{
+    const d=new Date(BUILD_UTC);
+    const s=d.toLocaleString('en-US',{timeZone:'America/New_York',
+      month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'});
+    bs.textContent='REV '+APP_REV+' · '+s+' ET';
+  }catch(e){
+    bs.textContent='REV '+APP_REV+' · '+BUILD_DATE+' '+BUILD_TIME;
+  }
 })();
 updateDrawModeBtn();
 switchView('menu');                      /* land on the main menu */

@@ -316,6 +316,12 @@
   .opgrid td.redc{background:var(--red); color:#fff; text-align:right; font-weight:700; padding:0 3px}
   /* accounting double rule — the figure below is a total */
   .opgrid tr.foot td.dbltop{border-top:3px double #000; font-weight:800}
+  /* the grid footer rows carry class "foot", which the page-footer style paints
+     light grey; repaint the totals block ink-black. td.redc (FAI) keeps its white
+     text on red and is deliberately not listed here. */
+  .opgrid tr.foot td.calc,
+  .opgrid tr.foot td.lead,
+  .opgrid tr.foot td.flbl{color:var(--cp-ink)}
   .opgrid td.yellow input#reqLead{background:var(--yellow); font-weight:700; text-align:center}
 
   .addop{margin:8px; font-size:12px; font-weight:600; color:#fff; background:var(--xlgreen); border:1px solid #581010; border-radius:8px; padding:6px 14px; cursor:pointer}
@@ -1254,6 +1260,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:50, date:"2026-07-25", note:"Totals block now prints ink-black instead of washed-out grey. Cause: those rows carry the class name \u201cfoot\u201d, which an unrelated page-footer style elsewhere in the file paints light grey \u2014 so Price, the three premiums and TOTAL PRICE were all faded next to the black figures in the grid above. The FAI cell keeps its white-on-red."},
   {rev:49, date:"2026-07-25", note:"Weight corrected in the ops grid: the per-row figures in the money column, the NRE column and the leadtime column are now normal weight instead of semi-bold, and the two double-ruled totals (Price and Estimated Leadtime) are bold. The totals now stand out from the rows they sum instead of the other way round."},
   {rev:48, date:"2026-07-25", note:"Totals block now uses the accounting double rule \u2014 a double line sits above the Price figure and above the Estimated Leadtime figure, so it reads at a glance that the number below is the total of the column above it. Removed the \u201cPrice\u201d label beside that figure and the stray \u201cREQUESTED LEADTIME\u201d text that was colliding with the Leadtime Premium label."},
   {rev:47, date:"2026-07-25", note:"FIXED: the manual Pull Code & Data button did nothing when newer code existed \u2014 the Rev 44 loop-guard was refusing its reload too. The button now bypasses the guard entirely (a human click means reload now), fetches the remote rev directly, clears the guard bookkeeping, and hard-reloads with a fresh cache-buster. The auto-updater keeps its once-per-rev guard; only the manual button overrides it."},
@@ -1304,9 +1311,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 49;
+const APP_REV = 50;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "17:22";           /* increments every build — check both machines match */
+const BUILD_TIME = "17:38";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */

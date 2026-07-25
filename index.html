@@ -1244,6 +1244,12 @@ attachAutocomplete('customer','ac-customer', ()=>TABLES.customers);
   const ci=$('customer'), mi=$('material');
   if(!ci||!mi) return;
   let last='';
+  /* MATERIAL is a <select>, so it always has a value — "is it empty" can never tell us
+     whether you chose it. Track a real user change instead: isTrusted is false on the
+     change event we dispatch ourselves, true when you pick from the dropdown. */
+  let touched=false;
+  mi.addEventListener('change', e=>{ if(e && e.isTrusted) touched=true; });
+  window.__matAutoReset = deliberate => { touched=!!deliberate; last=''; };
   const apply=()=>{
     const name=ci.value.trim();
     if(!name || name===last) return;
@@ -1251,7 +1257,7 @@ attachAutocomplete('customer','ac-customer', ()=>TABLES.customers);
     const cp=custPremLookup(name);
     const want=(cp.defMat||'').trim();
     if(!want) return;
-    if(mi.value && mi.value.trim()) return;              /* respect an existing pick */
+    if(touched) return;                                  /* respect a material you picked yourself */
     const opt=[...mi.options].find(o=>o.value.trim().toUpperCase()===want.toUpperCase()
                                     || o.textContent.trim().toUpperCase()===want.toUpperCase());
     if(opt){ mi.value=opt.value; mi.dispatchEvent(new Event('change',{bubbles:true})); }
@@ -1265,6 +1271,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:55, date:"2026-07-25", note:"Customer default-material auto-fill actually works now. It never had: the guard meant to protect a material you picked yourself tested whether the MATERIAL box was empty, and a dropdown is never empty, so the auto-fill bailed out every time. It now tracks whether you changed the material yourself. A fresh New Quote will take the customer default; a saved quote never gets overwritten. NOTE: it still needs a Default Material filled in per customer under Admin > Customer-Facing Terms \u2014 that column is blank for every customer today."},
   {rev:54, date:"2026-07-25", note:"The drawing is no longer ghosted during the header walk. The intake lockout was dimming the whole ops row, which included the drawing pane \u2014 now it dims the calculation grid only. The print stays full brightness and fully usable (zoom, fit, clarify, highlighter) the entire time you are filling the header off it."},
   {rev:53, date:"2026-07-25", note:"The print is now a hard mandatory first step on a New Quote \u2014 step 1 of 25, before the customer name. The sheet stays locked until a drawing page is on the quote, with UPLOAD DRAWING the only live control; as soon as a print lands the field walk starts by itself. Also deleted the unlabeled blue box in the top right of the header \u2014 it showed the admin setup rate divided by 25.4 and 1.15, had no label and fed no calculation."},
   {rev:52, date:"2026-07-25", note:"S/U COST PER PC moved out of the premium block \u2014 it now sits immediately left of the first cost column, beside the figure it feeds. Same 34 columns, same widths, same drawing-mode behaviour, and no calculation changed."},
@@ -1320,9 +1327,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 54;
+const APP_REV = 55;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "19:34";           /* increments every build — check both machines match */
+const BUILD_TIME = "20:02";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1853,6 +1860,8 @@ function loadQuote(no){
   activeQuoteNo=q.no;               /* set first: restore resolves the drawing by quote ID */
   $('quoteNo').textContent=q.no;
   restore(q);
+  /* a saved quote's material is already a deliberate pick — never auto-overwrite it */
+  if(window.__matAutoReset) window.__matAutoReset(true);
 }
 
 /* every edit autosaves the active quote — there is no "finalized" quote */
@@ -3254,7 +3263,7 @@ function startNewQuote(){
   if(window.__fitPage) setTimeout(window.__fitPage, 0);
   suspendAutosave=false;
 }
-$('newQuote').addEventListener('click', ()=>{ startNewQuote(); switchView('quote'); updateOddBtn(); setTimeout(startGuide, 100); });
+$('newQuote').addEventListener('click', ()=>{ startNewQuote(); if(window.__matAutoReset) window.__matAutoReset(false); switchView('quote'); updateOddBtn(); setTimeout(startGuide, 100); });
 $('menuNew').addEventListener('click', ()=>{ startNewQuote(); switchView('quote'); updateOddBtn(); setTimeout(startGuide, 100); });
 $('menuPullAll') && $('menuPullAll').addEventListener('click', async ()=>{
   const b=$('menuPullAll'); if(!b || b.disabled) return;

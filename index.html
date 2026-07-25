@@ -258,29 +258,6 @@
   body.draw-max .ops-modebar{display:none !important}
   body.draw-max .drawwrap{flex:1 1 100% !important; width:100% !important; margin-right:8px}
   body.draw-max .dz-viewport{max-width:none !important}
-  /* ===== DRAWING VIEW SPLIT =====
-     The print takes a fixed full-height column on the right, from just under the
-     masthead to the bottom of the window. Everything else — header sheet, mode bar,
-     grid — is capped to the width left over on the left. The old marginTop lift is
-     neutralised here (margin:0 !important) because the panel is positioned instead. */
-  body.draw-split .drawwrap{
-    position:fixed; top:49px; right:0; bottom:0; width:53vw;
-    margin:0 !important; padding:2px 8px 6px; z-index:20;
-    background:var(--appbg); border-left:1px solid var(--cp-line);
-    display:flex; flex-direction:column; overflow:hidden;
-  }
-  body.draw-split .drawwrap h3{margin:2px 0}
-  body.draw-split .drawzone{flex:1 1 auto; min-height:0}
-  body.draw-split #hdrSheet,
-  body.draw-split .hdr-bar,
-  body.draw-split .warnbanner,
-  body.draw-split .ops-modebar,
-  body.draw-split .ops-flex{max-width:46vw}
-  body.draw-split #hdrSheet{font-size:9px}
-  body.draw-split #hdrSheet input,
-  body.draw-split #hdrSheet select{font-size:9px; padding:0 2px}
-  /* Maximize still wins: the same fixed panel simply spans the full width */
-  body.draw-split.draw-max .drawwrap{left:0; width:auto; border-left:0}
   .ops-scroll{overflow-x:auto; min-width:0; flex:0 0 auto}
   /* Drawing mode: collapse the 14 detail columns to zero width (CP hide-bands technique —
      cells stay present so colspan math and totals alignment are preserved) */
@@ -1295,6 +1272,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:58, date:"2026-07-25", note:"Reverted the rev 57 drawing split \u2014 layout is back to rev 56 exactly. Root cause for the record: the quote screen sits inside #view-quote which carries zoom:1.2 (the Ctrl+wheel zoom). A CSS-zoomed ancestor changes the containing block for position:fixed, so the vw width and the right/bottom offsets were all scaled by 1.2 and the panel overflowed. Any future work on this must stay in normal flex flow, not fixed positioning."},
   {rev:57, date:"2026-07-25", note:"Drawing view is now a true two-column split. The print sits in a fixed column pinned from just under the masthead to the bottom of the window, so it gets full vertical height whether the header is expanded or minimised \u2014 the old lift only worked when the header was collapsed. The header sheet, mode bar and grid are capped to the width left over and the header font drops to 9px, which is what frees the width for the print. Maximize still spans the whole window."},
   {rev:56, date:"2026-07-25", note:"Calculation grid compressed horizontally to 70% \u2014 every column width scaled, table down from 1883px to 1318px, drawing-mode width down from 1041px to 729px. The thumbnail pane no longer sits at a fixed 200px; it grows into the width the grid gives back, so the print renders larger beside the grid. Font size left at 11px \u2014 this is a horizontal squeeze only."},
   {rev:55, date:"2026-07-25", note:"Customer default-material auto-fill actually works now. It never had: the guard meant to protect a material you picked yourself tested whether the MATERIAL box was empty, and a dropdown is never empty, so the auto-fill bailed out every time. It now tracks whether you changed the material yourself. A fresh New Quote will take the customer default; a saved quote never gets overwritten. NOTE: it still needs a Default Material filled in per customer under Admin > Customer-Facing Terms \u2014 that column is blank for every customer today."},
@@ -1353,9 +1331,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 57;
+const APP_REV = 58;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "21:05";           /* increments every build — check both machines match */
+const BUILD_TIME = "21:41";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1968,7 +1946,6 @@ let opsMode='calc';
 function setOpsMode(m){
   opsMode=m;
   $('opSheet').classList.toggle('show-drawing', m==='draw');
-  document.body.classList.toggle('draw-split', m==='draw');
   const dw=document.querySelector('.drawwrap');
   if(dw) dw.hidden = m!=='draw';
   const ub=$('dzUndoBake');

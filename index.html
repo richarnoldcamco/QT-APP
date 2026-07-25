@@ -1204,12 +1204,34 @@ function attachAutocomplete(inputId, menuId, getOptions){
   });
 }
 attachAutocomplete('customer','ac-customer', ()=>TABLES.customers);
+/* auto-fill material from the customer's default \u2014 only when material is still empty,
+   so a deliberately chosen material is never overwritten. */
+(function(){
+  const ci=$('customer'), mi=$('material');
+  if(!ci||!mi) return;
+  let last='';
+  const apply=()=>{
+    const name=ci.value.trim();
+    if(!name || name===last) return;
+    last=name;
+    const cp=custPremLookup(name);
+    const want=(cp.defMat||'').trim();
+    if(!want) return;
+    if(mi.value && mi.value.trim()) return;              /* respect an existing pick */
+    const opt=[...mi.options].find(o=>o.value.trim().toUpperCase()===want.toUpperCase()
+                                    || o.textContent.trim().toUpperCase()===want.toUpperCase());
+    if(opt){ mi.value=opt.value; mi.dispatchEvent(new Event('change',{bubbles:true})); }
+  };
+  ci.addEventListener('change', apply);
+  ci.addEventListener('blur', apply);
+})();
 attachAutocomplete('partNo','ac-partNo', ()=>TABLES.parts);
 attachAutocomplete('buyer','ac-buyer', ()=>TABLES.buyers||[]);
 $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:35, date:"2026-07-25", note:"Customers can have a default material (Admin \u2192 Customer-Facing Terms \u2192 Default Material). Picking that customer auto-fills the material \u2014 but only when material is still blank, so a material you chose on purpose is never overwritten. Set EATON\u2019s to Copper to use it."},
   {rev:34, date:"2026-07-25", note:"FIXED: the toolbar NEW QUOTE button appeared to do nothing when clicked from the Prior Quotes screen \u2014 it created the quote but never switched back to the quote sheet, so you stayed on the list. It now opens the new quote like the menu tile does."},
   {rev:33, date:"2026-07-24", note:"Customer quotation always shows a \u201cYour RFQ / Quote #\u201d line \u2014 an em-dash when none was entered, rather than the row vanishing \u2014 and pairs it with a Valid Through date. Quote # relabelled \u201cOur Quote #\u201d so the two reference numbers cannot be confused."},
   {rev:32, date:"2026-07-24", note:"Customer quotation form now carries the real Camco details \u2014 address, phone, fax, website, Cage Code and DUNS in the header; Richard Arnold\u2019s contact line under the signature; and an AS9100D / ISO 9001 / ISO 17025 certification block at the foot. Replaces the placeholder text."},
@@ -1245,9 +1267,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 34;
+const APP_REV = 35;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "12:30";           /* increments every build — check both machines match */
+const BUILD_TIME = "12:50";           /* increments every build — check both machines match */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */
@@ -3328,9 +3350,10 @@ const ADMIN_SECTIONS = {
         {key:'name',label:'Customer',type:'txt'},
         {key:'fob',label:'FOB',type:'txt'},
         {key:'payTerms',label:'Payment Terms (text)',type:'txt'},
+        {key:'defMat',label:'Default Material',type:'txt'},
       ];
       return {html:editableTable(TABLES.custPremium,cols,{deletable:false}), rows:TABLES.custPremium, cols,
-        add:()=>TABLES.custPremium.push({name:'NEW CUSTOMER',extra:0,terms:30,fob:'',payTerms:''})};
+        add:()=>TABLES.custPremium.push({name:'NEW CUSTOMER',extra:0,terms:30,fob:'',payTerms:'',defMat:''})};
     }
   },
   custprem: {

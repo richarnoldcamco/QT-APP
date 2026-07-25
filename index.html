@@ -258,20 +258,6 @@
   body.draw-max .ops-modebar{display:none !important}
   body.draw-max .drawwrap{flex:1 1 100% !important; width:100% !important; margin-right:8px}
   body.draw-max .dz-viewport{max-width:none !important}
-  /* ===== DRAWING VIEW =====
-     Normal flex flow ONLY. #view-quote carries zoom:1.2, and a zoomed ancestor breaks
-     position:fixed — that was the rev 57 failure. Instead: cap the header sheet to the
-     left 56%, park the print in the right 43%, and let applyDrawLift raise it into the
-     header band, which is now empty on that side. */
-  body.draw-split #hdrSheet{max-width:56%; font-size:11px}
-  body.draw-split #hdrSheet input,
-  body.draw-split #hdrSheet select{font-size:11px}
-  body.draw-split .drawwrap{flex:0 0 43%; max-width:43%; margin-left:auto}
-  /* sizeViewport() writes an INLINE max-width on .dz-viewport from the image aspect
-     ratio. Inline beats a plain stylesheet rule, which is why the pane ignored its 43%
-     and pushed wider. !important is the only thing that outranks an inline style. */
-  body.draw-split .dz-viewport{max-width:100% !important}
-  body.draw-split.draw-max .drawwrap{margin-left:0; max-width:none}
   .ops-scroll{overflow-x:auto; min-width:0; flex:0 0 auto}
   /* Drawing mode: collapse the 14 detail columns to zero width (CP hide-bands technique —
      cells stay present so colspan math and totals alignment are preserved) */
@@ -1286,8 +1272,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
-  {rev:60, date:"2026-07-25", note:"Drawing pane width is now actually enforced at 43%. The pane was being told 43% but sizeViewport() writes an inline max-width on the viewport from the image aspect ratio, and an inline style outranks a stylesheet rule \u2014 so the viewport pushed the pane wider. Clamped with !important, which is the only thing that beats inline. Maximize is exempt."},
-  {rev:59, date:"2026-07-25", note:"Drawing view rebuilt the right way \u2014 all in flex flow, no fixed positioning. The header sheet is capped to the left 56% at 11px, the print parks in the right 43%, and the lift that raises it into the header band now runs whether the header is expanded or minimised (it used to need the header collapsed). Because the print is portrait, its width follows from its height, so raising it is what makes it bigger."},
+  {rev:61, date:"2026-07-25", note:"Reverted revs 59 and 60 \u2014 the drawing view is back to the rev 56/58 layout. Shipped as rev 61 rather than rev 58 because the auto-updater never downgrades, so a lower number would not have reached the app. Everything revs 48\u201356 changed is intact; only the drawing-pane split is gone."},
   {rev:58, date:"2026-07-25", note:"Reverted the rev 57 drawing split \u2014 layout is back to rev 56 exactly. Root cause for the record: the quote screen sits inside #view-quote which carries zoom:1.2 (the Ctrl+wheel zoom). A CSS-zoomed ancestor changes the containing block for position:fixed, so the vw width and the right/bottom offsets were all scaled by 1.2 and the panel overflowed. Any future work on this must stay in normal flex flow, not fixed positioning."},
   {rev:57, date:"2026-07-25", note:"Drawing view is now a true two-column split. The print sits in a fixed column pinned from just under the masthead to the bottom of the window, so it gets full vertical height whether the header is expanded or minimised \u2014 the old lift only worked when the header was collapsed. The header sheet, mode bar and grid are capped to the width left over and the header font drops to 9px, which is what frees the width for the print. Maximize still spans the whole window."},
   {rev:56, date:"2026-07-25", note:"Calculation grid compressed horizontally to 70% \u2014 every column width scaled, table down from 1883px to 1318px, drawing-mode width down from 1041px to 729px. The thumbnail pane no longer sits at a fixed 200px; it grows into the width the grid gives back, so the print renders larger beside the grid. Font size left at 11px \u2014 this is a horizontal squeeze only."},
@@ -1347,9 +1332,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 60;
+const APP_REV = 61;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "22:31";           /* increments every build — check both machines match */
+const BUILD_TIME = "22:58";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1962,7 +1947,6 @@ let opsMode='calc';
 function setOpsMode(m){
   opsMode=m;
   $('opSheet').classList.toggle('show-drawing', m==='draw');
-  document.body.classList.toggle('draw-split', m==='draw');
   const dw=document.querySelector('.drawwrap');
   if(dw) dw.hidden = m!=='draw';
   const ub=$('dzUndoBake');
@@ -2317,9 +2301,8 @@ document.addEventListener('paste', e=>{
   /* pull the panel up over the empty right side of the hdr-bar / VIEW rows */
   function applyDrawLift(){
     const dw=document.querySelector('.drawwrap'); if(!dw) return;
-    /* rev 59: lift with the header expanded too — the header is capped to the left 56%
-       in drawing view, so the band above the print is free either way */
-    if(opsMode!=='draw'){ dw.style.marginTop=''; return; }
+    const minimized = (typeof hdrMin!=='undefined') && hdrMin;
+    if(opsMode!=='draw' || !minimized){ dw.style.marginTop=''; return; }
     const z=(typeof sheetZoom!=='undefined' && sheetZoom)||1.2;
     const flexT=document.querySelector('.ops-flex').getBoundingClientRect().top;
     const barT=document.querySelector('.hdr-bar').getBoundingClientRect().top;

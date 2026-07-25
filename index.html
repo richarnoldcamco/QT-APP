@@ -1251,6 +1251,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:44, date:"2026-07-25", note:"FIXED a reload loop: when GitHub Pages\u2019 CDN kept serving the old cached copy after a push, the auto-updater reloaded over and over (screen flashed, clicks did nothing). It now reloads only once per target rev; if the cached copy is still stale it waits and shows a message instead of looping."},
   {rev:43, date:"2026-07-25", note:"COST/LB now sits in the material black band as a light-blue oval pill. The Cost/Pc Over-Ride and Mat\u2019l $ Over-ride labels and fields are hidden while the override is set to No \u2014 they appear only when you switch it to Yes."},
   {rev:42, date:"2026-07-25", note:"Badge now shows \u201cREV N \u00b7 loaded <time>\u201d using this machine\u2019s own clock, instead of a hand-typed build time that kept coming out in the wrong timezone. It reflects when your copy loaded, so it is always right and needs no timezone math."},
   {rev:41, date:"2026-07-25", note:"REV badge now shows the build time in Eastern (ET) instead of a hand-typed UTC-ish time. The build instant is stored as real UTC and rendered in America/New_York, so the clock on the badge always matches your wall time."},
@@ -1295,9 +1296,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 43;
+const APP_REV = 44;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "15:20";           /* increments every build — check both machines match */
+const BUILD_TIME = "15:40";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -5108,17 +5109,36 @@ async function checkAppUpdate(force){
       const rr=parseRemoteRev(code);
       if(rr!=null && rr>APP_REV){
         if(guiding() || document.querySelector('.ov') || document.getElementById('appModalOv')?.style.display==='flex'){
-          ghStatus('Update to REV '+rr+' ready — will apply when you finish editing.', true);
+          ghStatus('Update to REV '+rr+' ready \u2014 will apply when you finish editing.', true);
         }else{
+          /* GUARD AGAINST A RELOAD LOOP: GitHub Pages' CDN can keep serving the old
+             cached HTML for a minute after a push. Without this, every reload lands
+             back on the old rev, the updater sees the new rev again, and it reloads
+             forever (screen flashes, nothing happens). So: only reload once per target
+             rev. If we already tried rr and came back still older, the CDN hasn't caught
+             up \u2014 wait it out and tell the user, instead of looping. */
+          let tried=0;
+          try{ tried=parseInt(localStorage.getItem('qs_pending_rev')||'0',10)||0; }catch(e){}
+          let tries=0;
+          try{ tries=parseInt(localStorage.getItem('qs_pending_tries')||'0',10)||0; }catch(e){}
+          if(tried===rr && tries>=1){
+            /* we already reloaded for this rev and it didn't take yet */
+            ghStatus('REV '+rr+' is published \u2014 GitHub is still serving the cached copy. '
+              +'It will update automatically within a minute, or use Pull Code & Data.', true);
+            appChkBusy=false;
+            return;
+          }
           ghStatus('Updating to REV '+rr+'\u2026', true);
-          /* NOTE: the old in-place document.write() swap is fatal here \u2014 the new code
-             re-declares const APPDATA / const $, and the SyntaxError surfaces during parse
-             (after write() has already returned), so it cannot be caught. Reload instead:
-             it is a hair slower but always lands, and localStorage/token survive it. */
-          try{ localStorage.setItem('qs_pending_rev', String(rr)); }catch(e){}
+          try{
+            localStorage.setItem('qs_pending_rev', String(rr));
+            localStorage.setItem('qs_pending_tries', String(tried===rr ? tries+1 : 1));
+          }catch(e){}
           location.replace(location.pathname + '?v=' + Date.now());
           return;
         }
+      }else if(rr!=null && rr<=APP_REV){
+        /* we are current \u2014 clear any pending-reload bookkeeping */
+        try{ localStorage.removeItem('qs_pending_rev'); localStorage.removeItem('qs_pending_tries'); }catch(e){}
       }
     }
   }catch(e){}

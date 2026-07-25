@@ -1252,6 +1252,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:47, date:"2026-07-25", note:"FIXED: the manual Pull Code & Data button did nothing when newer code existed \u2014 the Rev 44 loop-guard was refusing its reload too. The button now bypasses the guard entirely (a human click means reload now), fetches the remote rev directly, clears the guard bookkeeping, and hard-reloads with a fresh cache-buster. The auto-updater keeps its once-per-rev guard; only the manual button overrides it."},
   {rev:46, date:"2026-07-25", note:"Handoff prompt now tells the new chat to fetch the latest code itself from the public raw URL (no upload needed) and includes your GitHub token so it can push right away. The token is read from this browser\u2019s saved settings only \u2014 it is never written into the app file on GitHub. A warning notes the copied text is sensitive."},
   {rev:45, date:"2026-07-25", note:"New Admin section New Chat Handoff \u2014 a copy button giving a ready-made prompt to paste into a fresh Claude chat, so it starts knowing the repos, the push mechanism, the hard-won rules and the current rev. The token is never stored; the prompt tells the new chat to ask for it."},
   {rev:44, date:"2026-07-25", note:"FIXED a reload loop: when GitHub Pages\u2019 CDN kept serving the old cached copy after a push, the auto-updater reloaded over and over (screen flashed, clicks did nothing). It now reloads only once per target rev; if the cached copy is still stale it waits and shows a message instead of looping."},
@@ -1299,9 +1300,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 46;
+const APP_REV = 47;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "16:20";           /* increments every build — check both machines match */
+const BUILD_TIME = "16:40";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -3236,11 +3237,26 @@ $('menuPullAll') && $('menuPullAll').addEventListener('click', async ()=>{
   b.disabled=true;
   try{
     say('checking for newer app code\u2026');
-    /* if a newer rev exists this reloads the page and never returns */
-    await checkAppUpdate(true);
+    /* MANUAL pull bypasses the auto-updater's loop-guard entirely: a human click means
+       "reload now, no matter what the guard remembers." Fetch the code directly and, if
+       it is newer than what is running, hard-reload with a fresh cache-buster. */
+    let newer=false, rr=null;
+    try{
+      const code=await fetchAppCode();
+      rr=code? parseRemoteRev(code) : null;
+      newer = (rr!=null && rr>APP_REV);
+    }catch(e){}
+    if(newer){
+      say('new code found (REV '+rr+') \u2014 reloading\u2026');
+      try{ localStorage.removeItem('qs_pending_rev'); localStorage.removeItem('qs_pending_tries'); }catch(e){}
+      /* cache-bust hard: unique param + reload(true)-style replace */
+      location.replace(location.pathname + '?v=' + Date.now() + '_' + Math.random().toString(36).slice(2));
+      return; /* page is going away */
+    }
     say('pulling quotes and tables\u2026');
     await ghPull(true);
-    say('up to date \u2014 code and data pulled just now.');
+    say(rr!=null ? ('up to date \u2014 on REV '+APP_REV+', data pulled just now.')
+                 : ('data pulled \u2014 could not read remote code rev.'));
   }catch(e){
     say('pull failed: '+((e&&e.message)||e));
   }

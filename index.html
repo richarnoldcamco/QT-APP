@@ -154,7 +154,7 @@
   .ac-none{padding:5px 9px; font-size:11.5px; color:#777; font-style:italic}
 
   /* ===== operations grid ===== */
-  .opgrid{border-collapse:collapse; font-size:11px; table-layout:fixed; margin:0 8px; width:1883px; max-width:none}
+  .opgrid{border-collapse:collapse; font-size:11px; table-layout:fixed; margin:0 8px; width:1320px; max-width:none}
   .opgrid th{
     background:#fff; border:1px solid var(--grid);
     font-weight:700; font-size:10px; line-height:1.05; color:#000;
@@ -261,7 +261,7 @@
   .ops-scroll{overflow-x:auto; min-width:0; flex:0 0 auto}
   /* Drawing mode: collapse the 14 detail columns to zero width (CP hide-bands technique —
      cells stay present so colspan math and totals alignment are preserved) */
-  .opgrid.show-drawing{width:1041px}
+  .opgrid.show-drawing{width:744px}
   .opgrid.show-drawing col.dcol{width:0 !important}
   .opgrid.show-drawing tr:not(.foot)>td:nth-child(n+18):nth-child(-n+31),
   .opgrid.show-drawing thead th:nth-child(n+18):nth-child(-n+31){
@@ -445,7 +445,8 @@
     pointer-events:none; display:none; z-index:6;
   }
   .dz-toolbar .mini.on{outline:2px solid var(--cp-signal); outline-offset:-1px}
-  .thumbwrap{flex:0 0 200px; margin:2px 8px 8px 0; display:flex; flex-direction:column; gap:8px; font-family:var(--ui)}
+  /* grows into whatever the grid gives back, so the print gets the freed width */
+  .thumbwrap{flex:1 1 200px; min-width:200px; margin:2px 8px 8px 0; display:flex; flex-direction:column; gap:8px; font-family:var(--ui)}
   .thumb-card{
     background:var(--cp-panel); border:1px solid var(--cp-line); border-radius:8px;
     padding:4px; cursor:pointer; box-shadow:var(--cp-shadow);
@@ -938,7 +939,7 @@
   <div class="ops-flex">
    <div class="ops-scroll">
     <table class="opgrid" id="opSheet">
-      <colgroup><col style="width:74px"><col style="width:150px"><col style="width:70px"><col style="width:30px"><col style="width:30px"><col style="width:42px"><col style="width:63px"><col style="width:63px"><col style="width:63px"><col style="width:44px"><col style="width:44px"><col style="width:44px"><col style="width:58px"><col style="width:46px"><col style="width:38px"><col style="width:50px"><col class="dcol" style="width:48px"><col class="d2col" style="width:78px"><col class="dcol" style="width:78px"><col class="dcol" style="width:44px"><col class="dcol" style="width:43px"><col class="dcol" style="width:43px"><col class="dcol" style="width:43px"><col class="dcol" style="width:43px"><col class="dcol" style="width:43px"><col class="dcol" style="width:43px"><col class="dcol" style="width:48px"><col class="dcol" style="width:44px"><col class="dcol" style="width:43px"><col class="dcol" style="width:44px"><col class="dcol" style="width:51px"><col style="width:82px"><col class="d2col" style="width:82px"><col class="d2col" style="width:74px"></colgroup>
+      <colgroup><col style="width:52px"><col style="width:105px"><col style="width:49px"><col style="width:21px"><col style="width:21px"><col style="width:29px"><col style="width:44px"><col style="width:44px"><col style="width:44px"><col style="width:31px"><col style="width:31px"><col style="width:31px"><col style="width:41px"><col style="width:32px"><col style="width:27px"><col style="width:35px"><col class="dcol" style="width:34px"><col class="d2col" style="width:55px"><col class="dcol" style="width:55px"><col class="dcol" style="width:31px"><col class="dcol" style="width:30px"><col class="dcol" style="width:30px"><col class="dcol" style="width:30px"><col class="dcol" style="width:30px"><col class="dcol" style="width:30px"><col class="dcol" style="width:30px"><col class="dcol" style="width:34px"><col class="dcol" style="width:31px"><col class="dcol" style="width:30px"><col class="dcol" style="width:31px"><col class="dcol" style="width:36px"><col style="width:57px"><col class="d2col" style="width:57px"><col class="d2col" style="width:52px"></colgroup>
       <thead id="opHead"></thead>
       <tbody id="opsBody"></tbody>
     </table>
@@ -1271,6 +1272,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:56, date:"2026-07-25", note:"Calculation grid compressed horizontally to 70% \u2014 every column width scaled, table down from 1883px to 1318px, drawing-mode width down from 1041px to 729px. The thumbnail pane no longer sits at a fixed 200px; it grows into the width the grid gives back, so the print renders larger beside the grid. Font size left at 11px \u2014 this is a horizontal squeeze only."},
   {rev:55, date:"2026-07-25", note:"Customer default-material auto-fill actually works now. It never had: the guard meant to protect a material you picked yourself tested whether the MATERIAL box was empty, and a dropdown is never empty, so the auto-fill bailed out every time. It now tracks whether you changed the material yourself. A fresh New Quote will take the customer default; a saved quote never gets overwritten. NOTE: it still needs a Default Material filled in per customer under Admin > Customer-Facing Terms \u2014 that column is blank for every customer today."},
   {rev:54, date:"2026-07-25", note:"The drawing is no longer ghosted during the header walk. The intake lockout was dimming the whole ops row, which included the drawing pane \u2014 now it dims the calculation grid only. The print stays full brightness and fully usable (zoom, fit, clarify, highlighter) the entire time you are filling the header off it."},
   {rev:53, date:"2026-07-25", note:"The print is now a hard mandatory first step on a New Quote \u2014 step 1 of 25, before the customer name. The sheet stays locked until a drawing page is on the quote, with UPLOAD DRAWING the only live control; as soon as a print lands the field walk starts by itself. Also deleted the unlabeled blue box in the top right of the header \u2014 it showed the admin setup rate divided by 25.4 and 1.15, had no label and fed no calculation."},
@@ -1327,9 +1329,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 55;
+const APP_REV = 56;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "20:02";           /* increments every build — check both machines match */
+const BUILD_TIME = "20:28";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */

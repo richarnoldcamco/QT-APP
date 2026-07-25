@@ -1210,6 +1210,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:34, date:"2026-07-25", note:"FIXED: the toolbar NEW QUOTE button appeared to do nothing when clicked from the Prior Quotes screen \u2014 it created the quote but never switched back to the quote sheet, so you stayed on the list. It now opens the new quote like the menu tile does."},
   {rev:33, date:"2026-07-24", note:"Customer quotation always shows a \u201cYour RFQ / Quote #\u201d line \u2014 an em-dash when none was entered, rather than the row vanishing \u2014 and pairs it with a Valid Through date. Quote # relabelled \u201cOur Quote #\u201d so the two reference numbers cannot be confused."},
   {rev:32, date:"2026-07-24", note:"Customer quotation form now carries the real Camco details \u2014 address, phone, fax, website, Cage Code and DUNS in the header; Richard Arnold\u2019s contact line under the signature; and an AS9100D / ISO 9001 / ISO 17025 certification block at the foot. Replaces the placeholder text."},
   {rev:31, date:"2026-07-24", note:"Buyer RFQ emails and supplier material quotes now live in their OWN collection, separate from drawings. The drawing pane holds prints only; RFQ and material-quote images open in a dedicated viewer from their existing buttons, with next/back and delete. Existing quotes migrate automatically on open \u2014 any page named RFQ\u2026 or MATERIAL QUOTE\u2026 moves out of the drawing pages. All of them still attach to the email."},
@@ -1244,9 +1245,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 33;
-const BUILD_DATE = "2026-07-24";
-const BUILD_TIME = "05:35";           /* increments every build — check both machines match */
+const APP_REV = 34;
+const BUILD_DATE = "2026-07-25";
+const BUILD_TIME = "12:30";           /* increments every build — check both machines match */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */
@@ -3173,7 +3174,7 @@ function startNewQuote(){
   if(window.__fitPage) setTimeout(window.__fitPage, 0);
   suspendAutosave=false;
 }
-$('newQuote').addEventListener('click', ()=>{ startNewQuote(); updateOddBtn(); startGuide(); });
+$('newQuote').addEventListener('click', ()=>{ startNewQuote(); switchView('quote'); updateOddBtn(); setTimeout(startGuide, 100); });
 $('menuNew').addEventListener('click', ()=>{ startNewQuote(); switchView('quote'); updateOddBtn(); setTimeout(startGuide, 100); });
 $('menuPullAll') && $('menuPullAll').addEventListener('click', async ()=>{
   const b=$('menuPullAll'); if(!b || b.disabled) return;

@@ -1248,6 +1248,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:39, date:"2026-07-25", note:"COST/LB readout moved left into the material row (right after the material cost) instead of sitting far out on the right. Removed the stray yellow \u201c30\u201d Requested-Leadtime box from the Salesman-Premium row \u2014 it was never used in any calculation; kept as a hidden holder so the RFQ auto-fill doesn\u2019t error."},
   {rev:38, date:"2026-07-25", note:"The whole totals block on the quote sheet (Price, Material Cost Premium, Salesman Premium, Leadtime Premium, FAI, Total Price) is now smaller and tighter \u2014 completing what Rev 20 only did for the one colliding label."},
   {rev:37, date:"2026-07-25", note:"The drawing toolbar \u26f6 button is now Maximize/Restore \u2014 it hides the ops grid and fills the screen width and full window height with the drawing, then restores the split view. Replaces the old \u201copen in new tab\u201d behaviour."},
   {rev:36, date:"2026-07-25", note:"Drawing toolbar (page nav, darken, lighten, clarify, crop, highlighter, weight, undo, save, full tab) now stays on a single line with tighter spacing instead of wrapping to two rows. If a window is ever too narrow to fit, it scrolls sideways rather than stacking."},
@@ -1287,9 +1288,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 38;
+const APP_REV = 39;
 const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "14:05";           /* increments every build — check both machines match */
+const BUILD_TIME = "14:30";           /* increments every build — check both machines match */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */
@@ -1568,10 +1569,11 @@ function renderOps(){
         <td class="desc"><input value="${row.desc}" disabled></td>
         ${ovrCells}
         ${calc(m2(cost))}
-        ${blk.repeat(3)}
+        <td class="calc" style="white-space:nowrap;text-align:right">${row.locked==='mat'?('COST/LB $'+r.costLb.toFixed(2)):''}</td>
+        ${blk.repeat(2)}
         ${blk.repeat(11)}
         ${calc(m2(cost))}
-        <td class="calc" style="white-space:nowrap">${row.locked==='mat'?('cost/lb $'+r.costLb.toFixed(2)):''}</td>
+        <td class="calc"></td>
         <td class="lead">${d.lead||''}</td>
       </tr>`;
     }
@@ -1616,7 +1618,7 @@ function renderOps(){
   + `
   <tr class="foot"><td class="void" colspan="31"></td><td class="calc bold" id="tPrice"></td><td class="flbl">Price</td><td class="lead bold" id="leadEst"></td></tr>
   <tr class="foot"><td class="void" colspan="31"></td><td class="calc" id="tMatlPrem"></td><td class="flbl">Material Cost Premium</td><td class="void"></td></tr>
-  <tr class="foot"><td class="void" colspan="31"></td><td class="calc" id="tSalesPrem"></td><td class="flbl">Salesman Premium</td><td class="yellow" style="text-align:center"><input id="reqLead" type="number" value="30" title="REQUESTED LEADTIME"></td></tr>
+  <tr class="foot"><td class="void" colspan="31"></td><td class="calc" id="tSalesPrem"></td><td class="flbl">Salesman Premium</td><td class="void"><input id="reqLead" type="hidden" value=""></td></tr>
   <tr class="foot"><td class="void" colspan="31"></td><td class="calc" id="tLeadPrem"></td><td class="flbl">Leadtime Premium</td><td class="void flbl-sm">REQUESTED LEADTIME</td></tr>
   <tr class="foot"><td class="void" colspan="31"></td><td class="redc" id="tFai"></td><td class="flbl">FAI</td><td class="void"></td></tr>
   <tr class="foot trow"><td class="void" colspan="31"></td><td class="calc bold" id="totalPerPc"></td><td class="flbl big">TOTAL PRICE</td><td class="void"></td></tr>`;

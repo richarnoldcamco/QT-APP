@@ -1278,6 +1278,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:66, date:"2026-07-26", note:"Auto-update now actually lands without Ctrl+Shift+R. The updater read new code from the GitHub API (always fresh) but then reloaded the page from GitHub Pages, whose CDN serves cached HTML for about ten minutes after a push \u2014 so the reload came back on the old rev, and the anti-loop guard then gave up after one try, leaving a message only visible on the Admin screen. It now force-revalidates the page URL first and reloads only once the fresh copy really carries the new rev, retrying quietly each cycle until the CDN catches up. Verifying before reloading also makes a reload loop impossible. Checks every 20s instead of 60s, and shows a corner toast so an update in progress is visible from anywhere in the app."},
   {rev:65, date:"2026-07-26", note:"Drawing pane halved and the calculation grid takes the freed width. The pane had no cap and the flex row it sits in had no width, so the pane sized itself to the full drawing bitmap and ran off the right edge \u2014 the row is now width:100%, the pane is capped at half of it, and the viewport is clamped with !important so it cannot beat that cap with its inline style. Grid in drawing mode goes from 744px to 1050px, which also gives the squeezed column headers more room. Maximize is exempt from the cap."},
   {rev:64, date:"2026-07-26", note:"Reverted revs 57-63. The drawing pane and its sizing are back to exactly the rev 56 state, before any of the split-layout and fit-timing work. Shipped as rev 64 because the auto-updater never downgrades. Everything revs 48-56 changed is intact: the totals double rule, the weight and colour fixes, the split cost columns, the S/U column move, the mandatory print gate, the un-ghosted drawing, the material auto-fill and the 70 percent grid compression."},
   {rev:56, date:"2026-07-25", note:"Calculation grid compressed horizontally to 70% \u2014 every column width scaled, table down from 1883px to 1318px, drawing-mode width down from 1041px to 729px. The thumbnail pane no longer sits at a fixed 200px; it grows into the width the grid gives back, so the print renders larger beside the grid. Font size left at 11px \u2014 this is a horizontal squeeze only."},
@@ -1337,9 +1338,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 65;
+const APP_REV = 66;
 const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "16:05";           /* increments every build — check both machines match */
+const BUILD_TIME = "16:38";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -5214,6 +5215,24 @@ if(ghEnabled()){ ghStatus('Connecting to GitHub…', true); ghPull(false); }
 /* ===== APP AUTO-UPDATE (CP pattern): the data repo holds quote_app.html; every device
    checks its APP_REV and applies newer code in place. Never-downgrade guard on pushes. ===== */
 const APP_CODE_PATH='quote_app.html';
+/* the old status line only showed on the Admin screen, so an update in progress was
+   invisible from the quote sheet. This corner toast is visible everywhere. */
+let _toastEl=null, _toastMsg='';
+function updateToast(msg){
+  if(msg===_toastMsg && _toastEl) return;
+  _toastMsg=msg;
+  if(!_toastEl){
+    _toastEl=document.createElement('div');
+    _toastEl.style.cssText='position:fixed;right:14px;bottom:14px;z-index:99999;'
+      +'background:#1f1c19;color:#fff;font:700 12px/1.4 system-ui,sans-serif;'
+      +'padding:9px 14px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.35);'
+      +'letter-spacing:.02em;pointer-events:none;opacity:.96';
+    document.body.appendChild(_toastEl);
+  }
+  _toastEl.textContent=msg;
+  clearTimeout(_toastEl._t);
+  _toastEl._t=setTimeout(()=>{ if(_toastEl){ _toastEl.remove(); _toastEl=null; _toastMsg=''; } }, 6000);
+}
 let appChkBusy=false, lastAppChk=0;
 function parseRemoteRev(text){
   const m=String(text).match(/const APP_REV = (\d+);/);
@@ -5232,7 +5251,7 @@ function autoSyncEnabled(){ return localStorage.getItem('qs_autosync_off')!=='1'
 async function checkAppUpdate(force){
   if(!ghEnabled() || !appSyncEnabled()) return;
   if(appChkBusy) return;
-  if(!force && Date.now()-lastAppChk<60000) return;
+  if(!force && Date.now()-lastAppChk<20000) return;   /* was 60s */
   appChkBusy=true; lastAppChk=Date.now();
   try{
     const code=await fetchAppCode();
@@ -5248,24 +5267,29 @@ async function checkAppUpdate(force){
              forever (screen flashes, nothing happens). So: only reload once per target
              rev. If we already tried rr and came back still older, the CDN hasn't caught
              up \u2014 wait it out and tell the user, instead of looping. */
-          let tried=0;
-          try{ tried=parseInt(localStorage.getItem('qs_pending_rev')||'0',10)||0; }catch(e){}
-          let tries=0;
-          try{ tries=parseInt(localStorage.getItem('qs_pending_tries')||'0',10)||0; }catch(e){}
-          if(tried===rr && tries>=1){
-            /* we already reloaded for this rev and it didn't take yet */
-            ghStatus('REV '+rr+' is published \u2014 GitHub is still serving the cached copy. '
-              +'It will update automatically within a minute, or use Pull Code & Data.', true);
-            appChkBusy=false;
+          /* The new code was read from the GitHub API, which is always fresh. The page
+             itself comes from GitHub Pages, whose CDN serves cached HTML for about ten
+             minutes after a push \u2014 so reloading immediately just lands back on the old
+             rev. That is why a hard refresh was needed. Instead: force-revalidate the
+             page URL first (cache:'reload' bypasses the HTTP cache AND updates it), and
+             only reload once the fresh copy really carries the new rev. Verifying first
+             means we can never reload-loop, so no give-up state is needed. */
+          const bustUrl = location.pathname + '?v=' + Date.now();
+          let pagesRev = null;
+          try{
+            const pr = await fetch(bustUrl, {cache:'reload'});
+            if(pr.ok) pagesRev = parseRemoteRev(await pr.text());
+          }catch(e){}
+          if(pagesRev!=null && pagesRev>=rr){
+            ghStatus('Updating to REV '+rr+'\u2026', true);
+            updateToast('Updating to REV '+rr+'\u2026');
+            setTimeout(()=>location.replace(bustUrl), 400);
             return;
           }
-          ghStatus('Updating to REV '+rr+'\u2026', true);
-          try{
-            localStorage.setItem('qs_pending_rev', String(rr));
-            localStorage.setItem('qs_pending_tries', String(tried===rr ? tries+1 : 1));
-          }catch(e){}
-          location.replace(location.pathname + '?v=' + Date.now());
-          return;
+          /* published but the CDN has not caught up \u2014 say so and try again next cycle */
+          updateToast('REV '+rr+' ready \u2014 waiting on GitHub\u2019s cache\u2026');
+          ghStatus('REV '+rr+' is published; GitHub is still serving the cached page. '
+            +'This will update itself shortly.', true);
         }
       }else if(rr!=null && rr<=APP_REV){
         /* we are current \u2014 clear any pending-reload bookkeeping */
@@ -5278,7 +5302,7 @@ async function checkAppUpdate(force){
 window.checkAppUpdate=checkAppUpdate;
 document.addEventListener('click', e=>{ if(e.target.closest && e.target.closest('[data-sec="handoff"]')) setTimeout(wireHandoffCopy, 60); });
 document.addEventListener('click', ()=>checkAppUpdate(false), true);
-setInterval(()=>checkAppUpdate(false), 60000);
+setInterval(()=>checkAppUpdate(false), 20000);   /* was 60s */
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) checkAppUpdate(false); });
 setTimeout(()=>checkAppUpdate(true), 4000);
 

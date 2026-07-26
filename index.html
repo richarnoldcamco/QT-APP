@@ -465,7 +465,12 @@
   .dz-stage img{position:absolute; inset:0; width:100%; height:100%; display:block; background:#fff; pointer-events:none}
   .dz-stage canvas{position:absolute; inset:0; width:100%; height:100%}
   #dzAnno{mix-blend-mode:multiply}   /* live highlighter spares the text, tints only the paper */
-  .dz-meta{margin-left:auto; font-size:10.5px; color:var(--cp-faint); white-space:nowrap}
+  /* flex-basis 0 + min-width 0 so this caption contributes NOTHING to the toolbar's
+     intrinsic width. Every darken/lighten pass re-encodes the JPEG and changes the KB
+     figure, which changed this text's width, which nudged the pane width and made the
+     drawing creep left on each click. */
+  .dz-meta{margin-left:auto; flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis;
+    text-align:right; font-size:10.5px; color:var(--cp-faint); white-space:nowrap}
   .drawzone.hasimg{border-color:transparent; padding:2px; background:transparent}
   .dz-loupe{
     position:absolute; width:600px; height:600px; border-radius:50%;
@@ -1306,6 +1311,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:75, date:"2026-07-26", note:"The drawing no longer creeps to the left each time Darken or Lighten is clicked. Each pass re-encodes the image, so the KB figure in the toolbar caption changes; that caption was nowrap and fed into the toolbar's intrinsic width, so the pane resized by a few pixels every click and the print shifted. The caption now has a zero flex basis and clips instead, so it contributes nothing to the layout width."},
   {rev:74, date:"2026-07-26", note:"The intake field panel now appears at step 1, the print upload, instead of only after a drawing has landed \u2014 which was backwards, since the upload zone is exactly where the extra height is wanted. Rev 73 built the panel too late to be seen."},
   {rev:73, date:"2026-07-26", note:"Header rebuild, step 1. During the guided intake the 25 visible header fields are moved out of the header table into a compact two-column panel on the left, freeing the full window height for the drawing. The inputs are MOVED rather than copied, so ids, values, event listeners and the customer/part/buyer autocomplete menus all survive, and every one is returned to its original cell when the intake finishes or is cancelled. Panel order follows TAB_ORDER so tabbing runs straight down it. The six hidden admin fields stay in the header table where the calculations read them."},
   {rev:72, date:"2026-07-26", note:"A new quote now stays in DRAWING view for the whole intake instead of jumping to the grid once the print lands. The calculation columns stay collapsed and the print stays large while the 24 header fields are filled off it, and the full grid comes back by itself the moment the header is complete \u2014 just before the odd-features checklist opens."},
@@ -1374,9 +1380,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 74;
+const APP_REV = 75;
 const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "19:36";           /* increments every build — check both machines match */
+const BUILD_TIME = "20:01";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */

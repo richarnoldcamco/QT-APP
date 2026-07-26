@@ -251,7 +251,9 @@
   .modebtn{font-family:var(--ui); font-size:12px; font-weight:700; padding:5px 15px; border-radius:8px; border:1px solid var(--cp-line); border-top-color:#fff; background:linear-gradient(180deg,#fff,#f0ede8); color:var(--cp-dim); letter-spacing:0}
   .modebtn.on{background:linear-gradient(180deg,#8a1c1c,var(--cp-signal) 55%,var(--cp-signal-dark)); color:#fff; border-color:#4a0d0d; border-top-color:#b54a4a}
   [hidden]{display:none !important}
-  .ops-flex{display:flex; align-items:flex-start; gap:10px}
+  /* width:100% matters — without it this row is content-sized, so .drawwrap sized itself
+     to the full drawing bitmap and ran off the right edge instead of fitting the window. */
+  .ops-flex{display:flex; align-items:flex-start; gap:10px; width:100%}
   /* drawing maximized: pin right, hide the ops grid, use full window height */
   body.draw-max .ops-scroll,
   body.draw-max .mini-totals,
@@ -261,7 +263,7 @@
   .ops-scroll{overflow-x:auto; min-width:0; flex:0 0 auto}
   /* Drawing mode: collapse the 14 detail columns to zero width (CP hide-bands technique —
      cells stay present so colspan math and totals alignment are preserved) */
-  .opgrid.show-drawing{width:744px}
+  .opgrid.show-drawing{width:1050px}
   .opgrid.show-drawing col.dcol{width:0 !important}
   .opgrid.show-drawing tr:not(.foot)>td:nth-child(n+18):nth-child(-n+31),
   .opgrid.show-drawing thead th:nth-child(n+18):nth-child(-n+31){
@@ -402,7 +404,11 @@
   .saved .q.active{background:#f3e7e7; border-left:3px solid var(--xlgreen)}
 
   /* ===== drawing paste zone (CP upload-zone style) ===== */
-  .drawwrap{flex:1 1 auto; min-width:0; width:auto; margin:0 8px 8px 0; font-family:var(--ui)}
+  .drawwrap{flex:1 1 auto; min-width:0; width:auto; max-width:50%; margin:0 8px 8px 0; font-family:var(--ui)}
+  /* sizeViewport() writes an inline max-width here from the image aspect ratio;
+     only !important outranks an inline style. */
+  .drawwrap .dz-viewport{max-width:100% !important}
+  body.draw-max .drawwrap{max-width:none}
   .drawwrap h3{font-size:12px; margin:0 0 4px; text-transform:uppercase; letter-spacing:.03em}
   .drawzone{
     border:2px dashed var(--cp-line-strong); border-radius:var(--r);
@@ -1272,6 +1278,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:65, date:"2026-07-26", note:"Drawing pane halved and the calculation grid takes the freed width. The pane had no cap and the flex row it sits in had no width, so the pane sized itself to the full drawing bitmap and ran off the right edge \u2014 the row is now width:100%, the pane is capped at half of it, and the viewport is clamped with !important so it cannot beat that cap with its inline style. Grid in drawing mode goes from 744px to 1050px, which also gives the squeezed column headers more room. Maximize is exempt from the cap."},
   {rev:64, date:"2026-07-26", note:"Reverted revs 57-63. The drawing pane and its sizing are back to exactly the rev 56 state, before any of the split-layout and fit-timing work. Shipped as rev 64 because the auto-updater never downgrades. Everything revs 48-56 changed is intact: the totals double rule, the weight and colour fixes, the split cost columns, the S/U column move, the mandatory print gate, the un-ghosted drawing, the material auto-fill and the 70 percent grid compression."},
   {rev:56, date:"2026-07-25", note:"Calculation grid compressed horizontally to 70% \u2014 every column width scaled, table down from 1883px to 1318px, drawing-mode width down from 1041px to 729px. The thumbnail pane no longer sits at a fixed 200px; it grows into the width the grid gives back, so the print renders larger beside the grid. Font size left at 11px \u2014 this is a horizontal squeeze only."},
   {rev:55, date:"2026-07-25", note:"Customer default-material auto-fill actually works now. It never had: the guard meant to protect a material you picked yourself tested whether the MATERIAL box was empty, and a dropdown is never empty, so the auto-fill bailed out every time. It now tracks whether you changed the material yourself. A fresh New Quote will take the customer default; a saved quote never gets overwritten. NOTE: it still needs a Default Material filled in per customer under Admin > Customer-Facing Terms \u2014 that column is blank for every customer today."},
@@ -1330,9 +1337,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 64;
+const APP_REV = 65;
 const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "15:44";           /* increments every build — check both machines match */
+const BUILD_TIME = "16:05";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */

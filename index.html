@@ -1318,6 +1318,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:80, date:"2026-07-26", note:"Email attachments: pages kept as PDFs were being dropped without a word. The attachment builder matched data:image/* only, so a print that came in as a PDF never made it into the .eml. It now accepts any data URL and names the file with the right extension. Pages whose bytes are not in memory are pulled from GitHub before the draft is built, and a toast reports how many attachments went in and how many pages could not be read, so a missing attachment is obvious before the mail is sent rather than after."},
   {rev:79, date:"2026-07-26", note:"Added a Save button to the top bar, left of Add Op Row. The quote already autosaves as you type, so this forces the save and the GitHub push straight away instead of waiting for the sync timer, and reports plainly what happened \u2014 pushed to GitHub, saved locally with sync off, or saved locally with the push failed and queued for retry."},
   {rev:78, date:"2026-07-26", note:"The old header table no longer shows above the intake panel. It was hidden with an inline display:none, and the header-minimize logic rewrites that inline style during load, so the now-empty table reappeared under the field panel. Hiding is now driven by a body class and a CSS rule, which that logic cannot overwrite."},
   {rev:77, date:"2026-07-26", note:"Darken, Lighten and Clarify finally leave the drawing where it is. Rev 76 pinned the image transform, which was only half of it \u2014 the viewport box around the image was still being re-measured and resized a few pixels on each pass, so the whole box shifted and took the print with it. The pin now also freezes the viewport sizing, and the ResizeObserver stands down while a pass is running."},
@@ -1391,9 +1392,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 79;
+const APP_REV = 80;
 const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "21:33";           /* increments every build — check both machines match */
+const BUILD_TIME = "22:04";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -4816,6 +4817,10 @@ async function emailQuote(){
   w.document.write(doc); w.document.close();
   /* Outlook draft with the quote ALREADY ATTACHED: an .eml with X-Unsent:1 opens in
      Outlook as an unsent draft — subject + body prefilled, file attached. */
+  /* pull down any page whose bytes are not in memory yet, or it attaches nothing */
+  for(const pg of drawPages.concat(docPages)){
+    if(!pg.data && ghEnabled()){ try{ await ghFetchDrawingRef(pg.ref); }catch(e){} }
+  }
   let custDoc=''; try{ custDoc=buildCustomerQuote(qno, r); }catch(e){ console.warn('cust quote', e); }
   try{ downloadQuoteEml(qno, subject, bodyLines, doc, drawPages.concat(docPages), custDoc); }catch(e){ console.warn('eml build', e); }
 }
@@ -4891,6 +4896,7 @@ function downloadQuoteEml(qno, subject, bodyText, docHtml, pages, custHtml){
      inline drawing. Outlook's compose editor silently dropped EVERY attachment.
      This is the flat multipart/mixed layout from Rev 15 that demonstrably worked:
      plain body first, then one attachment part per file. Do not nest this again. */
+  const skipped=[];
   const attach=docHtml.replace(/<div class="bar">[\s\S]*?<\/div>/, '');
   const attB64=b64Wrap(b64e(attach));
   const bodyB64=b64Wrap(b64e(String(bodyText).replace(/\n/g,'\r\n')));
@@ -4912,9 +4918,12 @@ function downloadQuoteEml(qno, subject, bodyText, docHtml, pages, custHtml){
   /* every drawing page as its own attachment */
   (pages||[]).forEach((pg,i)=>{
     if(!pg || !pg.data) return;
-    const mm=/^data:(image\/[a-z+]+);base64,(.*)$/i.exec(pg.data);
-    if(!mm) return;
-    const ext=(mm[1].split('/')[1]||'png').replace('jpeg','jpg');
+    /* accept ANY data URL. This used to match image/* only, so a page kept as a PDF was
+       silently dropped and the email went out with no print attached. */
+    const mm=/^data:([a-z]+\/[a-z0-9.+-]+);base64,(.*)$/i.exec(pg.data);
+    if(!mm){ skipped.push(pg.name||'page '+(i+1)); return; }
+    let ext=(mm[1].split('/')[1]||'bin').replace('jpeg','jpg');
+    if(mm[1]==='application/pdf') ext='pdf';
     /* name each attachment for what it actually is: the supplier material quote and the
        buyer RFQ are stored as drawing pages too, so a generic "Drawing-N" misleads. */
     const raw=String(pg.name||'');
@@ -4949,6 +4958,13 @@ function downloadQuoteEml(qno, subject, bodyText, docHtml, pages, custHtml){
          '',
          '--'+BND+'--',
          '');
+  /* tell the user exactly what went in, so a missing attachment is obvious immediately
+     instead of being discovered after the mail is sent */
+  const nAtt=(P.join('\r\n').match(/Content-Disposition: attachment/g)||[]).length;
+  if(window.updateToast){
+    updateToast('Outlook draft ready \u2014 '+nAtt+' attachment'+(nAtt===1?'':'s')
+      +(skipped.length?(' \u00b7 '+skipped.length+' page(s) could not be read'):''));
+  }
   const blob=new Blob([P.join('\r\n')],{type:'message/rfc822'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);

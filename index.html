@@ -1306,6 +1306,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:74, date:"2026-07-26", note:"The intake field panel now appears at step 1, the print upload, instead of only after a drawing has landed \u2014 which was backwards, since the upload zone is exactly where the extra height is wanted. Rev 73 built the panel too late to be seen."},
   {rev:73, date:"2026-07-26", note:"Header rebuild, step 1. During the guided intake the 25 visible header fields are moved out of the header table into a compact two-column panel on the left, freeing the full window height for the drawing. The inputs are MOVED rather than copied, so ids, values, event listeners and the customer/part/buyer autocomplete menus all survive, and every one is returned to its original cell when the intake finishes or is cancelled. Panel order follows TAB_ORDER so tabbing runs straight down it. The six hidden admin fields stay in the header table where the calculations read them."},
   {rev:72, date:"2026-07-26", note:"A new quote now stays in DRAWING view for the whole intake instead of jumping to the grid once the print lands. The calculation columns stay collapsed and the print stays large while the 24 header fields are filled off it, and the full grid comes back by itself the moment the header is complete \u2014 just before the odd-features checklist opens."},
   {rev:71, date:"2026-07-26", note:"THE oversized drawing is fixed, and it was never the drawing-view pane. In CALCULATIONS view the print shows in the thumbnail pane, and rev 56 changed that pane from a fixed 200px to flex:1 1 200px so it would grow into space freed by the grid compression \u2014 it grew into all the remaining width, and since the thumbnail image is width:100% the print rendered enormous. Pane is now a fixed 420px, roughly double the original for readability but no longer greedy. Diagnostic removed."},
@@ -1373,9 +1374,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 73;
+const APP_REV = 74;
 const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "19:14";           /* increments every build — check both machines match */
+const BUILD_TIME = "19:36";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -4208,6 +4209,7 @@ function startPrintGate(){
   document.body.classList.add('guiding','await-print');
   intakeBanner().textContent='📐 New quote — step 1 of '+(GUIDE_ORDER.length+1)+': upload the print. The header fields stay locked until a drawing is on this quote.';
   try{ setOpsMode('draw'); }catch(e){}
+  buildIntakePanel();   /* step 1 is where the upload zone most needs the height */
   const md=$('modeDraw'); if(md) md.focus();
 }
 function clearPrintGate(){
@@ -4219,8 +4221,8 @@ function printArrived(){
   if(!printGate) return;
   clearPrintGate();
   guideIdx=0;
-  /* stay in DRAWING view through the header walk, with the header fields moved into the
-     side panel so the print gets the full height */
+  /* stay in DRAWING view through the header walk; the panel is already up from the
+     print gate, and buildIntakePanel() is a no-op if it exists */
   try{ setOpsMode('draw'); }catch(e){}
   buildIntakePanel();
   guideFocus();

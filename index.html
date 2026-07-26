@@ -426,6 +426,12 @@
   .ip-val input.guide-cur, .ip-val select.guide-cur{outline:2px solid var(--cp-signal); outline-offset:1px}
   .ip-val .ac-menu{top:100%; left:0}
   .intake-panel .ip-row.wide{grid-column:1 / -1}
+  /* While the panel is up the original header table and its bar must stay gone. An
+     inline display:none was not enough — the header-minimize logic rewrites that inline
+     style on load, which brought the empty duplicate table back. */
+  body.intake-panel-on #hdrSheet,
+  body.intake-panel-on .hdr-bar,
+  body.intake-panel-on .ops-scroll{display:none !important}
   /* ===== drawing paste zone (CP upload-zone style) ===== */
   /* flex:0 1 auto — shrink to the print, never grow past it. sizeViewport() already
      computes the exact width that hugs the image (height x aspect ratio) and writes it
@@ -1311,6 +1317,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:78, date:"2026-07-26", note:"The old header table no longer shows above the intake panel. It was hidden with an inline display:none, and the header-minimize logic rewrites that inline style during load, so the now-empty table reappeared under the field panel. Hiding is now driven by a body class and a CSS rule, which that logic cannot overwrite."},
   {rev:77, date:"2026-07-26", note:"Darken, Lighten and Clarify finally leave the drawing where it is. Rev 76 pinned the image transform, which was only half of it \u2014 the viewport box around the image was still being re-measured and resized a few pixels on each pass, so the whole box shifted and took the print with it. The pin now also freezes the viewport sizing, and the ResizeObserver stands down while a pass is running."},
   {rev:76, date:"2026-07-26", note:"Darken and Lighten no longer move the drawing, and are capped at three passes each way. The rev 75 caption fix was the wrong cause; rather than keep hunting whatever resizes by a few pixels, the view is pinned across a tone pass \u2014 the exact scale and offset are restored instead of recomputed, so the print cannot move however the pane behaves. Each page carries its own tone level from -3 to +3 and a toast says when the limit is reached."},
   {rev:75, date:"2026-07-26", note:"The drawing no longer creeps to the left each time Darken or Lighten is clicked. Each pass re-encodes the image, so the KB figure in the toolbar caption changes; that caption was nowrap and fed into the toolbar's intrinsic width, so the pane resized by a few pixels every click and the print shifted. The caption now has a zero flex basis and clips instead, so it contributes nothing to the layout width."},
@@ -1382,9 +1389,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 77;
+const APP_REV = 78;
 const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "20:52";           /* increments every build — check both machines match */
+const BUILD_TIME = "21:14";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -4322,10 +4329,7 @@ function buildIntakePanel(){
   });
 
   flex.insertBefore(panel, flex.firstChild);
-  document.body.classList.add('intake-panel-on');
-  const hb=document.querySelector('.hdr-bar'); if(hb) hb.style.display='none';
-  sheet.style.display='none';
-  const sc=document.querySelector('.ops-scroll'); if(sc) sc.style.display='none';
+  document.body.classList.add('intake-panel-on');   /* CSS hides the header table + grid */
   if(window.__sizeDrawVp) setTimeout(window.__sizeDrawVp, 0);
 }
 function teardownIntakePanel(){
@@ -4334,6 +4338,7 @@ function teardownIntakePanel(){
   _ipRestore=[];
   if(panel) panel.remove();
   document.body.classList.remove('intake-panel-on');
+  /* clear any inline display left behind by earlier revs */
   const hb=document.querySelector('.hdr-bar'); if(hb) hb.style.display='';
   const sheet=$('hdrSheet'); if(sheet) sheet.style.display='';
   const sc=document.querySelector('.ops-scroll'); if(sc) sc.style.display='';

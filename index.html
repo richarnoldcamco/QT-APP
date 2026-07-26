@@ -1272,11 +1272,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
-  {rev:63, date:"2026-07-26", note:"Drawing finally opens fitted on the load path, not just after toggling CALCULATIONS/DRAWING. sizeViewport() used to return early and give up whenever the panel was not laid out yet, which is always the case while a quote is restoring \u2014 so no height was ever set on the viewport, it grew to the image's natural size, and fitView() fitted to that. It now reports whether it succeeded and retries every 50ms until it does, and a ResizeObserver on the drawing pane re-fits whenever the pane actually changes size (header collapse, window resize, zoom, mode switch)."},
-  {rev:62, date:"2026-07-26", note:"The drawing now opens fitted instead of huge. Cause was ordering, not sizing: sizeViewport() returns early while #dzHas is still hidden, so on the first render it never set a height on the viewport \u2014 the viewport then grew to the image's natural size and fitView() worked out a scale of roughly 1. Clicking FIT fixed it because by then the panel was visible. Sizing now re-runs after layout settles and again when the bitmap reports loaded, on both drawing open and mode switch."},
-  {rev:61, date:"2026-07-25", note:"Reverted revs 59 and 60 \u2014 the drawing view is back to the rev 56/58 layout. Shipped as rev 61 rather than rev 58 because the auto-updater never downgrades, so a lower number would not have reached the app. Everything revs 48\u201356 changed is intact; only the drawing-pane split is gone."},
-  {rev:58, date:"2026-07-25", note:"Reverted the rev 57 drawing split \u2014 layout is back to rev 56 exactly. Root cause for the record: the quote screen sits inside #view-quote which carries zoom:1.2 (the Ctrl+wheel zoom). A CSS-zoomed ancestor changes the containing block for position:fixed, so the vw width and the right/bottom offsets were all scaled by 1.2 and the panel overflowed. Any future work on this must stay in normal flex flow, not fixed positioning."},
-  {rev:57, date:"2026-07-25", note:"Drawing view is now a true two-column split. The print sits in a fixed column pinned from just under the masthead to the bottom of the window, so it gets full vertical height whether the header is expanded or minimised \u2014 the old lift only worked when the header was collapsed. The header sheet, mode bar and grid are capped to the width left over and the header font drops to 9px, which is what frees the width for the print. Maximize still spans the whole window."},
+  {rev:64, date:"2026-07-26", note:"Reverted revs 57-63. The drawing pane and its sizing are back to exactly the rev 56 state, before any of the split-layout and fit-timing work. Shipped as rev 64 because the auto-updater never downgrades. Everything revs 48-56 changed is intact: the totals double rule, the weight and colour fixes, the split cost columns, the S/U column move, the mandatory print gate, the un-ghosted drawing, the material auto-fill and the 70 percent grid compression."},
   {rev:56, date:"2026-07-25", note:"Calculation grid compressed horizontally to 70% \u2014 every column width scaled, table down from 1883px to 1318px, drawing-mode width down from 1041px to 729px. The thumbnail pane no longer sits at a fixed 200px; it grows into the width the grid gives back, so the print renders larger beside the grid. Font size left at 11px \u2014 this is a horizontal squeeze only."},
   {rev:55, date:"2026-07-25", note:"Customer default-material auto-fill actually works now. It never had: the guard meant to protect a material you picked yourself tested whether the MATERIAL box was empty, and a dropdown is never empty, so the auto-fill bailed out every time. It now tracks whether you changed the material yourself. A fresh New Quote will take the customer default; a saved quote never gets overwritten. NOTE: it still needs a Default Material filled in per customer under Admin > Customer-Facing Terms \u2014 that column is blank for every customer today."},
   {rev:54, date:"2026-07-25", note:"The drawing is no longer ghosted during the header walk. The intake lockout was dimming the whole ops row, which included the drawing pane \u2014 now it dims the calculation grid only. The print stays full brightness and fully usable (zoom, fit, clarify, highlighter) the entire time you are filling the header off it."},
@@ -1334,9 +1330,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 63;
+const APP_REV = 64;
 const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "15:20";           /* increments every build — check both machines match */
+const BUILD_TIME = "15:44";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1973,10 +1969,7 @@ function setOpsMode(m){
   const mt=$('miniTotals');
   if(mt) mt.hidden = m!=='draw';
   if(window.__fitPage) window.__fitPage();
-  if(m==='draw' && window.__sizeDrawVp){
-    setTimeout(window.__sizeDrawVp, 0);
-    requestAnimationFrame(()=>requestAnimationFrame(window.__sizeDrawVp));  /* panel is laid out by now */
-  }
+  if(m==='draw' && window.__sizeDrawVp) setTimeout(window.__sizeDrawVp, 0);
   renderThumbs();
 }
 /* page thumbnails beside the grid while in Calculations view */
@@ -2284,22 +2277,10 @@ document.addEventListener('paste', e=>{
     anno.width=w; anno.height=hgt;
     exitEdit(false);
     if(window.__sizeDrawVp) window.__sizeDrawVp(); else { sizeViewport(); fitView(); }
-    /* That first pass usually runs while #dzHas is still hidden or the bitmap is still
-       decoding. sizeViewport() bails in that case and never puts a height on the
-       viewport, so it grows to the image's natural size and fitView() computes a scale
-       of about 1 — the print comes up huge until you click FIT. Re-run once the panel
-       is really visible, and again when the image reports loaded. */
-    const resize=()=>{ if(window.__sizeDrawVp) window.__sizeDrawVp(); };
-    requestAnimationFrame(()=>requestAnimationFrame(resize));
-    if(thumb && !thumb.complete) thumb.addEventListener('load', resize, {once:true});
   };
   /* viewport height = everything from its top edge to the bottom of the window */
   function sizeViewport(){
-    /* returns false when it could not size yet — the caller retries. Bailing silently
-       here was the whole bug: on the load path this runs while the panel is still
-       hidden, no height is ever set, the viewport grows to the image's natural size
-       and fitView() then fits to that. Toggling modes fixed it by re-running later. */
-    if($('view-quote').hidden || $('dzHas').hidden) return false;
+    if($('view-quote').hidden || $('dzHas').hidden) return;
     const rect=vp.getBoundingClientRect();               /* screen px (post-zoom) */
     const avail=window.innerHeight - rect.top - 10;
     const z=(typeof sheetZoom!=='undefined' && sheetZoom)||1.2;
@@ -2314,7 +2295,6 @@ document.addEventListener('paste', e=>{
       const want=Math.round(hPx * (w/hgt));              /* width at full fitted height */
       if(room>0 && want>0) vp.style.maxWidth=Math.min(room, want)+'px';
     }
-    return vp.clientWidth>10 && vp.clientHeight>10;
   }
   /* pull the panel up over the empty right side of the hdr-bar / VIEW rows */
   function applyDrawLift(){
@@ -2327,28 +2307,7 @@ document.addEventListener('paste', e=>{
     const up=Math.max(0,(flexT-barT)/z);
     dw.style.marginTop=(-up+2)+'px';
   }
-  let _sizeTries=0;
-  window.__sizeDrawVp=()=>{
-    applyDrawLift();
-    const ok=sizeViewport();
-    if(ok){ fitView(); _sizeTries=0; return; }
-    /* panel not laid out yet — come back and try again, up to ~1.5s */
-    if(_sizeTries++ < 30) setTimeout(window.__sizeDrawVp, 50);
-  };
-  /* the pane can change width long after load (header collapse, window resize,
-     zoom, mode switch). Re-fit whenever it actually changes size. */
-  if(window.ResizeObserver){
-    const dw=document.querySelector('.drawwrap');
-    if(dw){
-      let lastW=0, lastH=0;
-      new ResizeObserver(()=>{
-        const w=dw.clientWidth, hh=dw.clientHeight;
-        if(Math.abs(w-lastW)<2 && Math.abs(hh-lastH)<2) return;
-        lastW=w; lastH=hh;
-        if(opsMode==='draw' || !$('dzHas').hidden){ if(sizeViewport()) fitView(); }
-      }).observe(dw);
-    }
-  }
+  window.__sizeDrawVp=()=>{ applyDrawLift(); sizeViewport(); fitView(); };
   window.addEventListener('resize', ()=>{ applyDrawLift(); sizeViewport(); fitView(); });
   function fitView(){
     const w=imgW(), hgt=imgH();

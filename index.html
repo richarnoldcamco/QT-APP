@@ -1272,6 +1272,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:63, date:"2026-07-26", note:"Drawing finally opens fitted on the load path, not just after toggling CALCULATIONS/DRAWING. sizeViewport() used to return early and give up whenever the panel was not laid out yet, which is always the case while a quote is restoring \u2014 so no height was ever set on the viewport, it grew to the image's natural size, and fitView() fitted to that. It now reports whether it succeeded and retries every 50ms until it does, and a ResizeObserver on the drawing pane re-fits whenever the pane actually changes size (header collapse, window resize, zoom, mode switch)."},
   {rev:62, date:"2026-07-26", note:"The drawing now opens fitted instead of huge. Cause was ordering, not sizing: sizeViewport() returns early while #dzHas is still hidden, so on the first render it never set a height on the viewport \u2014 the viewport then grew to the image's natural size and fitView() worked out a scale of roughly 1. Clicking FIT fixed it because by then the panel was visible. Sizing now re-runs after layout settles and again when the bitmap reports loaded, on both drawing open and mode switch."},
   {rev:61, date:"2026-07-25", note:"Reverted revs 59 and 60 \u2014 the drawing view is back to the rev 56/58 layout. Shipped as rev 61 rather than rev 58 because the auto-updater never downgrades, so a lower number would not have reached the app. Everything revs 48\u201356 changed is intact; only the drawing-pane split is gone."},
   {rev:58, date:"2026-07-25", note:"Reverted the rev 57 drawing split \u2014 layout is back to rev 56 exactly. Root cause for the record: the quote screen sits inside #view-quote which carries zoom:1.2 (the Ctrl+wheel zoom). A CSS-zoomed ancestor changes the containing block for position:fixed, so the vw width and the right/bottom offsets were all scaled by 1.2 and the panel overflowed. Any future work on this must stay in normal flex flow, not fixed positioning."},
@@ -1333,9 +1334,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 62;
+const APP_REV = 63;
 const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "13:40";           /* increments every build — check both machines match */
+const BUILD_TIME = "15:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -2294,7 +2295,11 @@ document.addEventListener('paste', e=>{
   };
   /* viewport height = everything from its top edge to the bottom of the window */
   function sizeViewport(){
-    if($('view-quote').hidden || $('dzHas').hidden) return;
+    /* returns false when it could not size yet — the caller retries. Bailing silently
+       here was the whole bug: on the load path this runs while the panel is still
+       hidden, no height is ever set, the viewport grows to the image's natural size
+       and fitView() then fits to that. Toggling modes fixed it by re-running later. */
+    if($('view-quote').hidden || $('dzHas').hidden) return false;
     const rect=vp.getBoundingClientRect();               /* screen px (post-zoom) */
     const avail=window.innerHeight - rect.top - 10;
     const z=(typeof sheetZoom!=='undefined' && sheetZoom)||1.2;
@@ -2309,6 +2314,7 @@ document.addEventListener('paste', e=>{
       const want=Math.round(hPx * (w/hgt));              /* width at full fitted height */
       if(room>0 && want>0) vp.style.maxWidth=Math.min(room, want)+'px';
     }
+    return vp.clientWidth>10 && vp.clientHeight>10;
   }
   /* pull the panel up over the empty right side of the hdr-bar / VIEW rows */
   function applyDrawLift(){
@@ -2321,7 +2327,28 @@ document.addEventListener('paste', e=>{
     const up=Math.max(0,(flexT-barT)/z);
     dw.style.marginTop=(-up+2)+'px';
   }
-  window.__sizeDrawVp=()=>{ applyDrawLift(); sizeViewport(); fitView(); };
+  let _sizeTries=0;
+  window.__sizeDrawVp=()=>{
+    applyDrawLift();
+    const ok=sizeViewport();
+    if(ok){ fitView(); _sizeTries=0; return; }
+    /* panel not laid out yet — come back and try again, up to ~1.5s */
+    if(_sizeTries++ < 30) setTimeout(window.__sizeDrawVp, 50);
+  };
+  /* the pane can change width long after load (header collapse, window resize,
+     zoom, mode switch). Re-fit whenever it actually changes size. */
+  if(window.ResizeObserver){
+    const dw=document.querySelector('.drawwrap');
+    if(dw){
+      let lastW=0, lastH=0;
+      new ResizeObserver(()=>{
+        const w=dw.clientWidth, hh=dw.clientHeight;
+        if(Math.abs(w-lastW)<2 && Math.abs(hh-lastH)<2) return;
+        lastW=w; lastH=hh;
+        if(opsMode==='draw' || !$('dzHas').hidden){ if(sizeViewport()) fitView(); }
+      }).observe(dw);
+    }
+  }
   window.addEventListener('resize', ()=>{ applyDrawLift(); sizeViewport(); fitView(); });
   function fitView(){
     const w=imgW(), hgt=imgH();

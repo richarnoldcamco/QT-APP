@@ -403,6 +403,29 @@
   .sync-ind.err{color:#ffd9d9; background:rgba(200,0,0,.35)}
   .saved .q.active{background:#f3e7e7; border-left:3px solid var(--xlgreen)}
 
+  /* ===== INTAKE FIELD PANEL (rev 73) =====
+     During the guided intake the header fields are MOVED (not copied) out of the header
+     table into this two-column panel on the left, so the drawing gets the full window
+     height on the right. Moving preserves ids, values and listeners; everything is put
+     back in its original cell when the intake finishes. */
+  .intake-panel{
+    flex:0 0 620px; width:620px; margin:0 10px 8px 0;
+    display:grid; grid-template-columns:1fr 1fr; gap:2px 14px;
+    align-content:start; font-family:var(--ui);
+  }
+  .ip-row{display:flex; align-items:center; gap:6px; min-width:0; padding:1px 0}
+  .ip-lab{
+    flex:0 0 132px; text-align:right; font-size:10.5px; font-weight:700;
+    letter-spacing:.01em; color:var(--cp-ink); line-height:1.15;
+  }
+  .ip-val{flex:1 1 auto; min-width:0; position:relative; display:flex; align-items:center; gap:4px}
+  .ip-val input, .ip-val select{
+    width:100%; min-width:0; font-size:11px; padding:2px 4px;
+    border:1px solid var(--cp-line); border-radius:3px; background:var(--yellow);
+  }
+  .ip-val input.guide-cur, .ip-val select.guide-cur{outline:2px solid var(--cp-signal); outline-offset:1px}
+  .ip-val .ac-menu{top:100%; left:0}
+  .intake-panel .ip-row.wide{grid-column:1 / -1}
   /* ===== drawing paste zone (CP upload-zone style) ===== */
   /* flex:0 1 auto — shrink to the print, never grow past it. sizeViewport() already
      computes the exact width that hugs the image (height x aspect ratio) and writes it
@@ -1283,6 +1306,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:73, date:"2026-07-26", note:"Header rebuild, step 1. During the guided intake the 25 visible header fields are moved out of the header table into a compact two-column panel on the left, freeing the full window height for the drawing. The inputs are MOVED rather than copied, so ids, values, event listeners and the customer/part/buyer autocomplete menus all survive, and every one is returned to its original cell when the intake finishes or is cancelled. Panel order follows TAB_ORDER so tabbing runs straight down it. The six hidden admin fields stay in the header table where the calculations read them."},
   {rev:72, date:"2026-07-26", note:"A new quote now stays in DRAWING view for the whole intake instead of jumping to the grid once the print lands. The calculation columns stay collapsed and the print stays large while the 24 header fields are filled off it, and the full grid comes back by itself the moment the header is complete \u2014 just before the odd-features checklist opens."},
   {rev:71, date:"2026-07-26", note:"THE oversized drawing is fixed, and it was never the drawing-view pane. In CALCULATIONS view the print shows in the thumbnail pane, and rev 56 changed that pane from a fixed 200px to flex:1 1 200px so it would grow into space freed by the grid compression \u2014 it grew into all the remaining width, and since the thumbnail image is width:100% the print rendered enormous. Pane is now a fixed 420px, roughly double the original for readability but no longer greedy. Diagnostic removed."},
   {rev:70, date:"2026-07-26", note:"TEMPORARY diagnostic again, this time sampling every half second for four seconds so the settled values are captured rather than a single early snapshot. Adds the drawing pane inline style, the drawzone width and the stage width, which will show whether the pane cap is being applied and whether the sizing ever ran."},
@@ -1349,9 +1373,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 72;
+const APP_REV = 73;
 const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "18:41";           /* increments every build — check both machines match */
+const BUILD_TIME = "19:14";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -4195,9 +4219,10 @@ function printArrived(){
   if(!printGate) return;
   clearPrintGate();
   guideIdx=0;
-  /* stay in DRAWING view through the header walk — the calculation grid collapses to a
-     strip and the print stays large, so the header fields and the drawing are the focus. */
+  /* stay in DRAWING view through the header walk, with the header fields moved into the
+     side panel so the print gets the full height */
   try{ setOpsMode('draw'); }catch(e){}
+  buildIntakePanel();
   guideFocus();
 }
 window.__printArrived=printArrived;
@@ -4220,6 +4245,68 @@ function guideMsg(){
   const b=$('guideBanner'); if(!b) return;
   b.textContent='📝 New quote — fill or TAB through the header fields (step '+(guideIdx+2)+' of '+(GUIDE_ORDER.length+1)+'). The calculation grid unlocks when the header is complete.';
 }
+
+/* ===== INTAKE FIELD PANEL (rev 73) =====
+   Moves the real header inputs into a compact two-column panel beside the drawing for the
+   duration of the guided intake, then puts every one of them back exactly where it came
+   from. Elements are moved, never cloned, so ids, current values, event listeners and the
+   autocomplete menus all survive untouched. */
+let _ipRestore=[];
+function ipLabelFor(el){
+  const td=el.closest('td'); if(!td) return '';
+  const prev=td.previousElementSibling;
+  if(prev && /lbl-r/.test(prev.className||'')) return prev.textContent.trim();
+  const next=td.nextElementSibling;
+  if(next && /lbl-l/.test(next.className||'')) return next.textContent.trim();
+  return '';
+}
+function buildIntakePanel(){
+  if(document.getElementById('intakePanel')) return;
+  const sheet=$('hdrSheet'), flex=document.querySelector('.ops-flex');
+  if(!sheet||!flex) return;
+  /* panel order follows TAB_ORDER so tabbing runs straight down the panel */
+  const order=(typeof TAB_ORDER!=='undefined'? TAB_ORDER.slice() : []);
+  const seen=new Set(order);
+  sheet.querySelectorAll('input,select').forEach(el=>{ if(el.id && !seen.has(el.id)){ order.push(el.id); seen.add(el.id); } });
+
+  const panel=document.createElement('div');
+  panel.id='intakePanel'; panel.className='intake-panel';
+
+  order.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    const td=el.closest('td');
+    if(!td || !sheet.contains(td)) return;
+    if(el.hasAttribute('hidden')) return;          /* admin values stay in the hidden table */
+    const row=document.createElement('div'); row.className='ip-row';
+    const lab=document.createElement('div'); lab.className='ip-lab'; lab.textContent=ipLabelFor(el);
+    const val=document.createElement('div'); val.className='ip-val';
+    /* remember where every node came from, then move the whole cell's contents */
+    const nodes=[...td.childNodes];
+    _ipRestore.push({td, nodes});
+    nodes.forEach(n=>val.appendChild(n));
+    row.appendChild(lab); row.appendChild(val);
+    panel.appendChild(row);
+  });
+
+  flex.insertBefore(panel, flex.firstChild);
+  document.body.classList.add('intake-panel-on');
+  const hb=document.querySelector('.hdr-bar'); if(hb) hb.style.display='none';
+  sheet.style.display='none';
+  const sc=document.querySelector('.ops-scroll'); if(sc) sc.style.display='none';
+  if(window.__sizeDrawVp) setTimeout(window.__sizeDrawVp, 0);
+}
+function teardownIntakePanel(){
+  const panel=document.getElementById('intakePanel');
+  _ipRestore.forEach(r=>{ r.nodes.forEach(n=>r.td.appendChild(n)); });
+  _ipRestore=[];
+  if(panel) panel.remove();
+  document.body.classList.remove('intake-panel-on');
+  const hb=document.querySelector('.hdr-bar'); if(hb) hb.style.display='';
+  const sheet=$('hdrSheet'); if(sheet) sheet.style.display='';
+  const sc=document.querySelector('.ops-scroll'); if(sc) sc.style.display='';
+  if(window.__sizeDrawVp) setTimeout(window.__sizeDrawVp, 0);
+}
 function guideFocus(){
   document.querySelectorAll('.guide-cur').forEach(x=>x.classList.remove('guide-cur'));
   if(guideIdx>=GUIDE_ORDER.length){ endGuide(); return; }
@@ -4231,6 +4318,7 @@ function guideFocus(){
   guideMsg();
 }
 function endGuide(){
+  teardownIntakePanel();
   guideIdx=-1;
   intakePending=false;
   clearPrintGate();
@@ -4243,6 +4331,8 @@ function endGuide(){
 }
 function resumeGuide(){
   if(!printOnFile()){ startPrintGate(); return; }   /* hard gate: print first */
+  try{ setOpsMode('draw'); }catch(e){}
+  buildIntakePanel();
   /* pick up at the first field still at its untouched startup value */
   let idx=GUIDE_ORDER.findIndex(id=>{
     const el=$(id); if(!el) return false;
@@ -4264,6 +4354,7 @@ function resumeGuide(){
   guideFocus();
 }
 function cancelGuide(){
+  teardownIntakePanel();
   guideIdx=-1;
   intakePending=false;
   clearPrintGate();

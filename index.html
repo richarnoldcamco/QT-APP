@@ -1272,6 +1272,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:62, date:"2026-07-26", note:"The drawing now opens fitted instead of huge. Cause was ordering, not sizing: sizeViewport() returns early while #dzHas is still hidden, so on the first render it never set a height on the viewport \u2014 the viewport then grew to the image's natural size and fitView() worked out a scale of roughly 1. Clicking FIT fixed it because by then the panel was visible. Sizing now re-runs after layout settles and again when the bitmap reports loaded, on both drawing open and mode switch."},
   {rev:61, date:"2026-07-25", note:"Reverted revs 59 and 60 \u2014 the drawing view is back to the rev 56/58 layout. Shipped as rev 61 rather than rev 58 because the auto-updater never downgrades, so a lower number would not have reached the app. Everything revs 48\u201356 changed is intact; only the drawing-pane split is gone."},
   {rev:58, date:"2026-07-25", note:"Reverted the rev 57 drawing split \u2014 layout is back to rev 56 exactly. Root cause for the record: the quote screen sits inside #view-quote which carries zoom:1.2 (the Ctrl+wheel zoom). A CSS-zoomed ancestor changes the containing block for position:fixed, so the vw width and the right/bottom offsets were all scaled by 1.2 and the panel overflowed. Any future work on this must stay in normal flex flow, not fixed positioning."},
   {rev:57, date:"2026-07-25", note:"Drawing view is now a true two-column split. The print sits in a fixed column pinned from just under the masthead to the bottom of the window, so it gets full vertical height whether the header is expanded or minimised \u2014 the old lift only worked when the header was collapsed. The header sheet, mode bar and grid are capped to the width left over and the header font drops to 9px, which is what frees the width for the print. Maximize still spans the whole window."},
@@ -1332,9 +1333,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 61;
-const BUILD_DATE = "2026-07-25";
-const BUILD_TIME = "22:58";           /* increments every build — check both machines match */
+const APP_REV = 62;
+const BUILD_DATE = "2026-07-26";
+const BUILD_TIME = "13:40";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1971,7 +1972,10 @@ function setOpsMode(m){
   const mt=$('miniTotals');
   if(mt) mt.hidden = m!=='draw';
   if(window.__fitPage) window.__fitPage();
-  if(m==='draw' && window.__sizeDrawVp) setTimeout(window.__sizeDrawVp, 0);
+  if(m==='draw' && window.__sizeDrawVp){
+    setTimeout(window.__sizeDrawVp, 0);
+    requestAnimationFrame(()=>requestAnimationFrame(window.__sizeDrawVp));  /* panel is laid out by now */
+  }
   renderThumbs();
 }
 /* page thumbnails beside the grid while in Calculations view */
@@ -2279,6 +2283,14 @@ document.addEventListener('paste', e=>{
     anno.width=w; anno.height=hgt;
     exitEdit(false);
     if(window.__sizeDrawVp) window.__sizeDrawVp(); else { sizeViewport(); fitView(); }
+    /* That first pass usually runs while #dzHas is still hidden or the bitmap is still
+       decoding. sizeViewport() bails in that case and never puts a height on the
+       viewport, so it grows to the image's natural size and fitView() computes a scale
+       of about 1 — the print comes up huge until you click FIT. Re-run once the panel
+       is really visible, and again when the image reports loaded. */
+    const resize=()=>{ if(window.__sizeDrawVp) window.__sizeDrawVp(); };
+    requestAnimationFrame(()=>requestAnimationFrame(resize));
+    if(thumb && !thumb.complete) thumb.addEventListener('load', resize, {once:true});
   };
   /* viewport height = everything from its top edge to the bottom of the window */
   function sizeViewport(){

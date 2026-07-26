@@ -263,7 +263,7 @@
   .ops-scroll{overflow-x:auto; min-width:0; flex:0 0 auto}
   /* Drawing mode: collapse the 14 detail columns to zero width (CP hide-bands technique —
      cells stay present so colspan math and totals alignment are preserved) */
-  .opgrid.show-drawing{width:1050px}
+  .opgrid.show-drawing{width:1320px}
   .opgrid.show-drawing col.dcol{width:0 !important}
   .opgrid.show-drawing tr:not(.foot)>td:nth-child(n+18):nth-child(-n+31),
   .opgrid.show-drawing thead th:nth-child(n+18):nth-child(-n+31){
@@ -404,10 +404,11 @@
   .saved .q.active{background:#f3e7e7; border-left:3px solid var(--xlgreen)}
 
   /* ===== drawing paste zone (CP upload-zone style) ===== */
-  .drawwrap{flex:1 1 auto; min-width:0; width:auto; max-width:50%; margin:0 8px 8px 0; font-family:var(--ui)}
-  /* sizeViewport() writes an inline max-width here from the image aspect ratio;
-     only !important outranks an inline style. */
-  .drawwrap .dz-viewport{max-width:100% !important}
+  /* flex:0 1 auto — shrink to the print, never grow past it. sizeViewport() already
+     computes the exact width that hugs the image (height x aspect ratio) and writes it
+     inline on .dz-viewport; do NOT override that with an !important rule here, which is
+     what made the pane balloon in rev 65. max-width caps it on very wide prints. */
+  .drawwrap{flex:0 1 auto; min-width:0; width:auto; max-width:50%; margin:0 8px 8px 0; font-family:var(--ui)}
   body.draw-max .drawwrap{max-width:none}
   .drawwrap h3{font-size:12px; margin:0 0 4px; text-transform:uppercase; letter-spacing:.03em}
   .drawzone{
@@ -1278,6 +1279,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:68, date:"2026-07-26", note:"Drawing width fixed, and the cause was a fix from rev 65. sizeViewport() had always computed the correct hug width (viewport height x image aspect ratio = 514px for this portrait print) and written it inline on the viewport. The rev 65 rule max-width:100% !important outranked that inline value and let the viewport expand to fill the whole 1314px pane. Removing the clamp restores the computed width; the pane is now flex:0 1 auto so it shrinks to the print instead of growing, and the grid in drawing mode goes to its full 1320px to take the freed space. Diagnostic box removed."},
   {rev:67, date:"2026-07-26", note:"TEMPORARY diagnostic: entering DRAWING view prints the measured widths of the flex row, the grid, the drawing pane and the viewport in a black box at bottom-left, so the real numbers can be read off a screenshot instead of devtools. Nothing else changed. This box gets removed once the drawing width is settled."},
   {rev:66, date:"2026-07-26", note:"Auto-update now actually lands without Ctrl+Shift+R. The updater read new code from the GitHub API (always fresh) but then reloaded the page from GitHub Pages, whose CDN serves cached HTML for about ten minutes after a push \u2014 so the reload came back on the old rev, and the anti-loop guard then gave up after one try, leaving a message only visible on the Admin screen. It now force-revalidates the page URL first and reloads only once the fresh copy really carries the new rev, retrying quietly each cycle until the CDN catches up. Verifying before reloading also makes a reload loop impossible. Checks every 20s instead of 60s, and shows a corner toast so an update in progress is visible from anywhere in the app."},
   {rev:65, date:"2026-07-26", note:"Drawing pane halved and the calculation grid takes the freed width. The pane had no cap and the flex row it sits in had no width, so the pane sized itself to the full drawing bitmap and ran off the right edge \u2014 the row is now width:100%, the pane is capped at half of it, and the viewport is clamped with !important so it cannot beat that cap with its inline style. Grid in drawing mode goes from 744px to 1050px, which also gives the squeezed column headers more room. Maximize is exempt from the cap."},
@@ -1339,9 +1341,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 67;
+const APP_REV = 68;
 const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "17:02";           /* increments every build — check both machines match */
+const BUILD_TIME = "17:24";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1979,8 +1981,6 @@ function setOpsMode(m){
   if(mt) mt.hidden = m!=='draw';
   if(window.__fitPage) window.__fitPage();
   if(m==='draw' && window.__sizeDrawVp) setTimeout(window.__sizeDrawVp, 0);
-  if(m==='draw') setTimeout(showDrawDiag, 500);   /* TEMPORARY — rev 67 diagnostic */
-  else { const d=document.getElementById('drawDiag'); if(d) d.remove(); }
   renderThumbs();
 }
 /* page thumbnails beside the grid while in Calculations view */
@@ -5249,43 +5249,6 @@ async function fetchAppCode(){
   if(!r.ok) return null;
   return await r.text();
 }
-/* ===== TEMPORARY DIAGNOSTIC (rev 67) =====
-   Prints the real measured widths of the drawing layout on screen so they can be read
-   from a screenshot instead of devtools. Remove once the width issue is settled. */
-function showDrawDiag(){
-  const q=s=>document.querySelector(s);
-  const flex=q('.ops-flex'), scroll=q('.ops-scroll'), wrap=q('.drawwrap'),
-        vp=document.getElementById('dzViewport'), grid=q('.opgrid');
-  const px=el=>el? Math.round(el.getBoundingClientRect().width) : 'MISSING';
-  const cs=el=>el? getComputedStyle(el) : null;
-  const w=cs(wrap), v=cs(vp);
-  const rows=[
-    ['window.innerWidth', window.innerWidth],
-    ['sheetZoom', (typeof sheetZoom!=='undefined'? sheetZoom : '?')],
-    ['.ops-flex', px(flex)],
-    ['.ops-scroll', px(scroll)],
-    ['.opgrid', px(grid)],
-    ['.drawwrap', px(wrap)],
-    ['drawwrap max-width', w? w.maxWidth : '-'],
-    ['drawwrap flex', w? w.flex : '-'],
-    ['#dzViewport', px(vp)],
-    ['vp inline maxW', vp? (vp.style.maxWidth||'(none)') : '-'],
-    ['vp computed maxW', v? v.maxWidth : '-'],
-    ['vp inline height', vp? (vp.style.height||'(none)') : '-'],
-    ['body class', document.body.className||'(none)']
-  ];
-  let d=document.getElementById('drawDiag');
-  if(!d){
-    d=document.createElement('div'); d.id='drawDiag';
-    d.style.cssText='position:fixed;left:12px;bottom:12px;z-index:99999;background:#101010;'
-      +'color:#7CFC8A;font:12px/1.5 ui-monospace,Consolas,monospace;padding:10px 14px;'
-      +'border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.5);white-space:pre';
-    document.body.appendChild(d);
-  }
-  d.textContent='DRAWING WIDTH DIAGNOSTIC (rev 67)\n'
-    + rows.map(r=>('  '+r[0]).padEnd(24)+' = '+r[1]).join('\n');
-}
-window.showDrawDiag=showDrawDiag;
 function appSyncEnabled(){ return localStorage.getItem('qs_appsync_off')!=='1'; }
 function autoSyncEnabled(){ return localStorage.getItem('qs_autosync_off')!=='1'; }
 async function checkAppUpdate(force){

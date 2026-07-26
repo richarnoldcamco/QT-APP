@@ -1283,6 +1283,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:72, date:"2026-07-26", note:"A new quote now stays in DRAWING view for the whole intake instead of jumping to the grid once the print lands. The calculation columns stay collapsed and the print stays large while the 24 header fields are filled off it, and the full grid comes back by itself the moment the header is complete \u2014 just before the odd-features checklist opens."},
   {rev:71, date:"2026-07-26", note:"THE oversized drawing is fixed, and it was never the drawing-view pane. In CALCULATIONS view the print shows in the thumbnail pane, and rev 56 changed that pane from a fixed 200px to flex:1 1 200px so it would grow into space freed by the grid compression \u2014 it grew into all the remaining width, and since the thumbnail image is width:100% the print rendered enormous. Pane is now a fixed 420px, roughly double the original for readability but no longer greedy. Diagnostic removed."},
   {rev:70, date:"2026-07-26", note:"TEMPORARY diagnostic again, this time sampling every half second for four seconds so the settled values are captured rather than a single early snapshot. Adds the drawing pane inline style, the drawzone width and the stage width, which will show whether the pane cap is being applied and whether the sizing ever ran."},
   {rev:69, date:"2026-07-26", note:"The drawing width finally holds on a clean load. There were two separate faults and each earlier fix addressed one while undoing the other. (1) rev 68 removed the max-width !important clamp that was overriding the correct computed width. (2) this rev stops sizeViewport() from silently giving up: it ran while the panel was still hidden, so no inline width was ever written and the viewport expanded to fill the pane. It now reports failure, retries every 50ms for about two seconds until it succeeds, and a ResizeObserver re-fits whenever the pane genuinely changes size."},
@@ -1348,9 +1349,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 71;
+const APP_REV = 72;
 const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "18:22";           /* increments every build — check both machines match */
+const BUILD_TIME = "18:41";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -4194,6 +4195,9 @@ function printArrived(){
   if(!printGate) return;
   clearPrintGate();
   guideIdx=0;
+  /* stay in DRAWING view through the header walk — the calculation grid collapses to a
+     strip and the print stays large, so the header fields and the drawing are the focus. */
+  try{ setOpsMode('draw'); }catch(e){}
   guideFocus();
 }
 window.__printArrived=printArrived;
@@ -4234,6 +4238,7 @@ function endGuide(){
   const b=$('guideBanner'); if(b) b.hidden=true;
   document.querySelectorAll('.guide-cur').forEach(x=>x.classList.remove('guide-cur'));
   scheduleAutosave();                        /* persist intake-complete on the quote */
+  try{ setOpsMode('calc'); }catch(e){}       /* header done -> full grid comes back */
   setTimeout(openOddFeatures, 150);          /* header done -> odd-features checklist */
 }
 function resumeGuide(){

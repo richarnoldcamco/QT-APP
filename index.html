@@ -1311,6 +1311,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:76, date:"2026-07-26", note:"Darken and Lighten no longer move the drawing, and are capped at three passes each way. The rev 75 caption fix was the wrong cause; rather than keep hunting whatever resizes by a few pixels, the view is pinned across a tone pass \u2014 the exact scale and offset are restored instead of recomputed, so the print cannot move however the pane behaves. Each page carries its own tone level from -3 to +3 and a toast says when the limit is reached."},
   {rev:75, date:"2026-07-26", note:"The drawing no longer creeps to the left each time Darken or Lighten is clicked. Each pass re-encodes the image, so the KB figure in the toolbar caption changes; that caption was nowrap and fed into the toolbar's intrinsic width, so the pane resized by a few pixels every click and the print shifted. The caption now has a zero flex basis and clips instead, so it contributes nothing to the layout width."},
   {rev:74, date:"2026-07-26", note:"The intake field panel now appears at step 1, the print upload, instead of only after a drawing has landed \u2014 which was backwards, since the upload zone is exactly where the extra height is wanted. Rev 73 built the panel too late to be seen."},
   {rev:73, date:"2026-07-26", note:"Header rebuild, step 1. During the guided intake the 25 visible header fields are moved out of the header table into a compact two-column panel on the left, freeing the full window height for the drawing. The inputs are MOVED rather than copied, so ids, values, event listeners and the customer/part/buyer autocomplete menus all survive, and every one is returned to its original cell when the intake finishes or is cancelled. Panel order follows TAB_ORDER so tabbing runs straight down it. The six hidden admin fields stay in the header table where the calculations read them."},
@@ -1380,9 +1381,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 75;
+const APP_REV = 76;
 const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "20:01";           /* increments every build — check both machines match */
+const BUILD_TIME = "20:29";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -2381,7 +2382,15 @@ document.addEventListener('paste', e=>{
     }
   }
   window.addEventListener('resize', ()=>{ applyDrawLift(); sizeViewport(); fitView(); });
+  let _keepView=null;
+  window.__dzPinView=()=>{ _keepView={s,tx,ty}; };
+  window.__dzUnpinView=()=>{ _keepView=null; };
   function fitView(){
+    /* A darken/lighten pass rewrites the image and re-runs the whole size+fit chain, and
+       any few-pixel difference in the pane made the print creep left. While pinned we
+       restore the exact scale and offset instead of recomputing, so a tone pass cannot
+       move it however the pane behaves. */
+    if(_keepView){ s=_keepView.s; tx=_keepView.tx; ty=_keepView.ty; applyView(); return; }
     const w=imgW(), hgt=imgH();
     const vw=vp.clientWidth||660, vh=vp.clientHeight||520;
     if(vw<10||vh<10){ s=1; tx=ty=0; applyView(); return; }
@@ -2529,8 +2538,15 @@ document.addEventListener('paste', e=>{
   $('dzRotR').addEventListener('click', ()=>rotateDrawing(1));
 
   /* ---- image enhancement: shared bake pipeline + three filters ---- */
-  function bakeFilter(pass){
+  function bakeFilter(pass, delta){
     if(!curDrawing||!curDrawing.data) return;
+    const cur=Number(curDrawing.tone||0);
+    const next=cur+(delta||0);
+    if(delta && (next>3 || next<-3)){
+      if(window.updateToast) updateToast((delta>0?'Darken':'Lighten')+' limit reached \u2014 3 passes max');
+      return;
+    }
+    if(window.__dzPinView) window.__dzPinView();      /* hold position across the rewrite */
     const img=new Image();
     img.onload=()=>{
       const c=document.createElement('canvas');
@@ -2543,7 +2559,8 @@ document.addEventListener('paste', e=>{
       ctx.putImageData(idata,0,0);
       const data=c.toDataURL('image/jpeg',0.87);
       setDrawing({data, name:curDrawing.name, w:c.width, h:c.height,
-                  kb:Math.round(data.length*0.75/1024), ts:Date.now()});
+                  kb:Math.round(data.length*0.75/1024), ts:Date.now(), tone:next});
+      setTimeout(()=>{ if(window.__dzUnpinView) window.__dzUnpinView(); }, 1500);
     };
     img.src=curDrawing.data;
   }
@@ -2596,8 +2613,8 @@ document.addEventListener('paste', e=>{
       }
     }
   }
-  $('dzDarken').addEventListener('click', ()=>bakeFilter(lutPass(darkenLUT())));
-  $('dzLighten').addEventListener('click', ()=>bakeFilter(lutPass(lightenLUT())));
+  $('dzDarken').addEventListener('click', ()=>bakeFilter(lutPass(darkenLUT()), +1));
+  $('dzLighten').addEventListener('click', ()=>bakeFilter(lutPass(lightenLUT()), -1));
   $('dzClarify').addEventListener('click', ()=>bakeFilter(clarifyPass));
 
   /* ---- crop: drag a box over the useful area, confirm, baked in ---- */

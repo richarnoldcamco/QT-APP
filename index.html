@@ -1279,6 +1279,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:69, date:"2026-07-26", note:"The drawing width finally holds on a clean load. There were two separate faults and each earlier fix addressed one while undoing the other. (1) rev 68 removed the max-width !important clamp that was overriding the correct computed width. (2) this rev stops sizeViewport() from silently giving up: it ran while the panel was still hidden, so no inline width was ever written and the viewport expanded to fill the pane. It now reports failure, retries every 50ms for about two seconds until it succeeds, and a ResizeObserver re-fits whenever the pane genuinely changes size."},
   {rev:68, date:"2026-07-26", note:"Drawing width fixed, and the cause was a fix from rev 65. sizeViewport() had always computed the correct hug width (viewport height x image aspect ratio = 514px for this portrait print) and written it inline on the viewport. The rev 65 rule max-width:100% !important outranked that inline value and let the viewport expand to fill the whole 1314px pane. Removing the clamp restores the computed width; the pane is now flex:0 1 auto so it shrinks to the print instead of growing, and the grid in drawing mode goes to its full 1320px to take the freed space. Diagnostic box removed."},
   {rev:67, date:"2026-07-26", note:"TEMPORARY diagnostic: entering DRAWING view prints the measured widths of the flex row, the grid, the drawing pane and the viewport in a black box at bottom-left, so the real numbers can be read off a screenshot instead of devtools. Nothing else changed. This box gets removed once the drawing width is settled."},
   {rev:66, date:"2026-07-26", note:"Auto-update now actually lands without Ctrl+Shift+R. The updater read new code from the GitHub API (always fresh) but then reloaded the page from GitHub Pages, whose CDN serves cached HTML for about ten minutes after a push \u2014 so the reload came back on the old rev, and the anti-loop guard then gave up after one try, leaving a message only visible on the Admin screen. It now force-revalidates the page URL first and reloads only once the fresh copy really carries the new rev, retrying quietly each cycle until the CDN catches up. Verifying before reloading also makes a reload loop impossible. Checks every 20s instead of 60s, and shows a corner toast so an update in progress is visible from anywhere in the app."},
@@ -1341,9 +1342,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 68;
+const APP_REV = 69;
 const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "17:24";           /* increments every build — check both machines match */
+const BUILD_TIME = "17:46";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -2291,7 +2292,11 @@ document.addEventListener('paste', e=>{
   };
   /* viewport height = everything from its top edge to the bottom of the window */
   function sizeViewport(){
-    if($('view-quote').hidden || $('dzHas').hidden) return;
+    /* Returns false when it cannot size yet so the caller can retry. Silently bailing
+       here is why the print opened huge: on a clean load this runs while the panel is
+       still hidden, so no inline max-width was ever written on the viewport and it
+       expanded to fill the pane. Toggling modes 'fixed' it by re-running later. */
+    if($('view-quote').hidden || $('dzHas').hidden) return false;
     const rect=vp.getBoundingClientRect();               /* screen px (post-zoom) */
     const avail=window.innerHeight - rect.top - 10;
     const z=(typeof sheetZoom!=='undefined' && sheetZoom)||1.2;
@@ -2306,6 +2311,7 @@ document.addEventListener('paste', e=>{
       const want=Math.round(hPx * (w/hgt));              /* width at full fitted height */
       if(room>0 && want>0) vp.style.maxWidth=Math.min(room, want)+'px';
     }
+    return !!vp.style.maxWidth && vp.clientHeight>10;
   }
   /* pull the panel up over the empty right side of the hdr-bar / VIEW rows */
   function applyDrawLift(){
@@ -2318,7 +2324,24 @@ document.addEventListener('paste', e=>{
     const up=Math.max(0,(flexT-barT)/z);
     dw.style.marginTop=(-up+2)+'px';
   }
-  window.__sizeDrawVp=()=>{ applyDrawLift(); sizeViewport(); fitView(); };
+  let _sizeTries=0;
+  window.__sizeDrawVp=()=>{
+    applyDrawLift();
+    if(sizeViewport()){ fitView(); _sizeTries=0; return; }
+    if(_sizeTries++ < 40) setTimeout(window.__sizeDrawVp, 50);   /* ~2s of retries */
+  };
+  if(window.ResizeObserver){
+    const dw=document.querySelector('.drawwrap');
+    if(dw){
+      let lw=0, lh=0;
+      new ResizeObserver(()=>{
+        const w=dw.clientWidth, hh=dw.clientHeight;
+        if(Math.abs(w-lw)<2 && Math.abs(hh-lh)<2) return;
+        lw=w; lh=hh;
+        if(sizeViewport()) fitView();
+      }).observe(dw);
+    }
+  }
   window.addEventListener('resize', ()=>{ applyDrawLift(); sizeViewport(); fitView(); });
   function fitView(){
     const w=imgW(), hgt=imgH();

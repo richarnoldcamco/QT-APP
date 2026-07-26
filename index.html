@@ -453,7 +453,11 @@
   }
   .dz-toolbar .mini.on{outline:2px solid var(--cp-signal); outline-offset:-1px}
   /* grows into whatever the grid gives back, so the print gets the freed width */
-  .thumbwrap{flex:1 1 200px; min-width:200px; margin:2px 8px 8px 0; display:flex; flex-direction:column; gap:8px; font-family:var(--ui)}
+  /* Fixed width, never flex-grow. rev 56 set this to flex:1 1 200px so it would 'grow
+     into the freed space' — it grew into ALL of it, and because .thumb-card img is
+     width:100% the print rendered enormous in CALCULATIONS view. That was the oversized
+     drawing, not the drawing-mode pane. */
+  .thumbwrap{flex:0 0 420px; width:420px; margin:2px 8px 8px 0; display:flex; flex-direction:column; gap:8px; font-family:var(--ui)}
   .thumb-card{
     background:var(--cp-panel); border:1px solid var(--cp-line); border-radius:8px;
     padding:4px; cursor:pointer; box-shadow:var(--cp-shadow);
@@ -1279,6 +1283,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:71, date:"2026-07-26", note:"THE oversized drawing is fixed, and it was never the drawing-view pane. In CALCULATIONS view the print shows in the thumbnail pane, and rev 56 changed that pane from a fixed 200px to flex:1 1 200px so it would grow into space freed by the grid compression \u2014 it grew into all the remaining width, and since the thumbnail image is width:100% the print rendered enormous. Pane is now a fixed 420px, roughly double the original for readability but no longer greedy. Diagnostic removed."},
   {rev:70, date:"2026-07-26", note:"TEMPORARY diagnostic again, this time sampling every half second for four seconds so the settled values are captured rather than a single early snapshot. Adds the drawing pane inline style, the drawzone width and the stage width, which will show whether the pane cap is being applied and whether the sizing ever ran."},
   {rev:69, date:"2026-07-26", note:"The drawing width finally holds on a clean load. There were two separate faults and each earlier fix addressed one while undoing the other. (1) rev 68 removed the max-width !important clamp that was overriding the correct computed width. (2) this rev stops sizeViewport() from silently giving up: it ran while the panel was still hidden, so no inline width was ever written and the viewport expanded to fill the pane. It now reports failure, retries every 50ms for about two seconds until it succeeds, and a ResizeObserver re-fits whenever the pane genuinely changes size."},
   {rev:68, date:"2026-07-26", note:"Drawing width fixed, and the cause was a fix from rev 65. sizeViewport() had always computed the correct hug width (viewport height x image aspect ratio = 514px for this portrait print) and written it inline on the viewport. The rev 65 rule max-width:100% !important outranked that inline value and let the viewport expand to fill the whole 1314px pane. Removing the clamp restores the computed width; the pane is now flex:0 1 auto so it shrinks to the print instead of growing, and the grid in drawing mode goes to its full 1320px to take the freed space. Diagnostic box removed."},
@@ -1343,9 +1348,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 70;
+const APP_REV = 71;
 const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "18:03";           /* increments every build — check both machines match */
+const BUILD_TIME = "18:22";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1983,8 +1988,6 @@ function setOpsMode(m){
   if(mt) mt.hidden = m!=='draw';
   if(window.__fitPage) window.__fitPage();
   if(m==='draw' && window.__sizeDrawVp) setTimeout(window.__sizeDrawVp, 0);
-  if(m==='draw') startDrawDiag();   /* TEMPORARY — rev 70 */
-  else stopDrawDiag();
   renderThumbs();
 }
 /* page thumbnails beside the grid while in Calculations view */
@@ -5274,50 +5277,6 @@ async function fetchAppCode(){
   const r=await fetch(url,{headers:{Authorization:'Bearer '+c.token, Accept:'application/vnd.github.raw'}, cache:'no-store'});
   if(!r.ok) return null;
   return await r.text();
-}
-/* ===== TEMPORARY DIAGNOSTIC (rev 70) — removed once the width is settled ===== */
-let _diagT=null;
-function stopDrawDiag(){ clearInterval(_diagT); _diagT=null; const d=document.getElementById('drawDiag'); if(d) d.remove(); }
-function startDrawDiag(){
-  clearInterval(_diagT);
-  let n=0;
-  const paint=()=>{
-    n++;
-    const q=s=>document.querySelector(s);
-    const flex=q('.ops-flex'), wrap=q('.drawwrap'), zone=q('.drawzone'),
-          vp=document.getElementById('dzViewport'), stage=document.getElementById('dzStage');
-    const px=el=>el? Math.round(el.getBoundingClientRect().width) : 'MISSING';
-    const w=wrap? getComputedStyle(wrap) : null;
-    const v=vp? getComputedStyle(vp) : null;
-    const rows=[
-      ['t (sec)', (n*0.5).toFixed(1)],
-      ['.ops-flex', px(flex)],
-      ['.drawwrap', px(wrap)],
-      ['wrap maxW cmp', w? w.maxWidth : '-'],
-      ['wrap flex cmp', w? w.flex : '-'],
-      ['wrap inline styl', wrap? (wrap.getAttribute('style')||'(none)') : '-'],
-      ['.drawzone', px(zone)],
-      ['#dzViewport', px(vp)],
-      ['vp inline maxW', vp? (vp.style.maxWidth||'(NONE SET)') : '-'],
-      ['vp cmp maxW', v? v.maxWidth : '-'],
-      ['vp inline h', vp? (vp.style.height||'(none)') : '-'],
-      ['#dzStage', px(stage)],
-      ['dzHas hidden?', document.getElementById('dzHas')? document.getElementById('dzHas').hidden : '?'],
-      ['body class', document.body.className||'(none)']
-    ];
-    let d=document.getElementById('drawDiag');
-    if(!d){
-      d=document.createElement('div'); d.id='drawDiag';
-      d.style.cssText='position:fixed;left:12px;bottom:12px;z-index:99999;background:#101010;'
-        +'color:#7CFC8A;font:12px/1.45 ui-monospace,Consolas,monospace;padding:10px 14px;'
-        +'border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.5);white-space:pre';
-      document.body.appendChild(d);
-    }
-    d.textContent='DRAWING DIAG (rev 70)\n'+rows.map(r=>('  '+r[0]).padEnd(22)+' = '+r[1]).join('\n');
-    if(n>=8){ clearInterval(_diagT); _diagT=null; }
-  };
-  paint();
-  _diagT=setInterval(paint, 500);
 }
 function appSyncEnabled(){ return localStorage.getItem('qs_appsync_off')!=='1'; }
 function autoSyncEnabled(){ return localStorage.getItem('qs_autosync_off')!=='1'; }

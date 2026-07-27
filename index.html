@@ -1340,6 +1340,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:91, date:"2026-07-27", note:"The calc-view print now actually reaches the top of the screen. Rev 90\u2019s lift guard found the header table\u2019s box overhanging the pane\u2019s column and simply declined, so nothing moved. Now the pane shifts right until it clears the header, then lifts to the top \u2014 full window height. The print is height-limited, so the traded width is free; if a shift would leave under 360px of pane, it settles for lifting to just below the header instead."},
   {rev:90, date:"2026-07-27", note:"The print in CALCULATIONS view now rises to the very top of the quote screen, into the empty band beside the compressed header, and its height cap grows to match \u2014 maximum vertical size. Guarded: the lift only happens when the pane\u2019s left edge clears the header\u2019s right edge, so it can never cover the fields; with the header minimized it lifts fully. Re-computed on resize, zoom and every render, and the post-zoom/pre-zoom conversion is handled the same way as the drawing view\u2019s lift."},
   {rev:89, date:"2026-07-27", note:"Quantity-break quoting. A QTY BREAKS strip under the totals takes up to three extra batch sizes; each is priced by running the exact same engine at that quantity \u2014 setup amortisation, low-volume premium, bar yield and NRE depreciation all recompute per break, no parallel math. Results show live on the sheet, in the e-mail body and on the quote document. Deliberately NOT printed on the formal CAMCO quotation. Break quantities save with the quote."},
   {rev:88, date:"2026-07-27", note:"Leadtime now reads \u2018calendar days\u2019 everywhere the customer sees it: the e-mail body, the quote document table, and the formal CAMCO quotation (\u2018calendar days ARO\u2019). The on-screen grid footer keeps its short \u2018DAYS\u2019 label \u2014 internal only."},
@@ -1424,9 +1425,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 90;
+const APP_REV = 91;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "10:34";           /* increments every build — check both machines match */
+const BUILD_TIME = "10:52";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -2124,14 +2125,29 @@ function sizeThumbs(){
      so it can never sit on top of the fields. Same negative-margin technique as the
      drawing view's applyDrawLift; all rects are post-zoom, so the margin divides by z. */
   tw.style.marginTop='';
+  tw.style.marginLeft='';
   const vq=$('view-quote');
   const hdr=$('hdrSheet');
-  const wrapRect=tw.getBoundingClientRect();
   if(vq){
-    const ceiling=vq.getBoundingClientRect().top + 6;
-    const hdrClear=!hdr || hdr.offsetParent===null || wrapRect.left > hdr.getBoundingClientRect().right + 8;
-    const lift=wrapRect.top - ceiling;
-    if(hdrClear && lift>4) tw.style.marginTop=(-lift/z)+'px';
+    let ceiling=vq.getBoundingClientRect().top + 6;
+    const wrap0=tw.getBoundingClientRect();
+    /* If the header table's box overhangs the pane's column, the pane cannot rise past
+       it in place. Rather than give up the height (rev 90's mistake — the guard just
+       declined and nothing moved), SHIFT the pane right until it clears the header,
+       then lift to the top. The print is height-limited, so trading pane width for
+       full window height is free. Only if there isn't 360px of pane left after the
+       shift do we settle for lifting to just below the header. */
+    if(hdr && hdr.offsetParent!==null){
+      const hr=hdr.getBoundingClientRect();
+      if(wrap0.left < hr.right + 10){
+        const shift=hr.right + 10 - wrap0.left;
+        if(wrap0.width - shift >= 360) tw.style.marginLeft=(shift/z)+'px';
+        else ceiling=hr.bottom + 6;
+      }
+    }
+    const wrap=tw.getBoundingClientRect();      /* re-measure after any shift */
+    const lift=wrap.top - ceiling;
+    if(lift>4) tw.style.marginTop=(-lift/z)+'px';
   }
   const top=tw.getBoundingClientRect().top;   /* re-read after the lift */
   const avail=Math.max(300, (window.innerHeight - top - 46) / z);

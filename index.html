@@ -1065,7 +1065,7 @@
           <button class="mini" id="dzCrop" type="button" title="crop to a selected area">✂ Crop</button>
           <span class="dz-sep"></span>
           <button class="mini" id="dzEdit" type="button" title="highlight the drawing">🖍 Highlighter</button>
-          <button class="mini" id="aiWeight" type="button" title="AI reads the drawing and estimates part weight">🤖 Weight</button>
+          <button class="mini" id="aiWeight" type="button" title="AI reads the drawing and estimates the finished part's volume (in³) and weight (lb)">🤖 Vol/Wt</button>
           <button class="mini" id="dzUndoBake" type="button" title="undo the last change to this page (crop, darken, highlights…)">↩ Undo</button>
           <button class="mini" id="drawDownload" type="button">⬇ Save</button>
           <button class="mini" id="drawMax" type="button" title="fill the screen with the drawing">⛶ Maximize</button>
@@ -1367,6 +1367,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:96, date:"2026-07-27", note:"Two things. (1) The material cost override was already in the app but disguised: the No/Yes dropdown on the MATERIAL row \u2014 set Yes and type the material cost per piece directly, replacing the cost/lb calculation entirely. Its chip label wrongly said /LB OVR; it now says /PC OVERRIDE and the dropdown carries a tooltip. (2) The AI drawing estimator (\U0001F916 Vol/Wt in the drawing toolbar) now returns the finished part\u2019s VOLUME in cubic inches alongside the weight, both bolded in its answer."},
   {rev:95, date:"2026-07-27", note:"Two refinements: the analysis columns in the grid (pcs/shift through batch sub-contract per pc) show their figures 30% smaller \u2014 they are reference numbers, not entry fields, and the entry columns and headers keep their size. And the collapsed QTY BREAKS table now shows a one-line summary bar (qty \u2192 price \u00b7 batch for each break) instead of nothing, so the breaks stay visible even folded."},
   {rev:94, date:"2026-07-27", note:"Qty breaks upgraded to a proper table \u2014 QTY, PRICE /PC, BATCH TOTAL, EST. LEADTIME \u2014 open by default with a \u25be collapse button whose state is remembered on this device. Now takes up to SIX break quantities, all saved with the quote and all flowing to the e-mail body and quote document as before. Cells update in place so typing a qty is never interrupted by the recalc."},
   {rev:93, date:"2026-07-27", note:"The calc-view print is left-justified against the calculation grid instead of centring in its pane \u2014 the image and its card now hug the grid\u2019s right edge, closing the dead gap between them. Full-height lift from rev 91 unchanged."},
@@ -1456,9 +1457,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 95;
+const APP_REV = 96;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "12:06";           /* increments every build — check both machines match */
+const BUILD_TIME = "12:28";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1789,7 +1790,7 @@ function renderOps(){
       const ovrCells = row.locked==='mat'
         ? `${blk.repeat(5)}
            ${ovrOn ? '<td class="ovrlbl" colspan="3">Cost/Pc Over-Ride</td>' : blk.repeat(3)}
-           <td class="ovrcell"><select id="matOvr"><option${matOverride==='No'?' selected':''}>No</option><option${matOverride==='Yes'?' selected':''}>Yes</option></select></td>
+           <td class="ovrcell" title="set Yes to type the material cost per piece directly — replaces the cost/lb calculation entirely"><select id="matOvr"><option${matOverride==='No'?' selected':''}>No</option><option${matOverride==='Yes'?' selected':''}>Yes</option></select></td>
            ${ovrOn ? '<td class="ovrlbl" colspan="2">Mat\'l $ Over-ride</td>' : blk.repeat(2)}
            ${ovrOn ? `<td class="ovrcell" colspan="3"><input id="matOvrVal" type="text" inputmode="decimal" data-i="mat" data-k="ovrVal" value="${matOverrideVal||''}" placeholder="$"></td>` : blk.repeat(3)}`
         : blk.repeat(14);
@@ -1913,7 +1914,7 @@ function renderSummary(){
   if(mlb){
     const mat2=matByName[$('material').value];
     if(matOverride==='Yes' && matOverrideVal>0){
-      mlb.innerHTML='$'+Number(matOverrideVal).toFixed(2)+'<span class="lbtag">/LB OVR</span>';
+      mlb.innerHTML='$'+Number(matOverrideVal).toFixed(2)+'<span class="lbtag">/PC OVERRIDE</span>';
     }else if(mat2){
       const eff=($('priceLevel').value==='Mill Qty') ? (mat2.mill||mat2.dist||0) : (mat2.dist||mat2.mill||0);
       mlb.innerHTML = eff ? '$'+Number(eff).toFixed(2)+'<span class="lbtag">/LB</span>' : '$ -';
@@ -3026,7 +3027,7 @@ async function aiEstimateWeight(){
       max_tokens:900,
       messages:[{role:'user', content:[
         {type:'image', source:{type:'base64', media_type:'image/jpeg', data:data.split(',')[1]}},
-        {type:'text', text:'This is a machining part drawing. Read the dimensions on the print, determine the finished part geometry (treat turned features as cylinders/cones/threads, subtract bores, holes and cut-outs), and estimate the FINISHED part weight.'+densityNote+' Give 2-5 short lines of reasoning (key dimensions and volume), then end with exactly one final line formatted: WEIGHT: <number> lb'}
+        {type:'text', text:'This is a machining part drawing. Read the dimensions on the print, determine the finished part geometry (treat turned features as cylinders/cones/threads, subtract bores, holes and cut-outs), and estimate the FINISHED part weight AND its final volume.'+densityNote+' Give 2-5 short lines of reasoning (key dimensions), then end with exactly two final lines formatted: VOLUME: <number> in3 and WEIGHT: <number> lb'}
       ]}]
     };
     const r=await fetch('https://api.anthropic.com/v1/messages',{
@@ -3049,8 +3050,12 @@ async function aiEstimateWeight(){
     const j=await r.json();
     const text=(j.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\n').trim();
     const wm=text.match(/WEIGHT:\s*([\d.,]+)\s*lb/i);
-    out.innerHTML = esc(text).replace(/WEIGHT:\s*[\d.,]+\s*lb/i, s=>'<b>'+s+'</b>');
+    const vm=text.match(/VOLUME:\s*([\d.,]+)\s*in/i);
+    out.innerHTML = esc(text)
+      .replace(/WEIGHT:\s*[\d.,]+\s*lb/i, s=>'<b>'+s+'</b>')
+      .replace(/VOLUME:\s*[\d.,]+\s*in3?/i, s=>'<b>'+s+'\u00b3</b>');
     if(!wm) out.innerHTML += '\n<b>(no clear weight line — see reasoning above)</b>';
+    if(!vm) out.innerHTML += '\n<b>(no clear volume line — see reasoning above)</b>';
     out.scrollIntoView({block:'nearest'});
   }catch(e){
     say('⚠ Weight estimate failed: '+e.message

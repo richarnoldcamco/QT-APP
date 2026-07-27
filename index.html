@@ -1375,6 +1375,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:99, date:"2026-07-27", note:"AI weight estimate made repeatable and grounded. Three changes: temperature set to 0 so the same drawing returns the same answer run after run (default sampling randomness was most of the variation); the prompt forces a fixed method \u2014 a segment table of dia \u00d7 length \u2192 volume, summed, bores subtracted, weight = volume \u00d7 density; and the estimate is anchored to the quote header\u2019s own geometry \u2014 bar dia, part length, the computed stock cylinder volume as a hard ceiling, and the slug weight \u2014 with instructions to redo if the ceiling is exceeded. Token limit raised so the segment table never truncates."},
   {rev:98, date:"2026-07-27", note:"AI weight moved into the header bar. A \U0001F916 AI WEIGHT button sits beside the minimize control; after it runs, a chip shows FINISHED weight, VOLUME in cubic inches, and the SLUG weight (taken live from the engine\u2019s own Weight Of Slug field, which is computed from bar dia, part+extra length and material density in the header). A \u24d8 DETAILS button opens a popup with the AI\u2019s full reasoning. The estimate saves with the quote and the chip reappears when the quote is reopened. The drawing-toolbar Vol/Wt button still works and feeds the same chip."},
   {rev:97, date:"2026-07-27", note:"The AI estimators now show a large centre-screen spinner while they work \u2014 the same style as the e-mail one \u2014 instead of only a small status line under the drawing. Vol/Wt says READING THE DRAWING, the FAI counter says COUNTING FAI DIMENSIONS, and both disappear the moment the answer lands (the detailed result still prints under the drawing as before)."},
   {rev:96, date:"2026-07-27", note:"Two things. (1) The material cost override was already in the app but disguised: the No/Yes dropdown on the MATERIAL row \u2014 set Yes and type the material cost per piece directly, replacing the cost/lb calculation entirely. Its chip label wrongly said /LB OVR; it now says /PC OVERRIDE and the dropdown carries a tooltip. (2) The AI drawing estimator (\U0001F916 Vol/Wt in the drawing toolbar) now returns the finished part\u2019s VOLUME in cubic inches alongside the weight, both bolded in its answer."},
@@ -1467,9 +1468,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 98;
+const APP_REV = 99;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "13:14";           /* increments every build — check both machines match */
+const BUILD_TIME = "13:36";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -3038,12 +3039,26 @@ async function aiEstimateWeight(){
     const m=(matByName && matByName[matName])||{};
     const densityNote = m.density ? ` The material is ${matName} with density ${m.density} lb/in³ (use this value).`
                                   : ` The material is ${matName} — use its standard density.`;
+    /* Anchor the estimate to the quote's own geometry so the model cannot drift:
+       stock cylinder volume is a hard ceiling the finished part must fit inside. */
+    const _dia=num('barDia'), _len=num('partLength');
+    const _stockVol=(_dia>0&&_len>0)? (Math.PI/4*_dia*_dia*_len) : 0;
+    const _slugTxt=($('mSlugWt')&&$('mSlugWt').textContent.trim())||'';
+    const anchorNote=(_stockVol>0?
+      ` KNOWN FROM THE QUOTE HEADER (trust these over anything you misread): stock bar diameter ${_dia}\", finished part overall length ${_len}\". The stock cylinder volume is ${_stockVol.toFixed(3)} in3 — the finished part volume MUST be smaller than this, typically 40-85% of it for a turned part.`:'')
+      +(_slugTxt? ` The slug (stock) weight is ${_slugTxt} lb; the finished weight must be below that.`:'');
     const body={
       model:'claude-sonnet-4-6',
-      max_tokens:900,
+      max_tokens:1400,
+      temperature:0,   /* deterministic — same drawing, same answer, run after run */
       messages:[{role:'user', content:[
         {type:'image', source:{type:'base64', media_type:'image/jpeg', data:data.split(',')[1]}},
-        {type:'text', text:'This is a machining part drawing. Read the dimensions on the print, determine the finished part geometry (treat turned features as cylinders/cones/threads, subtract bores, holes and cut-outs), and estimate the FINISHED part weight AND its final volume.'+densityNote+' Give 2-5 short lines of reasoning (key dimensions), then end with exactly two final lines formatted: VOLUME: <number> in3 and WEIGHT: <number> lb'}
+        {type:'text', text:'This is a machining part drawing. Estimate the FINISHED part volume and weight using this EXACT method: '
+          +'(1) Decompose the part into cylindrical/conical segments along its axis; list each as: dia \u00d7 length \u2192 volume. '
+          +'(2) Sum the segment volumes. (3) Subtract internal bores, holes and threads the same way. '
+          +'(4) Weight = net volume \u00d7 density. (5) Verify the result against the stock ceiling given below \u2014 if it exceeds it, re-read the dimensions and redo.'
+          +densityNote+anchorNote
+          +' Show the segment table compactly, then end with exactly two final lines formatted: VOLUME: <number> in3 and WEIGHT: <number> lb'}
       ]}]
     };
     const r=await fetch('https://api.anthropic.com/v1/messages',{

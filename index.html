@@ -566,6 +566,9 @@
   .saved .q .clip{font-size:12px; margin-right:2px}
 
   /* ===== header minimize bar + zoom controls ===== */
+  .aiwt-widget{display:inline-flex; align-items:center; gap:6px; margin-left:14px}
+  .aiwt-chip{background:var(--blue); border:1px solid #b7c6dc; border-radius:5px; padding:2px 10px;
+    font-family:var(--ui); font-size:11.5px; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap}
   .hdr-bar{
     display:flex; align-items:center; gap:8px; margin:6px 8px 2px;
     font-family:var(--ui); font-size:12px;
@@ -873,6 +876,11 @@
   <div class="hdr-bar">
     <button class="mini" id="hdrToggle" type="button">▲ Minimize header</button>
     <span class="hdr-summary" id="hdrSummary" hidden></span>
+    <span class="aiwt-widget">
+      <button class="mini" id="aiWtHdrBtn" type="button" title="AI reads the print and estimates the finished part's volume and weight">🤖 AI WEIGHT</button>
+      <span id="aiWtChip" class="aiwt-chip" hidden></span>
+      <button class="mini" id="aiWtDetails" type="button" hidden title="full AI reasoning">ⓘ DETAILS</button>
+    </span>
   </div>
   <!-- ===== HEADER BLOCK (exact spreadsheet grid) ===== -->
   <table class="sheet" id="hdrSheet">
@@ -1367,6 +1375,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:98, date:"2026-07-27", note:"AI weight moved into the header bar. A \U0001F916 AI WEIGHT button sits beside the minimize control; after it runs, a chip shows FINISHED weight, VOLUME in cubic inches, and the SLUG weight (taken live from the engine\u2019s own Weight Of Slug field, which is computed from bar dia, part+extra length and material density in the header). A \u24d8 DETAILS button opens a popup with the AI\u2019s full reasoning. The estimate saves with the quote and the chip reappears when the quote is reopened. The drawing-toolbar Vol/Wt button still works and feeds the same chip."},
   {rev:97, date:"2026-07-27", note:"The AI estimators now show a large centre-screen spinner while they work \u2014 the same style as the e-mail one \u2014 instead of only a small status line under the drawing. Vol/Wt says READING THE DRAWING, the FAI counter says COUNTING FAI DIMENSIONS, and both disappear the moment the answer lands (the detailed result still prints under the drawing as before)."},
   {rev:96, date:"2026-07-27", note:"Two things. (1) The material cost override was already in the app but disguised: the No/Yes dropdown on the MATERIAL row \u2014 set Yes and type the material cost per piece directly, replacing the cost/lb calculation entirely. Its chip label wrongly said /LB OVR; it now says /PC OVERRIDE and the dropdown carries a tooltip. (2) The AI drawing estimator (\U0001F916 Vol/Wt in the drawing toolbar) now returns the finished part\u2019s VOLUME in cubic inches alongside the weight, both bolded in its answer."},
   {rev:95, date:"2026-07-27", note:"Two refinements: the analysis columns in the grid (pcs/shift through batch sub-contract per pc) show their figures 30% smaller \u2014 they are reference numbers, not entry fields, and the entry columns and headers keep their size. And the collapsed QTY BREAKS table now shows a one-line summary bar (qty \u2192 price \u00b7 batch for each break) instead of nothing, so the breaks stay visible even folded."},
@@ -1458,9 +1467,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 97;
+const APP_REV = 98;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "12:50";           /* increments every build — check both machines match */
+const BUILD_TIME = "13:14";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1989,6 +1998,7 @@ function snapshot(){
   fields.intakePending=intakePending?'1':'';
   fields.matVerified=matVerified?'1':'';
   fields.finalized=quoteFinalized?'1':'';
+  fields.aiWtLb=aiWtLb; fields.aiVolIn3=aiVolIn3; fields.aiWtText=aiWtText;
   const _slim=p=>({name:p.name, w:p.w, h:p.h, kb:p.kb, ts:p.ts, ref:p.ref||drawingPath(activeQuoteNo)});
   const dmeta = (drawPages.length||docPages.length)
     ? {pages: drawPages.map(_slim), docPages: docPages.map(_slim)} : null;
@@ -2001,6 +2011,9 @@ function restore(s){
   try{ oddSel=JSON.parse((s.fields&&s.fields.oddSel)||'[]')||[]; }catch(e){ oddSel=[]; }
   matVerified=(s.fields&&s.fields.matVerified==='1');
   quoteFinalized=(s.fields&&s.fields.finalized==='1');
+  aiWtLb=(s.fields&&s.fields.aiWtLb)||''; aiVolIn3=(s.fields&&s.fields.aiVolIn3)||'';
+  aiWtText=(s.fields&&s.fields.aiWtText)||'';
+  if(window.updateAiWtChip) setTimeout(updateAiWtChip, 0);
   if(window.updateFinalizeBtn) setTimeout(updateFinalizeBtn, 0);
   setTimeout(()=>{ if(window.updateOddBtn) updateOddBtn(); },0);
   if(_resumeIntake) setTimeout(()=>{ intakePending=true; resumeGuide(); }, 60);
@@ -3055,6 +3068,9 @@ async function aiEstimateWeight(){
     const wm=text.match(/WEIGHT:\s*([\d.,]+)\s*lb/i);
     const vm=text.match(/VOLUME:\s*([\d.,]+)\s*in/i);
     hideAiSpinner();
+    aiWtLb=wm? wm[1] : ''; aiVolIn3=vm? vm[1] : ''; aiWtText=text;
+    updateAiWtChip();
+    scheduleAutosave();          /* the estimate saves with the quote */
     out.innerHTML = esc(text)
       .replace(/WEIGHT:\s*[\d.,]+\s*lb/i, s=>'<b>'+s+'</b>')
       .replace(/VOLUME:\s*[\d.,]+\s*in3?/i, s=>'<b>'+s+'\u00b3</b>');
@@ -5085,6 +5101,45 @@ function showAiSpinner(msg){
   const m=document.getElementById('aiSpinMsg'); if(m) m.textContent=msg;
 }
 function hideAiSpinner(){ const el=document.getElementById('aiSpinOv'); if(el) el.remove(); }
+/* header AI-weight widget: finished weight + volume from the estimator, slug weight
+   straight from the engine's own header field, full reasoning behind DETAILS */
+let aiWtLb='', aiVolIn3='', aiWtText='';
+function updateAiWtChip(){
+  const chip=$('aiWtChip'), det=$('aiWtDetails');
+  if(!chip) return;
+  if(!aiWtLb && !aiVolIn3){ chip.hidden=true; if(det) det.hidden=true; return; }
+  const slug=($('mSlugWt')&&$('mSlugWt').textContent.trim())||'—';
+  chip.textContent='FINISHED '+(aiWtLb||'?')+' LB'
+    +(aiVolIn3? (' \u00b7 '+aiVolIn3+' IN\u00b3') : '')
+    +' \u00b7 SLUG '+slug+' LB';
+  chip.hidden=false;
+  if(det) det.hidden=false;
+}
+window.updateAiWtChip=updateAiWtChip;
+function showAiWtDetails(){
+  if(!aiWtText) return;
+  let ov=document.getElementById('aiWtDetOv');
+  if(ov) ov.remove();
+  ov=document.createElement('div');
+  ov.id='aiWtDetOv';
+  ov.style.cssText='position:fixed;inset:0;z-index:99997;background:rgba(20,10,10,.5);'
+    +'display:flex;align-items:center;justify-content:center';
+  const box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:12px;padding:20px 26px;max-width:640px;max-height:75vh;'
+    +'overflow:auto;font:13px/1.5 system-ui,sans-serif;color:#2a1315;box-shadow:0 8px 30px rgba(0,0,0,.4);white-space:pre-wrap';
+  box.innerHTML='<div style="font-weight:800;margin-bottom:8px">\U0001F916 AI WEIGHT & VOLUME \u2014 REASONING</div>'
+    +esc(aiWtText)
+    +'<div style="margin-top:14px;text-align:right"><button style="font:700 12px system-ui;padding:6px 18px;'
+    +'border-radius:6px;border:1px solid #7a3b3b;background:#8a1c1c;color:#fff;cursor:pointer" '
+    +'onclick="document.getElementById(\'aiWtDetOv\').remove()">CLOSE</button></div>';
+  ov.appendChild(box);
+  ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
+(function(){
+  const b=$('aiWtHdrBtn'); if(b) b.addEventListener('click', ()=>aiEstimateWeight());
+  const d=$('aiWtDetails'); if(d) d.addEventListener('click', showAiWtDetails);
+})();
 /* full-screen 'generating e-mail' indicator — spinner + message, above everything */
 function showEmailGen(on){
   let el=document.getElementById('emailGenOv');

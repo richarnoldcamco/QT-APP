@@ -519,13 +519,18 @@
     box-shadow:var(--cp-shadow); white-space:nowrap;
   }
   .mini-totals b{color:var(--cp-signal); font-size:14px}
-  .qty-breaks{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:2px 8px 6px;
-    font-family:var(--ui); font-size:12px}
-  .qty-breaks .qb-lbl{font-weight:800; letter-spacing:.05em; color:var(--cp-dim)}
-  .qty-breaks input{width:70px; font-size:12px; padding:2px 5px; border:1px solid var(--cp-line);
-    border-radius:4px; background:var(--yellow)}
-  .qty-breaks .qb-row{background:var(--blue); border-radius:4px; padding:2px 9px; font-weight:700;
-    font-variant-numeric:tabular-nums; white-space:nowrap}
+  .qty-breaks{margin:2px 8px 6px; font-family:var(--ui); font-size:12px}
+  .qb-head{display:flex; align-items:center; gap:7px; margin-bottom:3px}
+  .qb-head .qb-lbl{font-weight:800; letter-spacing:.05em; color:var(--cp-dim)}
+  #qbToggle{font-size:12px; font-weight:800; width:24px; height:22px; padding:0;
+    border:1px solid var(--cp-line); border-radius:5px; background:#fff; cursor:pointer}
+  .qb-table{border-collapse:collapse; background:#fff}
+  .qb-table th{background:#f3efe9; border:1px solid var(--cp-line); font-size:10px; font-weight:800;
+    letter-spacing:.05em; padding:3px 10px; color:var(--cp-dim)}
+  .qb-table td{border:1px solid var(--cp-line); padding:2px 10px; font-variant-numeric:tabular-nums}
+  .qb-table td.num{text-align:right; font-weight:700; min-width:96px}
+  .qb-table input{width:70px; font-size:12px; padding:2px 5px; border:none;
+    background:var(--yellow); border-radius:3px}
   .pgnav{display:inline-flex; align-items:center; gap:4px; margin-left:2px}
   .pgnav .pglbl{font-size:11px; font-weight:800; color:var(--cp-dim); min-width:38px; text-align:center}
 
@@ -1012,11 +1017,21 @@
     </table>
     <div class="mini-totals" id="miniTotals" hidden></div>
     <div class="qty-breaks" id="qtyBreaks" hidden>
-      <span class="qb-lbl">QTY BREAKS:</span>
-      <input id="qtyBrk1" type="number" min="1" placeholder="qty">
-      <input id="qtyBrk2" type="number" min="1" placeholder="qty">
-      <input id="qtyBrk3" type="number" min="1" placeholder="qty">
-      <span id="qtyBrkOut"></span>
+      <div class="qb-head">
+        <button type="button" id="qbToggle" title="collapse / expand">▾</button>
+        <span class="qb-lbl">QTY BREAKS</span>
+      </div>
+      <table class="qb-table" id="qbTable">
+        <thead><tr><th>QTY</th><th>PRICE /PC</th><th>BATCH TOTAL</th><th>EST. LEADTIME</th></tr></thead>
+        <tbody>
+          <tr><td><input id="qtyBrk1" type="number" min="1" placeholder="qty"></td><td class="num" id="qbP1"></td><td class="num" id="qbB1"></td><td class="num" id="qbL1"></td></tr>
+          <tr><td><input id="qtyBrk2" type="number" min="1" placeholder="qty"></td><td class="num" id="qbP2"></td><td class="num" id="qbB2"></td><td class="num" id="qbL2"></td></tr>
+          <tr><td><input id="qtyBrk3" type="number" min="1" placeholder="qty"></td><td class="num" id="qbP3"></td><td class="num" id="qbB3"></td><td class="num" id="qbL3"></td></tr>
+          <tr><td><input id="qtyBrk4" type="number" min="1" placeholder="qty"></td><td class="num" id="qbP4"></td><td class="num" id="qbB4"></td><td class="num" id="qbL4"></td></tr>
+          <tr><td><input id="qtyBrk5" type="number" min="1" placeholder="qty"></td><td class="num" id="qbP5"></td><td class="num" id="qbB5"></td><td class="num" id="qbL5"></td></tr>
+          <tr><td><input id="qtyBrk6" type="number" min="1" placeholder="qty"></td><td class="num" id="qbP6"></td><td class="num" id="qbB6"></td><td class="num" id="qbL6"></td></tr>
+        </tbody>
+      </table>
     </div>
    </div>
   <div class="drawwrap" hidden>
@@ -1346,6 +1361,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:94, date:"2026-07-27", note:"Qty breaks upgraded to a proper table \u2014 QTY, PRICE /PC, BATCH TOTAL, EST. LEADTIME \u2014 open by default with a \u25be collapse button whose state is remembered on this device. Now takes up to SIX break quantities, all saved with the quote and all flowing to the e-mail body and quote document as before. Cells update in place so typing a qty is never interrupted by the recalc."},
   {rev:93, date:"2026-07-27", note:"The calc-view print is left-justified against the calculation grid instead of centring in its pane \u2014 the image and its card now hug the grid\u2019s right edge, closing the dead gap between them. Full-height lift from rev 91 unchanged."},
   {rev:92, date:"2026-07-27", note:"Rev badge restyled to the Control Plan Generator format: a red REV-N pill with the timestamp beside it as 2026-07-27 10:07 AM. Same content as before \u2014 the running rev and when this copy loaded on this machine\u2019s clock."},
   {rev:91, date:"2026-07-27", note:"The calc-view print now actually reaches the top of the screen. Rev 90\u2019s lift guard found the header table\u2019s box overhanging the pane\u2019s column and simply declined, so nothing moved. Now the pane shifts right until it clears the header, then lifts to the top \u2014 full window height. The print is height-limited, so the traded width is free; if a shift would leave under 360px of pane, it settles for lifting to just below the header instead."},
@@ -1433,9 +1449,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 93;
+const APP_REV = 94;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "11:26";           /* increments every build — check both machines match */
+const BUILD_TIME = "11:48";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1483,18 +1499,38 @@ function priceAtBatch(qty){
   if(!r) return null;
   return {qty:qty, perPc:r.perPc, batchTotal:r.perPc*qty, lead:r.maxLead||0};
 }
+const QB_IDS=['qtyBrk1','qtyBrk2','qtyBrk3','qtyBrk4','qtyBrk5','qtyBrk6'];
 function getQtyBreaks(){
-  return ['qtyBrk1','qtyBrk2','qtyBrk3']
-    .map(id=>parseInt(($(id)&&$(id).value)||'',10))
-    .filter(q=>q>0);
+  return QB_IDS.map(id=>parseInt(($(id)&&$(id).value)||'',10)).filter(q=>q>0);
 }
 function renderQtyBreaks(){
-  const box=$('qtyBreaks'), out=$('qtyBrkOut');
-  if(!box||!out) return;
+  const box=$('qtyBreaks');
+  if(!box) return;
   box.hidden = !(opsMode==='calc');
-  const rows=getQtyBreaks().map(priceAtBatch).filter(Boolean);
-  out.innerHTML = rows.map(b=>`<span class="qb-row">${b.qty} pcs → ${money(b.perPc)} /pc · ${money(b.batchTotal)} batch</span>`).join(' ');
+  /* update the fixed cells in place — the inputs are static markup, never rebuilt,
+     so typing in one is not interrupted by the recalc it triggers */
+  QB_IDS.forEach((id,ix)=>{
+    const n=ix+1;
+    const q=parseInt(($(id)&&$(id).value)||'',10);
+    const r=(q>0)? priceAtBatch(q) : null;
+    const set=(cid,v)=>{ const e=$(cid); if(e) e.textContent=v; };
+    set('qbP'+n, r? money(r.perPc) : '');
+    set('qbB'+n, r? money(r.batchTotal) : '');
+    set('qbL'+n, r? (r.lead+' days') : '');
+  });
 }
+/* collapse button — preference remembered on this device, table open by default */
+(function(){
+  const t=$('qbToggle'), tbl=$('qbTable');
+  if(!t||!tbl) return;
+  const apply=c=>{ tbl.hidden=c; t.textContent=c?'\u25b8':'\u25be'; };
+  let col=false; try{ col=localStorage.getItem('qs_qb_collapsed')==='1'; }catch(e){}
+  apply(col);
+  t.addEventListener('click', ()=>{
+    col=!col; apply(col);
+    try{ localStorage.setItem('qs_qb_collapsed', col?'1':''); }catch(e){}
+  });
+})();
 function compute(){
   const mat = matByName[$('material').value] || {density:0.29,mach:1,mill:0,dist:0};
   const batch   = Math.max(num('batchSize'),1);
@@ -1904,7 +1940,7 @@ $('addOp').addEventListener('click', ()=>{
 });
 
 /* ---- recompute on any header input ---- */
-const HDR_FIELDS = ['qtyBrk1','qtyBrk2','qtyBrk3','customer','partNo','annualUsage','batchSize','minOrderQty','buyer','quotedBy','salesman',
+const HDR_FIELDS = ['qtyBrk1','qtyBrk2','qtyBrk3','qtyBrk4','qtyBrk5','qtyBrk6','customer','partNo','annualUsage','batchSize','minOrderQty','buyer','quotedBy','salesman',
  'material','priceLevel','stockForm','barForm','barOverride','difficulty','nreSep','barDia','partLength',
  'extraLength','chuckExtra','scrapPct','barLen','faiReq','faiDims','custQuoteNo','faiQty','margin','meCost','suCost',
  'soFee','coFee','sawCost'];

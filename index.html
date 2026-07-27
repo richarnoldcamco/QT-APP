@@ -1378,6 +1378,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:109, date:"2026-07-27", note:"Fixed odd-feature changes not sticking. OK used the debounced autosave, which left a several-second window in which the GitHub pull-on-focus could restore the quote from the stale saved copy and silently wipe the just-made change \u2014 which is why unchecked boxes came back. OK (and the +ADD path) now snapshot immediately with autosaveNow, so the change carries a fresh timestamp and survives any merge."},
   {rev:108, date:"2026-07-27", note:"New ODD FEATURE COST PER PC column, sitting just left of the last cost column: the direct dollar cost of that operation\u2019s odd-feature minutes (machine rate \u00d7 the extra cycle time the features add). Column width came out of DESCRIPTION\u2019s surplus (242 to 204px) so the grid\u2019s right edge stays flush with the drawing. 36 columns now \u2014 colgroup, both row templates, footer colspans, drawing-mode ranges and the small-font range all shifted; the new column joins the small-font analysis block and collapses in drawing mode."},
   {rev:107, date:"2026-07-27", note:"The grid now stretches to the drawing\u2019s border \u2014 its right edge matches the header\u2019s, closing the dead gap between the last column and the print \u2014 and every gained pixel went to the DESCRIPTION column (137px wider), so operation names like GRIND - CNC and SUBCONTRACT read in full instead of truncating. Drawing-mode width bumped to match."},
   {rev:106, date:"2026-07-27", note:"The per-op \u2b50 odd-features button moved out of the description cell into its own ODD FEATURES column, between S/U COST PER PC and the first cost column. Full column surgery: 35 columns now, with the colgroup, both row templates, the six footer colspans, the drawing-mode hide ranges and the small-font analysis range all shifted to match. In drawing mode the new column collapses with the rest of the detail columns."},
@@ -1480,9 +1481,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 108;
+const APP_REV = 109;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "17:06";           /* increments every build — check both machines match */
+const BUILD_TIME = "17:26";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -4817,6 +4818,7 @@ function openOddFeatures(rowIx){
     const keep=[...ov.querySelectorAll('.oddcb:checked')].map(c=>c.dataset.n);
     keep.push(name);
     _row.odd=keep;                             /* carry checks through the re-render */
+    autosaveNow();                             /* same stale-pull window as the OK path */
     ov.remove();
     openOddFeatures(rowIx);                    /* rebuild with the new row present */
     if(window.updateToast) updateToast('\u201c'+name+'\u201d added permanently at +'+pct+'%');
@@ -4829,7 +4831,11 @@ function openOddFeatures(rowIx){
     close();
     updateOddBtn();
     renderAll();
-    scheduleAutosave();
+    /* autosaveNow, not scheduleAutosave: the debounced save left a window in which the
+       GitHub pull-on-focus could restore the quote from the stale saved copy and wipe
+       the change — exactly what happened with unchecked features reappearing. An
+       immediate snapshot carries a fresh timestamp, so newest-wins merges keep it. */
+    autosaveNow();
   });
 }
 $('oddBtn').addEventListener('click', openOddFeatures);

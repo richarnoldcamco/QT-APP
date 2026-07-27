@@ -491,12 +491,16 @@
      into the freed space' — it grew into ALL of it, and because .thumb-card img is
      width:100% the print rendered enormous in CALCULATIONS view. That was the oversized
      drawing, not the drawing-mode pane. */
-  .thumbwrap{flex:0 0 420px; width:420px; margin:2px 8px 8px 0; display:flex; flex-direction:column; gap:8px; font-family:var(--ui)}
+  /* grows into all width left of the grid; --thumb-max-h is set by sizeThumbs() in JS
+     because the quote screen runs under zoom (Ctrl+wheel), and a CSS vh unit would be
+     multiplied by that zoom and overshoot the window — the rev 57 failure mode. */
+  .thumbwrap{flex:1 1 420px; min-width:340px; margin:2px 8px 8px 0; display:flex; flex-direction:column; gap:8px; font-family:var(--ui)}
   .thumb-card{
     background:var(--cp-panel); border:1px solid var(--cp-line); border-radius:8px;
     padding:4px; cursor:pointer; box-shadow:var(--cp-shadow);
   }
-  .thumb-card img{display:block; width:100%; border-radius:5px; background:#fff}
+  .thumb-card img{display:block; max-width:100%; max-height:var(--thumb-max-h, 900px);
+    width:auto; height:auto; margin:0 auto; border-radius:5px; background:#fff}
   .thumb-card .tc-cap{font-size:10px; font-weight:700; color:var(--cp-dim); text-align:center; padding:3px 0 1px; letter-spacing:.04em}
   .thumb-card .tc-load{font-size:10.5px; color:var(--cp-faint); text-align:center; padding:22px 4px}
   .thumb-card:hover{border-color:var(--cp-signal)}
@@ -1321,6 +1325,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:84, date:"2026-07-27", note:"The print in CALCULATIONS view now fills the whole area right of the grid instead of a fixed 420px strip. The pane grows into all leftover width and each page is capped to the height actually available below it, so the print renders as large as the window allows without running off the bottom. The cap is computed in JS rather than CSS vh because the quote screen runs under Ctrl+wheel zoom, which multiplies vh units \u2014 the rev 57 failure. Re-computed on window resize and every zoom change."},
   {rev:83, date:"2026-07-26", note:"Quote status added. Every quote shows IN PROGRESS in Past Quotes until the new Finalize button on the quote sheet is pressed, after which it shows FINALIZED in green. The button toggles \u2014 press it again to reopen the quote \u2014 and finalizing does not lock editing, it only marks the state. The flag saves with the quote and syncs like everything else."},
   {rev:82, date:"2026-07-26", note:"The quote popup now carries a green \u2018Outlook draft (WITH attachments)\u2019 button that downloads the same .eml from the Chrome window. Reason: the app runs as a pinned PWA with no browser toolbar, so the automatic .eml download never showed Chrome\u2019s download bubble \u2014 and the bubble\u2019s \u22ee menu is the only place \u2018Always open files of this type\u2019 can be set. Downloading once from the popup makes the bubble appear so that setting can be turned on; after that, every .eml \u2014 including the automatic one from the app \u2014 opens itself in Outlook."},
   {rev:81, date:"2026-07-26", note:"The \u2018Open email draft\u2019 button on the quote page is a mailto link, and mailto cannot carry attachments \u2014 which is why that draft opened with nothing attached while the .eml sitting in Downloads had everything. The button is now labelled \u2018Blank draft (NO attachments)\u2019 and the banner beside it says plainly that the draft with the print, the formal quotation and the full quote attached is the downloaded Quote-N.eml."},
@@ -1398,9 +1403,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 83;
-const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "23:40";           /* increments every build — check both machines match */
+const APP_REV = 84;
+const BUILD_DATE = "2026-07-27";
+const BUILD_TIME = "07:05";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -2060,6 +2065,18 @@ function updateDrawModeBtn(){
   const b=$('modeDraw'); if(!b) return;
   b.innerHTML = drawPages.length ? '📐 Drawing' : '⬆ Upload Drawing';
 }
+/* cap each thumbnail page to the height actually available below the pane's top edge.
+   getBoundingClientRect() returns post-zoom pixels, so divide by sheetZoom to get the
+   pre-zoom CSS value the max-height rule needs. */
+function sizeThumbs(){
+  const tw=$('thumbWrap'); if(!tw || tw.hidden) return;
+  const z=(typeof sheetZoom!=='undefined' && sheetZoom)||1.2;
+  const top=tw.getBoundingClientRect().top;
+  const avail=Math.max(300, (window.innerHeight - top - 46) / z);
+  tw.style.setProperty('--thumb-max-h', Math.round(avail)+'px');
+}
+window.sizeThumbs=sizeThumbs;
+window.addEventListener('resize', ()=>sizeThumbs());
 function renderThumbs(){
   updateDrawModeBtn();
   updateUndoBtn();
@@ -2079,6 +2096,7 @@ function renderThumbs(){
     if(curDrawing && !curDrawing.data && ghEnabled()) ghFetchDrawingRef(curDrawing.ref);
     renderDrawing();
   }));
+  setTimeout(sizeThumbs, 0);
   /* fetch any missing thumbnails in the background */
   drawPages.concat(docPages).forEach(pg=>{ if(!pg.data && ghEnabled()) ghFetchDrawingRef(pg.ref); });
 }
@@ -5387,6 +5405,7 @@ function setSheetZoom(z){
   sheetZoom=Math.min(2.5, Math.max(0.5, z));
   $('view-quote').style.zoom=sheetZoom;
   const zp=$('zoomPct'); if(zp) zp.textContent=Math.round(sheetZoom*100)+'%';
+  if(window.sizeThumbs) setTimeout(sizeThumbs, 0);
 }
 /* auto-fit: scale the whole quote screen so it needs NO vertical scrolling */
 function fitPage(){

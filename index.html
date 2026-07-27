@@ -1318,6 +1318,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:82, date:"2026-07-26", note:"The quote popup now carries a green \u2018Outlook draft (WITH attachments)\u2019 button that downloads the same .eml from the Chrome window. Reason: the app runs as a pinned PWA with no browser toolbar, so the automatic .eml download never showed Chrome\u2019s download bubble \u2014 and the bubble\u2019s \u22ee menu is the only place \u2018Always open files of this type\u2019 can be set. Downloading once from the popup makes the bubble appear so that setting can be turned on; after that, every .eml \u2014 including the automatic one from the app \u2014 opens itself in Outlook."},
   {rev:81, date:"2026-07-26", note:"The \u2018Open email draft\u2019 button on the quote page is a mailto link, and mailto cannot carry attachments \u2014 which is why that draft opened with nothing attached while the .eml sitting in Downloads had everything. The button is now labelled \u2018Blank draft (NO attachments)\u2019 and the banner beside it says plainly that the draft with the print, the formal quotation and the full quote attached is the downloaded Quote-N.eml."},
   {rev:80, date:"2026-07-26", note:"Email attachments: pages kept as PDFs were being dropped without a word. The attachment builder matched data:image/* only, so a print that came in as a PDF never made it into the .eml. It now accepts any data URL and names the file with the right extension. Pages whose bytes are not in memory are pulled from GitHub before the draft is built, and a toast reports how many attachments went in and how many pages could not be read, so a missing attachment is obvious before the mail is sent rather than after."},
   {rev:79, date:"2026-07-26", note:"Added a Save button to the top bar, left of Add Op Row. The quote already autosaves as you type, so this forces the save and the GitHub push straight away instead of waiting for the sync timer, and reports plainly what happened \u2014 pushed to GitHub, saved locally with sync off, or saved locally with the push failed and queued for retry."},
@@ -1393,9 +1394,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 81;
+const APP_REV = 82;
 const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "22:35";           /* increments every build — check both machines match */
+const BUILD_TIME = "23:02";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -4823,7 +4824,18 @@ async function emailQuote(){
     if(!pg.data && ghEnabled()){ try{ await ghFetchDrawingRef(pg.ref); }catch(e){} }
   }
   let custDoc=''; try{ custDoc=buildCustomerQuote(qno, r); }catch(e){ console.warn('cust quote', e); }
-  try{ downloadQuoteEml(qno, subject, bodyLines, doc, drawPages.concat(docPages), custDoc); }catch(e){ console.warn('eml build', e); }
+  let emlUrl=null;
+  try{ emlUrl=downloadQuoteEml(qno, subject, bodyLines, doc, drawPages.concat(docPages), custDoc); }catch(e){ console.warn('eml build', e); }
+  /* same .eml, downloadable from the Chrome popup where the download bubble exists —
+     that is where 'Always open files of this type' can be set */
+  try{
+    if(emlUrl && w && w.document){
+      const bar=w.document.querySelector('.bar');
+      if(bar) bar.insertAdjacentHTML('afterbegin',
+        '<a href="'+emlUrl+'" download="Quote-'+qno+'.eml">'
+        +'<button style="background:#1a6b1a;border-color:#145214;color:#fff">\uD83D\uDCCE Outlook draft (WITH attachments)</button></a>');
+    }
+  }catch(e){}
 }
 function buildCustomerQuote(qno, r){
   const v=id=>($(id)&&$(id).value)||'';
@@ -4967,11 +4979,15 @@ function downloadQuoteEml(qno, subject, bodyText, docHtml, pages, custHtml){
       +(skipped.length?(' \u00b7 '+skipped.length+' page(s) could not be read'):''));
   }
   const blob=new Blob([P.join('\r\n')],{type:'message/rfc822'});
+  const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
+  a.href=url;
   a.download='Quote-'+qno+'.eml';
   a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+  /* the URL is also handed to the quote popup so the same file can be downloaded from a
+     real Chrome window — the app runs as a PWA with no toolbar, so downloads fired here
+     never show Chrome's download bubble. Keep the URL alive for the popup's lifetime. */
+  return url;
 }
 $('emailQuoteBtn').addEventListener('click', emailQuote);
 

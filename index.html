@@ -1374,6 +1374,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:104, date:"2026-07-27", note:"The AI spinner no longer blocks the screen. It is now a small animated pill in the header bar \u2014 next to the AI WEIGHT button \u2014 and everything stays fully usable while the three estimates run in the background. The AI WEIGHT button disables during a run so it cannot be double-fired, and if you switch to a different quote before the run finishes, the result is discarded with a toast instead of being written onto the wrong quote."},
   {rev:103, date:"2026-07-27", note:"Weight estimator accuracy pass, prompted by a real miss (AI found roughly half the part on a dense shaft print). Two changes: extended thinking is enabled so the model works the geometry stepwise before answering, and the prompt now carries closure checks it cannot dodge \u2014 segment lengths along the axis must sum to the overall part length from the header, and the largest diameter should sit just under stock; failing either means a section was missed and it must redo. Thinking requires default temperature, so run-to-run variance stays handled by the median-of-three ensemble."},
   {rev:102, date:"2026-07-27", note:"New odd features can be added right from the quoting popup: a name box, a % box and an + ADD button at the bottom of the ODD FEATURES dialog. Adding one puts it PERMANENTLY on the same list Admin edits \u2014 saved and synced to GitHub with the tables \u2014 checks it on the current part immediately, and re-renders the dialog with it in place. Duplicate names are refused with a toast."},
   {rev:101, date:"2026-07-27", note:"Removed the Vol/Wt button from the drawing toolbar \u2014 the \U0001F916 AI WEIGHT button in the header bar is its home now, works from any view, and feeds the same chip and DETAILS popup. One less button crowding the drawing tools."},
@@ -1471,9 +1472,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 103;
+const APP_REV = 104;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "15:04";           /* increments every build — check both machines match */
+const BUILD_TIME = "15:24";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -3037,7 +3038,8 @@ async function aiEstimateWeight(){
     const data=await ensureDrawingData();
     if(!data){ say('⚠ Could not load the drawing image — check GitHub Sync, or re-paste the drawing into this quote.'); return; }
     say('🤖 Reading the drawing and estimating weight… (takes 5–20 seconds)');
-    showAiSpinner('🤖 RUNNING 3 INDEPENDENT ESTIMATES — TAKING THE MEDIAN…');
+    showAiSpinner('🤖 AI WEIGHT: 3 estimates running… keep working');
+    const _runQuote=activeQuoteNo;   /* the quote this estimate belongs to */
     const matName=$('material').value;
     const m=(matByName && matByName[matName])||{};
     const densityNote = m.density ? ` The material is ${matName} with density ${m.density} lb/in³ (use this value).`
@@ -3117,6 +3119,12 @@ async function aiEstimateWeight(){
     const text=summary+'\n\n—— median run ——\n'+pick.text;
     const wm=[null, wMed.toFixed(3)], vm=vMed!=null? [null, vMed.toFixed(3)] : null;
     hideAiSpinner();
+    if(activeQuoteNo!==_runQuote){
+      /* the user moved to another quote while this ran — never write the estimate
+         onto the wrong quote */
+      if(window.updateToast) updateToast('AI weight for quote #'+_runQuote+' discarded \u2014 you switched quotes; reopen it and run again');
+      return;
+    }
     aiWtLb=wMed.toFixed(3); aiVolIn3=vMed!=null? vMed.toFixed(3) : ''; aiWtText=text;
     updateAiWtChip();
     scheduleAutosave();          /* the estimate saves with the quote */
@@ -5159,24 +5167,28 @@ async function emailQuote(){
   showEmailGen(false);
 }
 /* full-screen AI progress indicator — large spinner + message, impossible to miss */
+/* NON-BLOCKING: a pill in the header bar, no backdrop — keep working while it runs */
 function showAiSpinner(msg){
   let el=document.getElementById('aiSpinOv');
   if(!el){
-    el=document.createElement('div');
+    el=document.createElement('span');
     el.id='aiSpinOv';
-    el.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(20,10,10,.55);'
-      +'display:flex;align-items:center;justify-content:center';
-    el.innerHTML='<div style="background:#fff;border-radius:12px;padding:28px 46px;text-align:center;'
-      +'font:800 17px system-ui,sans-serif;color:#2a1315;box-shadow:0 8px 30px rgba(0,0,0,.4);max-width:520px">'
-      +'<div style="width:54px;height:54px;margin:0 auto 16px;border:6px solid #e8dede;'
-      +'border-top-color:#8a1c1c;border-radius:50%;animation:qsSpin 0.9s linear infinite"></div>'
-      +'<div id="aiSpinMsg"></div>'
-      +'<div style="font-weight:400;font-size:12.5px;color:#6b5f5f;margin-top:8px">takes 5\u201320 seconds \u2014 the result appears under the drawing</div></div>';
-    document.body.appendChild(el);
+    el.style.cssText='display:inline-flex;align-items:center;gap:8px;margin-left:12px;'
+      +'background:#fff8e6;border:1px solid #d9a400;border-radius:7px;padding:3px 12px;'
+      +'font:700 11.5px system-ui,sans-serif;color:#2a1315;white-space:nowrap';
+    el.innerHTML='<span style="width:16px;height:16px;flex:0 0 auto;border:3px solid #e8dede;'
+      +'border-top-color:#8a1c1c;border-radius:50%;animation:qsSpin 0.9s linear infinite"></span>'
+      +'<span id="aiSpinMsg"></span>';
+    const bar=document.querySelector('.hdr-bar');
+    if(bar) bar.appendChild(el); else document.body.appendChild(el);
   }
   const m=document.getElementById('aiSpinMsg'); if(m) m.textContent=msg;
+  const b=$('aiWtHdrBtn'); if(b) b.disabled=true;   /* no double-fire while one runs */
 }
-function hideAiSpinner(){ const el=document.getElementById('aiSpinOv'); if(el) el.remove(); }
+function hideAiSpinner(){
+  const el=document.getElementById('aiSpinOv'); if(el) el.remove();
+  const b=$('aiWtHdrBtn'); if(b) b.disabled=false;
+}
 /* header AI-weight widget: finished weight + volume from the estimator, slug weight
    straight from the engine's own header field, full reasoning behind DETAILS */
 let aiWtLb='', aiVolIn3='', aiWtText='';

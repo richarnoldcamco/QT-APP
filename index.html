@@ -1374,6 +1374,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:103, date:"2026-07-27", note:"Weight estimator accuracy pass, prompted by a real miss (AI found roughly half the part on a dense shaft print). Two changes: extended thinking is enabled so the model works the geometry stepwise before answering, and the prompt now carries closure checks it cannot dodge \u2014 segment lengths along the axis must sum to the overall part length from the header, and the largest diameter should sit just under stock; failing either means a section was missed and it must redo. Thinking requires default temperature, so run-to-run variance stays handled by the median-of-three ensemble."},
   {rev:102, date:"2026-07-27", note:"New odd features can be added right from the quoting popup: a name box, a % box and an + ADD button at the bottom of the ODD FEATURES dialog. Adding one puts it PERMANENTLY on the same list Admin edits \u2014 saved and synced to GitHub with the tables \u2014 checks it on the current part immediately, and re-renders the dialog with it in place. Duplicate names are refused with a toast."},
   {rev:101, date:"2026-07-27", note:"Removed the Vol/Wt button from the drawing toolbar \u2014 the \U0001F916 AI WEIGHT button in the header bar is its home now, works from any view, and feeds the same chip and DETAILS popup. One less button crowding the drawing tools."},
   {rev:100, date:"2026-07-27", note:"AI weight is now a median-of-three ensemble. One vision pass can misread a single dimension; three passes rarely misread the same one, so three independent estimates run in parallel and the median is taken \u2014 the outlier is discarded automatically. The chip shows the median; the DETAILS popup opens with all three weights, the spread percentage and a verdict (GOOD AGREEMENT \u2264\u200910%, FAIR \u2264\u200925%, LOW CONFIDENCE above), followed by the median run\u2019s full segment table. A failed run out of the three is tolerated."},
@@ -1470,9 +1471,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 102;
+const APP_REV = 103;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "14:44";           /* increments every build — check both machines match */
+const BUILD_TIME = "15:04";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -3047,18 +3048,23 @@ async function aiEstimateWeight(){
     const _stockVol=(_dia>0&&_len>0)? (Math.PI/4*_dia*_dia*_len) : 0;
     const _slugTxt=($('mSlugWt')&&$('mSlugWt').textContent.trim())||'';
     const anchorNote=(_stockVol>0?
-      ` KNOWN FROM THE QUOTE HEADER (trust these over anything you misread): stock bar diameter ${_dia}\", finished part overall length ${_len}\". The stock cylinder volume is ${_stockVol.toFixed(3)} in3 — the finished part volume MUST be smaller than this, typically 40-85% of it for a turned part.`:'')
+      ` KNOWN FROM THE QUOTE HEADER (trust these over anything you misread): stock bar diameter ${_dia}\", finished part overall length ${_len}\" — your segment lengths must sum to this. The stock cylinder volume is ${_stockVol.toFixed(3)} in3 — the finished part volume MUST be smaller than this, typically 40-85% of it for a turned part.`:'')
       +(_slugTxt? ` The slug (stock) weight is ${_slugTxt} lb; the finished weight must be below that.`:'');
     const body={
       model:'claude-sonnet-4-6',
-      max_tokens:1400,
-      temperature:0,   /* deterministic — same drawing, same answer, run after run */
+      max_tokens:6000,
+      /* extended thinking: the model works the geometry stepwise before answering.
+         Thinking requires default temperature, so run-to-run variance is handled by
+         the median-of-three ensemble rather than temperature 0. */
+      thinking:{type:'enabled', budget_tokens:3500},
       messages:[{role:'user', content:[
         {type:'image', source:{type:'base64', media_type:'image/jpeg', data:data.split(',')[1]}},
         {type:'text', text:'This is a machining part drawing. Estimate the FINISHED part volume and weight using this EXACT method: '
           +'(1) Decompose the part into cylindrical/conical segments along its axis; list each as: dia \u00d7 length \u2192 volume. '
           +'(2) Sum the segment volumes. (3) Subtract internal bores, holes and threads the same way. '
-          +'(4) Weight = net volume \u00d7 density. (5) Verify the result against the stock ceiling given below \u2014 if it exceeds it, re-read the dimensions and redo.'
+          +'(4) Weight = net volume \u00d7 density. (5) CLOSURE CHECK: the segment lengths along the axis MUST sum to the overall part length given below \u2014 if they do not, you have missed or misread a section; find it and redo. '
+          +'(6) The largest diameter on a turned part is normally just under the stock bar diameter \u2014 if your largest segment is far below stock dia, re-read the print. '
+          +'(7) Verify the total against the stock ceiling \u2014 if it exceeds it, redo.'
           +densityNote+anchorNote
           +' Show the segment table compactly, then end with exactly two final lines formatted: VOLUME: <number> in3 and WEIGHT: <number> lb'}
       ]}]

@@ -158,7 +158,7 @@
   .ac-none{padding:5px 9px; font-size:11.5px; color:#777; font-style:italic}
 
   /* ===== operations grid ===== */
-  .opgrid{border-collapse:collapse; font-size:11px; table-layout:fixed; margin:0 8px; width:1320px; max-width:none}
+  .opgrid{border-collapse:collapse; font-size:11px; table-layout:fixed; margin:0 8px; width:1350px; max-width:none}
   .opgrid th{
     background:#fff; border:1px solid var(--grid);
     font-weight:700; font-size:10px; line-height:1.05; color:#000;
@@ -218,7 +218,8 @@
   .guide-cur{outline:3px solid var(--cp-signal) !important; outline-offset:-1px; background:#fff8c4 !important}
   .oddbtn.on{background:linear-gradient(180deg,#fdf29a,#f3df57); color:#5a4a00; border-color:#c9b23a}
   /* operation dropdown: keep the open list at a readable, compact size */
-  .row-odd{font-size:10px; padding:0 4px; margin-left:2px; border:1px solid var(--cp-line);
+  .oddcell{text-align:center; padding:0 1px}
+  .row-odd{font-size:10px; padding:0 3px; margin-left:0; border:1px solid var(--cp-line);
     border-radius:4px; background:#fff; cursor:pointer; vertical-align:middle}
   .row-odd.on{background:var(--yellow); border-color:#d9a400; font-weight:800}
   select[data-k="desc"]{font-size:12px}
@@ -273,27 +274,27 @@
      cells stay present so colspan math and totals alignment are preserved) */
   .opgrid.show-drawing{width:1320px}
   .opgrid.show-drawing col.dcol{width:0 !important}
-  .opgrid.show-drawing tr:not(.foot)>td:nth-child(n+18):nth-child(-n+31),
-  .opgrid.show-drawing thead th:nth-child(n+18):nth-child(-n+31){
+  .opgrid.show-drawing tr:not(.foot)>td:nth-child(n+18):nth-child(-n+32),
+  .opgrid.show-drawing thead th:nth-child(n+18):nth-child(-n+32){
     width:0; max-width:0; min-width:0; padding:0 !important;
     border-left:0 !important; border-right:0 !important;
     overflow:hidden; white-space:nowrap; font-size:0; line-height:0;
   }
-  .opgrid.show-drawing thead th:nth-child(n+18):nth-child(-n+31) *{display:none}
+  .opgrid.show-drawing thead th:nth-child(n+18):nth-child(-n+32) *{display:none}
   /* drawing mode also drops: duplicate $ col (18), NRE (34), Est Leadtime (35) */
   .opgrid.show-drawing col.d2col{width:0 !important}
   .opgrid.show-drawing tr:not(.foot)>td:nth-child(17),
-  .opgrid.show-drawing tr:not(.foot)>td:nth-child(33),
   .opgrid.show-drawing tr:not(.foot)>td:nth-child(34),
+  .opgrid.show-drawing tr:not(.foot)>td:nth-child(35),
   .opgrid.show-drawing thead th:nth-child(17),
-  .opgrid.show-drawing thead th:nth-child(33),
-  .opgrid.show-drawing thead th:nth-child(34){
+  .opgrid.show-drawing thead th:nth-child(34),
+  .opgrid.show-drawing thead th:nth-child(35){
     width:0; max-width:0; min-width:0; padding:0 !important;
     border-left:0 !important; border-right:0 !important;
     overflow:hidden; white-space:nowrap; font-size:0; line-height:0;
   }
-  .opgrid.show-drawing thead th:nth-child(33) *,
-  .opgrid.show-drawing thead th:nth-child(34) *{display:none}
+  .opgrid.show-drawing thead th:nth-child(34) *,
+  .opgrid.show-drawing thead th:nth-child(35) *{display:none}
   /* footer: labels + requested-leadtime live in those columns — hide in drawing mode */
   .opgrid.show-drawing tr.foot td.flbl,
   .opgrid.show-drawing tr.foot td:last-child,
@@ -333,7 +334,7 @@
   .opgrid tr.foot td.dbltop{border-top:3px double #000; font-weight:800}
   /* analysis columns (pcs/shift through batch sub-contract per pc): data text 30%
      smaller — reference figures, not entry fields. Headers keep their size. */
-  .opgrid td:nth-child(n+20):nth-child(-n+31){font-size:8px}
+  .opgrid td:nth-child(n+21):nth-child(-n+32){font-size:8px}
   /* the grid footer rows carry class "foot", which the page-footer style paints
      light grey; repaint the totals block ink-black. td.redc (FAI) keeps its white
      text on red and is deliberately not listed here. */
@@ -1027,7 +1028,7 @@
   <div class="ops-flex">
    <div class="ops-scroll">
     <table class="opgrid" id="opSheet">
-      <colgroup><col style="width:52px"><col style="width:105px"><col style="width:49px"><col style="width:21px"><col style="width:21px"><col style="width:29px"><col style="width:44px"><col style="width:44px"><col style="width:44px"><col style="width:31px"><col style="width:31px"><col style="width:31px"><col style="width:41px"><col style="width:32px"><col style="width:27px"><col style="width:35px"><col class="dcol" style="width:34px"><col class="d2col" style="width:55px"><col class="dcol" style="width:55px"><col class="dcol" style="width:31px"><col class="dcol" style="width:30px"><col class="dcol" style="width:30px"><col class="dcol" style="width:30px"><col class="dcol" style="width:30px"><col class="dcol" style="width:30px"><col class="dcol" style="width:30px"><col class="dcol" style="width:34px"><col class="dcol" style="width:31px"><col class="dcol" style="width:30px"><col class="dcol" style="width:31px"><col class="dcol" style="width:36px"><col style="width:57px"><col class="d2col" style="width:57px"><col class="d2col" style="width:52px"></colgroup>
+      <colgroup><col style="width:52px"><col style="width:105px"><col style="width:49px"><col style="width:21px"><col style="width:21px"><col style="width:29px"><col style="width:44px"><col style="width:44px"><col style="width:44px"><col style="width:31px"><col style="width:31px"><col style="width:31px"><col style="width:41px"><col style="width:32px"><col style="width:27px"><col style="width:35px"><col class="dcol" style="width:34px"><col style="width:30px" class="dcol"><col class="d2col" style="width:55px"><col class="dcol" style="width:55px"><col class="dcol" style="width:31px"><col class="dcol" style="width:30px"><col class="dcol" style="width:30px"><col class="dcol" style="width:30px"><col class="dcol" style="width:30px"><col class="dcol" style="width:30px"><col class="dcol" style="width:30px"><col class="dcol" style="width:34px"><col class="dcol" style="width:31px"><col class="dcol" style="width:30px"><col class="dcol" style="width:31px"><col class="dcol" style="width:36px"><col style="width:57px"><col class="d2col" style="width:57px"><col class="d2col" style="width:52px"></colgroup>
       <thead id="opHead"></thead>
       <tbody id="opsBody"></tbody>
     </table>
@@ -1377,6 +1378,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:106, date:"2026-07-27", note:"The per-op \u2b50 odd-features button moved out of the description cell into its own ODD FEATURES column, between S/U COST PER PC and the first cost column. Full column surgery: 35 columns now, with the colgroup, both row templates, the six footer colspans, the drawing-mode hide ranges and the small-font analysis range all shifted to match. In drawing mode the new column collapses with the rest of the detail columns."},
   {rev:105, date:"2026-07-27", note:"Odd features are PER OPERATION now, not part-wide. Each op row carries a \u2b50 button beside its description \u2014 it opens the same dialog, but the checks and their percentages apply to THAT operation\u2019s cycle time only, so an OD thread loads the lathe row without touching bench or grind. The star shows the count and turns yellow when set. The top button is an aggregate indicator. Old quotes migrate price-identically: their part-level list is copied onto every op row, which reproduces the old math exactly \u2014 trim rows that should not carry it. The +ADD permanent-feature box still works inside the per-op dialog."},
   {rev:104, date:"2026-07-27", note:"The AI spinner no longer blocks the screen. It is now a small animated pill in the header bar \u2014 next to the AI WEIGHT button \u2014 and everything stays fully usable while the three estimates run in the background. The AI WEIGHT button disables during a run so it cannot be double-fired, and if you switch to a different quote before the run finishes, the result is discarded with a toast instead of being written onto the wrong quote."},
   {rev:103, date:"2026-07-27", note:"Weight estimator accuracy pass, prompted by a real miss (AI found roughly half the part on a dense shaft print). Two changes: extended thinking is enabled so the model works the geometry stepwise before answering, and the prompt now carries closure checks it cannot dodge \u2014 segment lengths along the axis must sum to the overall part length from the header, and the largest diameter should sit just under stock; failing either means a section was missed and it must redo. Thinking requires default temperature, so run-to-run variance stays handled by the median-of-three ensemble."},
@@ -1476,9 +1478,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 105;
+const APP_REV = 106;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "15:58";           /* increments every build — check both machines match */
+const BUILD_TIME = "16:26";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1751,6 +1753,7 @@ const OP_COLS = [
   {h:'Sub-Contract Batch Size'},
   {h:'Sub-Contract Cost Per Batch ($)'},
   {h:'S/U Cost Per Pc'},
+  {h:'Odd Features', rot:true},
   {total:true, base:true},
   {h:'Per Shift Output'},
   {h:'Pcs /Shift "Smell Test"', rot:true},
@@ -1798,10 +1801,12 @@ function renderOps(){
     const num = (k,step,dec)=> locked?'' : `<input type="text" inputmode="decimal" value="${dec!=null?(parseFloat(row[k])||0).toFixed(dec):(row[k]||0)}" data-i="${i}" data-k="${k}">`;
     const txt = (k)=> `<input value="${(row[k]||'').replace(/"/g,'&quot;')}" data-i="${i}" data-k="${k}">`;
     const _oddN=(Array.isArray(row.odd)?row.odd.length:0);
+    const oddCell = (!locked && row.desc)
+      ? `<td class="oddcell"><button type="button" class="row-odd${_oddN?' on':''}" data-oddrow="${i}" title="odd features on THIS operation">⭐${_oddN||''}</button></td>`
+      : `<td class="oddcell"></td>`;
     const descCell = locked
       ? `<input value="${row.desc}" disabled>`
-      : `<select data-i="${i}" data-k="desc"><option value="">— op —</option>${OPS.map(o=>`<option${o.name===row.desc?' selected':''}>${o.name}</option>`).join('')}</select>`
-        +(row.desc? `<button type="button" class="row-odd${_oddN?' on':''}" data-oddrow="${i}" title="odd features on THIS operation">⭐${_oddN||''}</button>`:'');
+      : `<select data-i="${i}" data-k="desc"><option value="">— op —</option>${OPS.map(o=>`<option${o.name===row.desc?' selected':''}>${o.name}</option>`).join('')}</select>`;
     const machPct = (locked||!row.desc)?'' : Math.round((d.mach||0)*100)+'%';
     const showRow = !!(row.desc||row.quote||locked);
     const calc = v => `<td class="calc">${v}</td>`;
@@ -1820,13 +1825,13 @@ function renderOps(){
         <td class="op">${row.op}<span class="rowbtns"><button class="rb rb-add" data-i="${i}" title="insert row below">+</button></span></td>
         <td class="desc"><input value="${row.desc}" disabled></td>
         ${ovrCells}
-        ${blk}
+        ${blk.repeat(2)}
         ${calc(m2(cost))}
         ${blk.repeat(3)}
         ${ row.locked==='mat'
             ? `<td class="black" colspan="3" style="text-align:center"><span class="costlb-pill">COST/LB $${r.costLb.toFixed(2)}</span></td>`
             : blk.repeat(3) }
-        ${blk.repeat(7)}
+        ${blk.repeat(8)}
         ${calc(m2(cost))}
         <td class="calc"></td>
         <td class="lead">${d.lead||''}</td>
@@ -1850,6 +1855,7 @@ function renderOps(){
       <td class="yellow">${num('subBatch','1')}</td>
       <td class="yellow">${num('subCostBatch','0.01')}</td>
       <td>${d.suPc?('$'+d.suPc.toFixed(2)):(showRow?'$0.00':'')}</td>
+      ${oddCell}
       ${calc(showRow?m2(d.base||0):'$0.00')}
       ${calc(d.perShift!==''&&d.perShift!=null?('$'+Number(d.perShift).toFixed(2)):'')}
       <td>${d.pcsShift||(showRow?0:'')}</td>
@@ -1871,12 +1877,12 @@ function renderOps(){
   }).join('')
   /* ===== footer: totals aligned bottom-right, exactly like the sheet ===== */
   + `
-  <tr class="foot"><td class="void" colspan="31"></td><td class="calc bold dbltop" id="tPrice"></td><td class="flbl"></td><td class="lead bold dbltop" id="leadEst"></td></tr>
-  <tr class="foot"><td class="void" colspan="31"></td><td class="calc" id="tMatlPrem"></td><td class="flbl">Material Cost Premium</td><td class="void"></td></tr>
-  <tr class="foot"><td class="void" colspan="31"></td><td class="calc" id="tSalesPrem"></td><td class="flbl">Salesman Premium</td><td class="void"><input id="reqLead" type="hidden" value=""></td></tr>
-  <tr class="foot"><td class="void" colspan="31"></td><td class="calc" id="tLeadPrem"></td><td class="flbl">Leadtime Premium</td><td class="void"></td></tr>
-  <tr class="foot"><td class="void" colspan="31"></td><td class="redc" id="tFai"></td><td class="flbl">FAI</td><td class="void"></td></tr>
-  <tr class="foot trow"><td class="void" colspan="31"></td><td class="calc bold" id="totalPerPc"></td><td class="flbl big">TOTAL PRICE</td><td class="void"></td></tr>`;
+  <tr class="foot"><td class="void" colspan="32"></td><td class="calc bold dbltop" id="tPrice"></td><td class="flbl"></td><td class="lead bold dbltop" id="leadEst"></td></tr>
+  <tr class="foot"><td class="void" colspan="32"></td><td class="calc" id="tMatlPrem"></td><td class="flbl">Material Cost Premium</td><td class="void"></td></tr>
+  <tr class="foot"><td class="void" colspan="32"></td><td class="calc" id="tSalesPrem"></td><td class="flbl">Salesman Premium</td><td class="void"><input id="reqLead" type="hidden" value=""></td></tr>
+  <tr class="foot"><td class="void" colspan="32"></td><td class="calc" id="tLeadPrem"></td><td class="flbl">Leadtime Premium</td><td class="void"></td></tr>
+  <tr class="foot"><td class="void" colspan="32"></td><td class="redc" id="tFai"></td><td class="flbl">FAI</td><td class="void"></td></tr>
+  <tr class="foot trow"><td class="void" colspan="32"></td><td class="calc bold" id="totalPerPc"></td><td class="flbl big">TOTAL PRICE</td><td class="void"></td></tr>`;
   b.querySelectorAll('input,select').forEach(el=>{
     if(el.disabled || !el.dataset.k) return;
     const ev = el.tagName==='SELECT' ? 'change':'input';

@@ -1325,6 +1325,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:86, date:"2026-07-27", note:"The quote document no longer opens as a separate browser tab. It renders in a full-screen overlay inside the app with a \u2190 BACK TO QUOTE button at the top, so E-MAIL keeps you in the app. All the document\u2019s own buttons \u2014 the green Outlook draft, Print/Save as PDF, Download quote file, the blank mailto draft \u2014 work exactly as before, and the automatic .eml download and auto-open are untouched."},
   {rev:85, date:"2026-07-27", note:"Expanded header compressed horizontally to 75% \u2014 every column width scaled (1983px down to 1487px), font from 12.5px to 10.5px, tighter cell padding. The header\u2019s right edge now sits near the drawing\u2019s left edge instead of running underneath it. All field positions, ids and tab order unchanged; this is width and type size only."},
   {rev:84, date:"2026-07-27", note:"The print in CALCULATIONS view now fills the whole area right of the grid instead of a fixed 420px strip. The pane grows into all leftover width and each page is capped to the height actually available below it, so the print renders as large as the window allows without running off the bottom. The cap is computed in JS rather than CSS vh because the quote screen runs under Ctrl+wheel zoom, which multiplies vh units \u2014 the rev 57 failure. Re-computed on window resize and every zoom change."},
   {rev:83, date:"2026-07-26", note:"Quote status added. Every quote shows IN PROGRESS in Past Quotes until the new Finalize button on the quote sheet is pressed, after which it shows FINALIZED in green. The button toggles \u2014 press it again to reopen the quote \u2014 and finalizing does not lock editing, it only marks the state. The flag saves with the quote and syncs like everything else."},
@@ -1404,9 +1405,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 85;
+const APP_REV = 86;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "08:40";           /* increments every build — check both machines match */
+const BUILD_TIME = "09:02";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -4861,9 +4862,29 @@ async function emailQuote(){
     <div style="overflow-x:auto"><table class="grid"><tr><th>OP</th><th>Operation</th><th>Fixture hrs</th><th>Extra insp</th><th>S/U hrs</th><th>Cycle min</th><th>Load min</th><th>Insp min</th><th>Pcs b/4 reload</th><th>#.001"</th><th>#.0002"</th><th>Mach %</th><th>Sub $/pc</th><th>Sub batch</th><th>Sub $/batch</th><th>Cost/pc</th><th>Per shift $</th><th>Pcs/shift</th><th>C/T cost</th><th>Long cyc</th><th>Low vol</th><th>S/U cost</th><th>Lead</th><th>Notes</th></tr>${ops}</table></div>
     ${img}
   </body></html>`;
-  const w=window.open('about:blank','_blank');
-  if(!w){ alert('Popup blocked — allow popups for this page to use Email Quote.'); return; }
-  w.document.write(doc); w.document.close();
+  /* The quote document renders in a full-screen overlay INSIDE the app, not a browser
+     tab — a BACK button returns to the sheet. The iframe's contentWindow stands in for
+     the old popup's `w`, so everything downstream (the .eml button injection, the bar
+     lookup) works unchanged. The overlay hangs off <body>, which carries no zoom, so
+     position:fixed is safe here — unlike inside #view-quote (the rev 57 lesson). */
+  let ov=document.getElementById('quoteDocOverlay');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='quoteDocOverlay';
+    ov.style.cssText='position:fixed;inset:0;z-index:9990;background:#fff;display:flex;flex-direction:column';
+    ov.innerHTML='<div style="flex:0 0 auto;display:flex;align-items:center;gap:12px;'
+      +'background:#2a1315;color:#fff;padding:8px 14px;font:700 13px system-ui,sans-serif">'
+      +'<button id="quoteDocBack" style="font:700 13px system-ui;padding:6px 16px;border-radius:6px;'
+      +'border:1px solid #7a3b3b;background:#8a1c1c;color:#fff;cursor:pointer">\u2190 BACK TO QUOTE</button>'
+      +'<span style="opacity:.8">QUOTE DOCUMENT \u2014 print, download or e-mail from the buttons below</span></div>'
+      +'<iframe id="quoteDocFrame" style="flex:1 1 auto;border:0;width:100%"></iframe>';
+    document.body.appendChild(ov);
+    document.getElementById('quoteDocBack').addEventListener('click', ()=>{ ov.style.display='none'; });
+  }
+  ov.style.display='flex';
+  const fr=document.getElementById('quoteDocFrame');
+  const w=fr.contentWindow;
+  w.document.open(); w.document.write(doc); w.document.close();
   /* Outlook draft with the quote ALREADY ATTACHED: an .eml with X-Unsent:1 opens in
      Outlook as an unsent draft — subject + body prefilled, file attached. */
   /* pull down any page whose bytes are not in memory yet, or it attaches nothing */

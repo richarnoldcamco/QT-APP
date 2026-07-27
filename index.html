@@ -328,6 +328,9 @@
   .opgrid td.redc{background:var(--red); color:#fff; text-align:right; font-weight:700; padding:0 3px}
   /* accounting double rule — the figure below is a total */
   .opgrid tr.foot td.dbltop{border-top:3px double #000; font-weight:800}
+  /* analysis columns (pcs/shift through batch sub-contract per pc): data text 30%
+     smaller — reference figures, not entry fields. Headers keep their size. */
+  .opgrid td:nth-child(n+20):nth-child(-n+31){font-size:8px}
   /* the grid footer rows carry class "foot", which the page-footer style paints
      light grey; repaint the totals block ink-black. td.redc (FAI) keeps its white
      text on red and is deliberately not listed here. */
@@ -524,6 +527,8 @@
   .qb-head .qb-lbl{font-weight:800; letter-spacing:.05em; color:var(--cp-dim)}
   #qbToggle{font-size:12px; font-weight:800; width:24px; height:22px; padding:0;
     border:1px solid var(--cp-line); border-radius:5px; background:#fff; cursor:pointer}
+  .qb-summary{background:var(--blue); border-radius:4px; padding:2px 10px; font-weight:700;
+    font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .qb-table{border-collapse:collapse; background:#fff}
   .qb-table th{background:#f3efe9; border:1px solid var(--cp-line); font-size:10px; font-weight:800;
     letter-spacing:.05em; padding:3px 10px; color:var(--cp-dim)}
@@ -1020,6 +1025,7 @@
       <div class="qb-head">
         <button type="button" id="qbToggle" title="collapse / expand">▾</button>
         <span class="qb-lbl">QTY BREAKS</span>
+        <span class="qb-summary" id="qbSummary" hidden></span>
       </div>
       <table class="qb-table" id="qbTable">
         <thead><tr><th>QTY</th><th>PRICE /PC</th><th>BATCH TOTAL</th><th>EST. LEADTIME</th></tr></thead>
@@ -1361,6 +1367,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:95, date:"2026-07-27", note:"Two refinements: the analysis columns in the grid (pcs/shift through batch sub-contract per pc) show their figures 30% smaller \u2014 they are reference numbers, not entry fields, and the entry columns and headers keep their size. And the collapsed QTY BREAKS table now shows a one-line summary bar (qty \u2192 price \u00b7 batch for each break) instead of nothing, so the breaks stay visible even folded."},
   {rev:94, date:"2026-07-27", note:"Qty breaks upgraded to a proper table \u2014 QTY, PRICE /PC, BATCH TOTAL, EST. LEADTIME \u2014 open by default with a \u25be collapse button whose state is remembered on this device. Now takes up to SIX break quantities, all saved with the quote and all flowing to the e-mail body and quote document as before. Cells update in place so typing a qty is never interrupted by the recalc."},
   {rev:93, date:"2026-07-27", note:"The calc-view print is left-justified against the calculation grid instead of centring in its pane \u2014 the image and its card now hug the grid\u2019s right edge, closing the dead gap between them. Full-height lift from rev 91 unchanged."},
   {rev:92, date:"2026-07-27", note:"Rev badge restyled to the Control Plan Generator format: a red REV-N pill with the timestamp beside it as 2026-07-27 10:07 AM. Same content as before \u2014 the running rev and when this copy loaded on this machine\u2019s clock."},
@@ -1449,9 +1456,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 94;
+const APP_REV = 95;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "11:48";           /* increments every build — check both machines match */
+const BUILD_TIME = "12:06";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1518,12 +1525,19 @@ function renderQtyBreaks(){
     set('qbB'+n, r? money(r.batchTotal) : '');
     set('qbL'+n, r? (r.lead+' days') : '');
   });
+  /* one-line summary shown while the table is collapsed */
+  const sum=$('qbSummary');
+  if(sum){
+    const rows=getQtyBreaks().map(priceAtBatch).filter(Boolean);
+    sum.textContent=rows.map(b=>b.qty+' pcs → '+money(b.perPc)+' /pc · '+money(b.batchTotal)).join('   ');
+  }
 }
 /* collapse button — preference remembered on this device, table open by default */
 (function(){
   const t=$('qbToggle'), tbl=$('qbTable');
   if(!t||!tbl) return;
-  const apply=c=>{ tbl.hidden=c; t.textContent=c?'\u25b8':'\u25be'; };
+  const apply=c=>{ tbl.hidden=c; t.textContent=c?'\u25b8':'\u25be';
+    const s=$('qbSummary'); if(s) s.hidden=!c; };
   let col=false; try{ col=localStorage.getItem('qs_qb_collapsed')==='1'; }catch(e){}
   apply(col);
   t.addEventListener('click', ()=>{

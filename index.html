@@ -513,6 +513,13 @@
     box-shadow:var(--cp-shadow); white-space:nowrap;
   }
   .mini-totals b{color:var(--cp-signal); font-size:14px}
+  .qty-breaks{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:2px 8px 6px;
+    font-family:var(--ui); font-size:12px}
+  .qty-breaks .qb-lbl{font-weight:800; letter-spacing:.05em; color:var(--cp-dim)}
+  .qty-breaks input{width:70px; font-size:12px; padding:2px 5px; border:1px solid var(--cp-line);
+    border-radius:4px; background:var(--yellow)}
+  .qty-breaks .qb-row{background:var(--blue); border-radius:4px; padding:2px 9px; font-weight:700;
+    font-variant-numeric:tabular-nums; white-space:nowrap}
   .pgnav{display:inline-flex; align-items:center; gap:4px; margin-left:2px}
   .pgnav .pglbl{font-size:11px; font-weight:800; color:var(--cp-dim); min-width:38px; text-align:center}
 
@@ -998,6 +1005,13 @@
       <tbody id="opsBody"></tbody>
     </table>
     <div class="mini-totals" id="miniTotals" hidden></div>
+    <div class="qty-breaks" id="qtyBreaks" hidden>
+      <span class="qb-lbl">QTY BREAKS:</span>
+      <input id="qtyBrk1" type="number" min="1" placeholder="qty">
+      <input id="qtyBrk2" type="number" min="1" placeholder="qty">
+      <input id="qtyBrk3" type="number" min="1" placeholder="qty">
+      <span id="qtyBrkOut"></span>
+    </div>
    </div>
   <div class="drawwrap" hidden>
     <h3>Drawing <span class="note" style="text-transform:none;font-weight:400">— click the zone, then Ctrl+V to paste · or drag &amp; drop · saved with this quote</span></h3>
@@ -1326,6 +1340,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:89, date:"2026-07-27", note:"Quantity-break quoting. A QTY BREAKS strip under the totals takes up to three extra batch sizes; each is priced by running the exact same engine at that quantity \u2014 setup amortisation, low-volume premium, bar yield and NRE depreciation all recompute per break, no parallel math. Results show live on the sheet, in the e-mail body and on the quote document. Deliberately NOT printed on the formal CAMCO quotation. Break quantities save with the quote."},
   {rev:88, date:"2026-07-27", note:"Leadtime now reads \u2018calendar days\u2019 everywhere the customer sees it: the e-mail body, the quote document table, and the formal CAMCO quotation (\u2018calendar days ARO\u2019). The on-screen grid footer keeps its short \u2018DAYS\u2019 label \u2014 internal only."},
   {rev:87, date:"2026-07-27", note:"E-MAIL now shows a spinner overlay \u2014 GENERATING E-MAIL, attaching the print, formal quotation and full quote \u2014 for the several seconds the drawing pages are pulled from GitHub and the .eml is built. It disappears the moment the draft is ready. Until now that gap was dead air."},
   {rev:86, date:"2026-07-27", note:"The quote document no longer opens as a separate browser tab. It renders in a full-screen overlay inside the app with a \u2190 BACK TO QUOTE button at the top, so E-MAIL keeps you in the app. All the document\u2019s own buttons \u2014 the green Outlook draft, Print/Save as PDF, Download quote file, the blank mailto draft \u2014 work exactly as before, and the automatic .eml download and auto-open are untouched."},
@@ -1408,9 +1423,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 88;
+const APP_REV = 89;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "09:38";           /* increments every build — check both machines match */
+const BUILD_TIME = "10:12";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1444,6 +1459,32 @@ function cycPremium(mins){
   return adj;
 }
 
+/* Price the quote at a different batch size by running the SAME engine — batchSize is
+   swapped in the field, compute() runs, the field is restored. No parallel math, so
+   setup amortisation, low-volume premium, bar yield and NRE depreciation all follow the
+   qty exactly as they do for the primary batch. */
+function priceAtBatch(qty){
+  const el=$('batchSize'); if(!el) return null;
+  const keep=el.value;
+  el.value=qty;
+  let r=null;
+  try{ r=compute(); }catch(e){}
+  el.value=keep;
+  if(!r) return null;
+  return {qty:qty, perPc:r.perPc, batchTotal:r.perPc*qty, lead:r.maxLead||0};
+}
+function getQtyBreaks(){
+  return ['qtyBrk1','qtyBrk2','qtyBrk3']
+    .map(id=>parseInt(($(id)&&$(id).value)||'',10))
+    .filter(q=>q>0);
+}
+function renderQtyBreaks(){
+  const box=$('qtyBreaks'), out=$('qtyBrkOut');
+  if(!box||!out) return;
+  box.hidden = !(opsMode==='calc');
+  const rows=getQtyBreaks().map(priceAtBatch).filter(Boolean);
+  out.innerHTML = rows.map(b=>`<span class="qb-row">${b.qty} pcs → ${money(b.perPc)} /pc · ${money(b.batchTotal)} batch</span>`).join(' ');
+}
 function compute(){
   const mat = matByName[$('material').value] || {density:0.29,mach:1,mill:0,dist:0};
   const batch   = Math.max(num('batchSize'),1);
@@ -1834,6 +1875,7 @@ function renderSummary(){
   set('totalPerPc', money(r.perPc));
   set('leadEst', (r.maxLead||0)+' days');
   if(window.__updHdrSum) window.__updHdrSum();
+  if(window.renderQtyBreaks) renderQtyBreaks();
   /* hidden legacy */
   set('batchTotal', money(r.batchTotal));
   set('nreTotal', money(r.nre));
@@ -1852,7 +1894,7 @@ $('addOp').addEventListener('click', ()=>{
 });
 
 /* ---- recompute on any header input ---- */
-const HDR_FIELDS = ['customer','partNo','annualUsage','batchSize','minOrderQty','buyer','quotedBy','salesman',
+const HDR_FIELDS = ['qtyBrk1','qtyBrk2','qtyBrk3','customer','partNo','annualUsage','batchSize','minOrderQty','buyer','quotedBy','salesman',
  'material','priceLevel','stockForm','barForm','barOverride','difficulty','nreSep','barDia','partLength',
  'extraLength','chuckExtra','scrapPct','barLen','faiReq','faiDims','custQuoteNo','faiQty','margin','meCost','suCost',
  'soFee','coFee','sawCost'];
@@ -4816,6 +4858,11 @@ async function emailQuote(){
     `UNIT PRICE: ${money(r.perPc)} /pc`,
     r.faiPerPc>0?`(includes FAI ${money(r.faiPerPc)}/pc)`:'',
     `Estimated Leadtime: ${r.maxLead||0} calendar days`,``,
+    ...(function(){
+      const b=getQtyBreaks().map(priceAtBatch).filter(Boolean);
+      return b.length ? ['QTY BREAKS:',
+        ...b.map(x=>`  ${x.qty} pcs — ${money(x.perPc)} /pc  (${money(x.batchTotal)} batch · ${x.lead} calendar days)`), ``] : [];
+    })(),
     `Quoted by: ${v('quotedBy')}`,``,
     `The full quote is attached.`,
   ].filter(x=>x!=='' || true).join('\n');
@@ -4861,6 +4908,13 @@ async function emailQuote(){
       <tr class="grand"><td>TOTAL PRICE (per piece)</td><td style="text-align:right">${money(r.perPc)}</td></tr>
       <tr class="tot"><td>Batch total (${esc(v('batchSize'))||0} pcs)</td><td style="text-align:right">${money(r.batchTotal)}</td></tr>
     </table>
+    ${(function(){
+      const b=getQtyBreaks().map(priceAtBatch).filter(Boolean);
+      if(!b.length) return '';
+      return `<div class="sec"><h2>Quantity Breaks</h2></div><table class="kv">`
+        + b.map(x=>`<tr><td>${x.qty} pcs</td><td style="text-align:right">${money(x.perPc)} /pc · ${money(x.batchTotal)} batch · ${x.lead} calendar days</td></tr>`).join('')
+        + `</table>`;
+    })()}
     <div class="sec"><h2>Operations</h2></div>
     <div style="overflow-x:auto"><table class="grid"><tr><th>OP</th><th>Operation</th><th>Fixture hrs</th><th>Extra insp</th><th>S/U hrs</th><th>Cycle min</th><th>Load min</th><th>Insp min</th><th>Pcs b/4 reload</th><th>#.001"</th><th>#.0002"</th><th>Mach %</th><th>Sub $/pc</th><th>Sub batch</th><th>Sub $/batch</th><th>Cost/pc</th><th>Per shift $</th><th>Pcs/shift</th><th>C/T cost</th><th>Long cyc</th><th>Low vol</th><th>S/U cost</th><th>Lead</th><th>Notes</th></tr>${ops}</table></div>
     ${img}

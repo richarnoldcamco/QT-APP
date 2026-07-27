@@ -621,6 +621,8 @@
   .qtable tr:hover td{background:#faf8f5}
   .qtable tr.active td{background:#f7e9e9}
   .qtable .ednow{font-size:9.5px; font-weight:800; color:var(--cp-signal); text-transform:uppercase; letter-spacing:.05em}
+  .qtable .st-prog{color:#a4640a; font-size:9.5px; font-weight:800; letter-spacing:.05em; white-space:nowrap}
+  .qtable .st-fin{color:#1a6b1a; font-size:9.5px; font-weight:800; letter-spacing:.05em; white-space:nowrap}
   .qtable .acts{white-space:nowrap; text-align:right}
   .qtable .acts button{margin-left:5px}
   .qtable .load{
@@ -813,6 +815,7 @@
     <input type="file" id="matQuoteFile" accept="image/*" hidden>
     <button class="btn topbtn mailbtn" id="emailQuoteBtn" title="build an Outlook draft with the quote, drawing and customer quotation attached"><span class="mi"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" style="fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><rect x="2" y="4" width="20" height="16" rx="1.5"/><path d="m2 7 10 6 10-6"/></svg></span>E-mail</button>
     <button class="btn topbtn ghost" id="saveNowBtn" title="save this quote and push it to GitHub right now">⬇ Save</button>
+    <button class="btn topbtn ghost" id="finalizeBtn" title="mark this quote finalized — it shows FINALIZED instead of IN PROGRESS in Past Quotes. Click again to reopen it.">✓ Finalize</button>
     <button class="btn topbtn ghost" id="addOp">+ Add Op Row</button>
     <button class="btn topbtn ghost" id="priorQuotesBtn">📂 Prior Quotes</button>
     <button class="btn topbtn menulike" id="newQuote">New Quote</button>
@@ -1078,7 +1081,7 @@
     <div class="qr-card">
       <div class="qr-head">
         <h2>Past Quotes</h2>
-        <p>Every quote autosaves as you type. Open any quote to keep editing it — nothing is ever finalized.</p>
+        <p>Every quote autosaves as you type and stays IN PROGRESS until you press Finalize on its sheet. Finalized quotes can still be reopened and edited.</p>
       </div>
       <div class="qr-body">
         <div class="qmetrics" id="qMetrics"></div>
@@ -1318,6 +1321,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:83, date:"2026-07-26", note:"Quote status added. Every quote shows IN PROGRESS in Past Quotes until the new Finalize button on the quote sheet is pressed, after which it shows FINALIZED in green. The button toggles \u2014 press it again to reopen the quote \u2014 and finalizing does not lock editing, it only marks the state. The flag saves with the quote and syncs like everything else."},
   {rev:82, date:"2026-07-26", note:"The quote popup now carries a green \u2018Outlook draft (WITH attachments)\u2019 button that downloads the same .eml from the Chrome window. Reason: the app runs as a pinned PWA with no browser toolbar, so the automatic .eml download never showed Chrome\u2019s download bubble \u2014 and the bubble\u2019s \u22ee menu is the only place \u2018Always open files of this type\u2019 can be set. Downloading once from the popup makes the bubble appear so that setting can be turned on; after that, every .eml \u2014 including the automatic one from the app \u2014 opens itself in Outlook."},
   {rev:81, date:"2026-07-26", note:"The \u2018Open email draft\u2019 button on the quote page is a mailto link, and mailto cannot carry attachments \u2014 which is why that draft opened with nothing attached while the .eml sitting in Downloads had everything. The button is now labelled \u2018Blank draft (NO attachments)\u2019 and the banner beside it says plainly that the draft with the print, the formal quotation and the full quote attached is the downloaded Quote-N.eml."},
   {rev:80, date:"2026-07-26", note:"Email attachments: pages kept as PDFs were being dropped without a word. The attachment builder matched data:image/* only, so a print that came in as a PDF never made it into the .eml. It now accepts any data URL and names the file with the right extension. Pages whose bytes are not in memory are pulled from GitHub before the draft is built, and a toast reports how many attachments went in and how many pages could not be read, so a missing attachment is obvious before the mail is sent rather than after."},
@@ -1394,9 +1398,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 82;
+const APP_REV = 83;
 const BUILD_DATE = "2026-07-26";
-const BUILD_TIME = "23:02";           /* increments every build — check both machines match */
+const BUILD_TIME = "23:40";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1870,6 +1874,7 @@ function snapshot(){
   fields.oddSel=JSON.stringify(oddSel);
   fields.intakePending=intakePending?'1':'';
   fields.matVerified=matVerified?'1':'';
+  fields.finalized=quoteFinalized?'1':'';
   const _slim=p=>({name:p.name, w:p.w, h:p.h, kb:p.kb, ts:p.ts, ref:p.ref||drawingPath(activeQuoteNo)});
   const dmeta = (drawPages.length||docPages.length)
     ? {pages: drawPages.map(_slim), docPages: docPages.map(_slim)} : null;
@@ -1881,6 +1886,8 @@ function restore(s){
   matOverride=(s.fields&&s.fields.matOvr)||'No';
   try{ oddSel=JSON.parse((s.fields&&s.fields.oddSel)||'[]')||[]; }catch(e){ oddSel=[]; }
   matVerified=(s.fields&&s.fields.matVerified==='1');
+  quoteFinalized=(s.fields&&s.fields.finalized==='1');
+  if(window.updateFinalizeBtn) setTimeout(updateFinalizeBtn, 0);
   setTimeout(()=>{ if(window.updateOddBtn) updateOddBtn(); },0);
   if(_resumeIntake) setTimeout(()=>{ intakePending=true; resumeGuide(); }, 60);
   setTimeout(()=>window.__paintDifficulty&&window.__paintDifficulty(),0);
@@ -3169,7 +3176,7 @@ function renderSaved(){
       const isActive=q.no==activeQuoteNo;
       const qty=parseFloat(f.batchSize)||0;
       return `<tr class="${isActive?'active':''}">
-        <td class="qno">${q.drawing?'<span class="clip" title="has drawing">📎</span>':''}#${q.no}${isActive?' <span class="ednow">editing</span>':''}</td>
+        <td class="qno">${q.drawing?'<span class="clip" title="has drawing">📎</span>':''}#${q.no}${f.finalized==='1'?' <span class="st-fin">FINALIZED</span>':' <span class="st-prog">IN PROGRESS</span>'}${isActive?' <span class="ednow">editing</span>':''}</td>
         <td>${esc(f.partNo)||'—'}</td>
         <td>${esc(f.customer)||'—'}</td>
         <td class="dt">${when}</td>
@@ -3374,6 +3381,27 @@ function startNewQuote(){
   if(window.__fitPage) setTimeout(window.__fitPage, 0);
   suspendAutosave=false;
 }
+/* Finalized status. A quote is IN PROGRESS from creation until you press Finalize;
+   the flag is per-quote, saved with it, and freely toggled — finalizing does NOT lock
+   editing, it only marks the state for the Past Quotes list. */
+let quoteFinalized=false;
+function updateFinalizeBtn(){
+  const b=$('finalizeBtn'); if(!b) return;
+  b.textContent = quoteFinalized ? '\u2713 FINALIZED' : '\u2713 Finalize';
+  b.style.background = quoteFinalized ? '#1a6b1a' : '';
+  b.style.borderColor = quoteFinalized ? '#145214' : '';
+  b.style.color = quoteFinalized ? '#fff' : '';
+}
+window.updateFinalizeBtn=updateFinalizeBtn;
+const _fb=$('finalizeBtn');
+if(_fb) _fb.addEventListener('click', ()=>{
+  quoteFinalized=!quoteFinalized;
+  updateFinalizeBtn();
+  autosaveNow();
+  if(window.updateToast) updateToast(quoteFinalized
+    ? 'Quote #'+activeQuoteNo+' marked FINALIZED'
+    : 'Quote #'+activeQuoteNo+' reopened \u2014 IN PROGRESS');
+});
 /* Explicit Save. The quote already autosaves as you type, so this exists to force the
    save and the GitHub push immediately and say plainly that it worked, rather than
    waiting for the sync timer. */
@@ -3394,7 +3422,7 @@ if(_sn) _sn.addEventListener('click', async ()=>{
   }
   btn.disabled=false; btn.textContent=was;
 });
-$('newQuote').addEventListener('click', ()=>{ startNewQuote(); if(window.__matAutoReset) window.__matAutoReset(false); switchView('quote'); updateOddBtn(); setTimeout(startGuide, 100); });
+$('newQuote').addEventListener('click', ()=>{ startNewQuote(); quoteFinalized=false; updateFinalizeBtn(); if(window.__matAutoReset) window.__matAutoReset(false); switchView('quote'); updateOddBtn(); setTimeout(startGuide, 100); });
 $('menuNew').addEventListener('click', ()=>{ startNewQuote(); switchView('quote'); updateOddBtn(); setTimeout(startGuide, 100); });
 $('menuPullAll') && $('menuPullAll').addEventListener('click', async ()=>{
   const b=$('menuPullAll'); if(!b || b.disabled) return;

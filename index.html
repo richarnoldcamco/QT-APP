@@ -218,6 +218,9 @@
   .guide-cur{outline:3px solid var(--cp-signal) !important; outline-offset:-1px; background:#fff8c4 !important}
   .oddbtn.on{background:linear-gradient(180deg,#fdf29a,#f3df57); color:#5a4a00; border-color:#c9b23a}
   /* operation dropdown: keep the open list at a readable, compact size */
+  .row-odd{font-size:10px; padding:0 4px; margin-left:2px; border:1px solid var(--cp-line);
+    border-radius:4px; background:#fff; cursor:pointer; vertical-align:middle}
+  .row-odd.on{background:var(--yellow); border-color:#d9a400; font-weight:800}
   select[data-k="desc"]{font-size:12px}
   select[data-k="desc"] option{font-size:12px; padding:2px 4px}
   /* generic overlay used by the material-verify, odd-features, RFQ-paste, and photo modals */
@@ -1374,6 +1377,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:105, date:"2026-07-27", note:"Odd features are PER OPERATION now, not part-wide. Each op row carries a \u2b50 button beside its description \u2014 it opens the same dialog, but the checks and their percentages apply to THAT operation\u2019s cycle time only, so an OD thread loads the lathe row without touching bench or grind. The star shows the count and turns yellow when set. The top button is an aggregate indicator. Old quotes migrate price-identically: their part-level list is copied onto every op row, which reproduces the old math exactly \u2014 trim rows that should not carry it. The +ADD permanent-feature box still works inside the per-op dialog."},
   {rev:104, date:"2026-07-27", note:"The AI spinner no longer blocks the screen. It is now a small animated pill in the header bar \u2014 next to the AI WEIGHT button \u2014 and everything stays fully usable while the three estimates run in the background. The AI WEIGHT button disables during a run so it cannot be double-fired, and if you switch to a different quote before the run finishes, the result is discarded with a toast instead of being written onto the wrong quote."},
   {rev:103, date:"2026-07-27", note:"Weight estimator accuracy pass, prompted by a real miss (AI found roughly half the part on a dense shaft print). Two changes: extended thinking is enabled so the model works the geometry stepwise before answering, and the prompt now carries closure checks it cannot dodge \u2014 segment lengths along the axis must sum to the overall part length from the header, and the largest diameter should sit just under stock; failing either means a section was missed and it must redo. Thinking requires default temperature, so run-to-run variance stays handled by the median-of-three ensemble."},
   {rev:102, date:"2026-07-27", note:"New odd features can be added right from the quoting popup: a name box, a % box and an + ADD button at the bottom of the ODD FEATURES dialog. Adding one puts it PERMANENTLY on the same list Admin edits \u2014 saved and synced to GitHub with the tables \u2014 checks it on the current part immediately, and re-renders the dialog with it in place. Duplicate names are refused with a toast."},
@@ -1472,9 +1476,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 104;
+const APP_REV = 105;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "15:24";           /* increments every build — check both machines match */
+const BUILD_TIME = "15:58";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1619,7 +1623,8 @@ function compute(){
     else if(r.desc){
       const o = opByName[r.desc];
       const rate = o ? o.prodMin : 2;
-      const oddPct = (TABLES.oddFeatures||[]).reduce((s2,f)=>s2+(oddSel.includes(f.name)?(parseFloat(f.pct)||0):0),0);
+      const rowOdd = Array.isArray(r.odd)? r.odd : [];   /* odd features live ON THE OPERATION now */
+      const oddPct = (TABLES.oddFeatures||[]).reduce((s2,f)=>s2+(rowOdd.includes(f.name)?(parseFloat(f.pct)||0):0),0);
       const effCycle = r.cycle * (1 + oddPct/100);                 // odd features: +% on cycle time
       const ct = (effCycle + r.load + (r.insp||0));                // cycle+load+insp mins
       const ctCost = ct * rate;                                    // C/T COST
@@ -1691,7 +1696,7 @@ function compute(){
     perPc, price, matlPc, matlPrem, salesPrem, slugPrem, faiPerPc, custPrem, volDisc,
     sawPc, opCostSum, baseCostSum, batchTotal, nre, maxLead, faiTotal,
     pcsBar, slugWeight, costLb, mach:mat.mach, rowCosts, rowDetail, margin,
-    oddPct: (TABLES.oddFeatures||[]).reduce((s2,f)=>s2+(oddSel.includes(f.name)?(parseFloat(f.pct)||0):0),0),
+    oddPct: 0,   /* legacy field — premiums are per-operation now, see each row's odd list */
     oddSel: oddSel.slice(),
     matlWt: slugWeight*annual,                              /* AC9: Weight Of Material Order = slug × annual */
     feetNeeded: pcsFoot>0 ? batch/pcsFoot : 0,              /* MC!B11: exact feet for the batch */
@@ -1792,9 +1797,11 @@ function renderOps(){
     const editable = !locked;
     const num = (k,step,dec)=> locked?'' : `<input type="text" inputmode="decimal" value="${dec!=null?(parseFloat(row[k])||0).toFixed(dec):(row[k]||0)}" data-i="${i}" data-k="${k}">`;
     const txt = (k)=> `<input value="${(row[k]||'').replace(/"/g,'&quot;')}" data-i="${i}" data-k="${k}">`;
+    const _oddN=(Array.isArray(row.odd)?row.odd.length:0);
     const descCell = locked
       ? `<input value="${row.desc}" disabled>`
-      : `<select data-i="${i}" data-k="desc"><option value="">— op —</option>${OPS.map(o=>`<option${o.name===row.desc?' selected':''}>${o.name}</option>`).join('')}</select>`;
+      : `<select data-i="${i}" data-k="desc"><option value="">— op —</option>${OPS.map(o=>`<option${o.name===row.desc?' selected':''}>${o.name}</option>`).join('')}</select>`
+        +(row.desc? `<button type="button" class="row-odd${_oddN?' on':''}" data-oddrow="${i}" title="odd features on THIS operation">⭐${_oddN||''}</button>`:'');
     const machPct = (locked||!row.desc)?'' : Math.round((d.mach||0)*100)+'%';
     const showRow = !!(row.desc||row.quote||locked);
     const calc = v => `<td class="calc">${v}</td>`;
@@ -1879,6 +1886,7 @@ function renderOps(){
       renderAll();
     });
   });
+  document.querySelectorAll('.row-odd').forEach(b=>b.addEventListener('click', ()=>openOddFeatures(+b.dataset.oddrow)));
   const mo=$('matOvr'), mov=$('matOvrVal');
   if(mo) mo.addEventListener('change', ()=>{ matOverride=mo.value; renderAll(); scheduleAutosave(); });
   if(mov) mov.addEventListener('input', ()=>{ matOverrideVal=parseFloat(mov.value)||0; renderAll(); scheduleAutosave(); });
@@ -2027,6 +2035,16 @@ function restore(s){
   suspendAutosave=true;
   Object.entries(s.fields).forEach(([id,v])=>{ if($(id)) $(id).value=v; });
   opRows = s.ops && s.ops.length ? s.ops : (blankOps(),opRows);
+  /* MIGRATION (rev 105): odd features used to be quote-level (oddSel) and multiplied
+     EVERY op row's cycle. They are per-operation now. An old quote's list is copied
+     onto every op row that lacks its own, which reproduces the old price exactly. */
+  try{
+    const legacy=JSON.parse((s.fields&&s.fields.oddSel)||'[]')||[];
+    if(legacy.length && Array.isArray(s.ops)){
+      (opRows||[]).forEach(r=>{ if(!r.locked && r.desc && !Array.isArray(r.odd)) r.odd=legacy.slice(); });
+    }
+  }catch(e){}
+
   if(s.drawing){
     let _all = Array.isArray(s.drawing.pages)
       ? s.drawing.pages.map(pg=>Object.assign({},pg))
@@ -4654,7 +4672,7 @@ function endGuide(){
   document.querySelectorAll('.guide-cur').forEach(x=>x.classList.remove('guide-cur'));
   scheduleAutosave();                        /* persist intake-complete on the quote */
   try{ setOpsMode('calc'); }catch(e){}       /* header done -> full grid comes back */
-  setTimeout(openOddFeatures, 150);          /* header done -> odd-features checklist */
+  /* per-op odd features (rev 105): no part-level checklist to auto-open any more */
 }
 function resumeGuide(){
   if(!printOnFile()){ startPrintGate(); return; }   /* hard gate: print first */
@@ -4723,23 +4741,31 @@ function ensureOddFeatures(){
 function updateOddBtn(){
   const b=$('oddBtn'); if(!b) return;
   ensureOddFeatures();
-  const pct=(TABLES.oddFeatures||[]).reduce((s,f)=>s+(oddSel.includes(f.name)?(parseFloat(f.pct)||0):0),0);
-  b.innerHTML = oddSel.length
-    ? `⭐ Odd Features (${oddSel.length} · +${pct}% C/T)`
-    : '⭐ Odd Features';
-  b.classList.toggle('on', oddSel.length>0);
+  const n=(opRows||[]).reduce((s,r)=>s+((Array.isArray(r.odd)&&r.odd.length)||0),0);
+  b.innerHTML = n ? `⭐ Odd Features (${n} across ops)` : '⭐ Odd Features — per op';
+  b.title='odd features are per operation — use the \u2b50 button on each op row';
+  b.classList.toggle('on', n>0);
 }
-function openOddFeatures(){
+function openOddFeatures(rowIx){
   ensureOddFeatures();
+  /* per-operation: the dialog edits ONE row's odd list. Called without a row (the top
+     button), it explains the new model instead of silently editing everything. */
+  if(typeof rowIx!=='number' || !opRows[rowIx]){
+    if(window.updateToast) updateToast('Odd features are per operation now — click the \u2b50 on an op row');
+    return;
+  }
+  const _row=opRows[rowIx];
+  if(!Array.isArray(_row.odd)) _row.odd=[];
+  const rowSel=_row.odd;
   const feats=TABLES.oddFeatures||[];
   const ov=document.createElement('div');
   ov.className='ov'; ov.id='oddOv'; ov.style.display='flex';
   ov.innerHTML=`<div class="modal" style="width:420px">
-    <h3>⭐ Odd Features on this part</h3>
-    <div class="note" style="margin-bottom:8px">Check everything unusual on the print — each adds its percentage to cycle time. Edit the list &amp; rates in Admin → Odd-Feature Premium.</div>
+    <h3>⭐ Odd Features — OP ${_row.op||''} ${esc(_row.desc||'')}</h3>
+    <div class="note" style="margin-bottom:8px">Check what THIS OPERATION has to deal with — each adds its percentage to THIS op's cycle time only. Edit the list &amp; rates in Admin → Odd-Feature Premium.</div>
     <div class="odd-list">
       ${feats.length? feats.map(f=>`
-        <label class="odd-row"><input type="checkbox" class="oddcb" data-n="${esc(f.name)}" ${oddSel.includes(f.name)?'checked':''}>
+        <label class="odd-row"><input type="checkbox" class="oddcb" data-n="${esc(f.name)}" ${rowSel.includes(f.name)?'checked':''}>
           <span class="odd-nm">${esc(f.name)}</span><span class="odd-pct">+${parseFloat(f.pct)||0}%</span></label>`).join('')
         : '<div class="note">No odd features defined yet — add them in Admin → Odd-Feature Premium.</div>'}
     </div>
@@ -4758,7 +4784,7 @@ function openOddFeatures(){
   const tot=()=>{
     const on=[...ov.querySelectorAll('.oddcb:checked')].map(c=>c.dataset.n);
     const pct=feats.reduce((s,f)=>s+(on.includes(f.name)?(parseFloat(f.pct)||0):0),0);
-    ov.querySelector('#oddTotal').textContent = on.length? `Total: +${pct}% on cycle time` : 'Nothing checked — no premium.';
+    ov.querySelector('#oddTotal').textContent = on.length? `Total: +${pct}% on THIS op's cycle time` : 'Nothing checked — no premium on this op.';
   };
   tot();
   ov.querySelectorAll('.oddcb').forEach(c=>c.addEventListener('change', tot));
@@ -4779,16 +4805,16 @@ function openOddFeatures(){
     saveTables();                              /* permanent + GitHub sync */
     const keep=[...ov.querySelectorAll('.oddcb:checked')].map(c=>c.dataset.n);
     keep.push(name);
-    oddSel=keep;                               /* carry checks through the re-render */
+    _row.odd=keep;                             /* carry checks through the re-render */
     ov.remove();
-    openOddFeatures();                         /* rebuild with the new row present */
+    openOddFeatures(rowIx);                    /* rebuild with the new row present */
     if(window.updateToast) updateToast('\u201c'+name+'\u201d added permanently at +'+pct+'%');
   });
   const close=()=>ov.remove();
   ov.querySelector('#oddCancel').addEventListener('click', close);
   ov.addEventListener('click', e=>{ if(e.target===ov) close(); });
   ov.querySelector('#oddOk').addEventListener('click', ()=>{
-    oddSel=[...ov.querySelectorAll('.oddcb:checked')].map(c=>c.dataset.n);
+    _row.odd=[...ov.querySelectorAll('.oddcb:checked')].map(c=>c.dataset.n);
     close();
     updateOddBtn();
     renderAll();

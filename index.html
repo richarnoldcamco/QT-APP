@@ -204,6 +204,7 @@
   /* intake step 1 — UPLOAD DRAWING is the one live control in the mode bar */
   body.await-print .ops-modebar{pointer-events:auto; opacity:1; filter:none}
   body.await-print .ops-modebar > *:not(#modeDraw){pointer-events:none; opacity:.35}
+  @keyframes qsSpin{to{transform:rotate(360deg)}}
   .guide-banner{
     margin:8px 8px 0; padding:9px 14px; border-radius:8px;
     font:700 12.5px var(--ui); letter-spacing:.03em; color:#fff;
@@ -1325,6 +1326,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:87, date:"2026-07-27", note:"E-MAIL now shows a spinner overlay \u2014 GENERATING E-MAIL, attaching the print, formal quotation and full quote \u2014 for the several seconds the drawing pages are pulled from GitHub and the .eml is built. It disappears the moment the draft is ready. Until now that gap was dead air."},
   {rev:86, date:"2026-07-27", note:"The quote document no longer opens as a separate browser tab. It renders in a full-screen overlay inside the app with a \u2190 BACK TO QUOTE button at the top, so E-MAIL keeps you in the app. All the document\u2019s own buttons \u2014 the green Outlook draft, Print/Save as PDF, Download quote file, the blank mailto draft \u2014 work exactly as before, and the automatic .eml download and auto-open are untouched."},
   {rev:85, date:"2026-07-27", note:"Expanded header compressed horizontally to 75% \u2014 every column width scaled (1983px down to 1487px), font from 12.5px to 10.5px, tighter cell padding. The header\u2019s right edge now sits near the drawing\u2019s left edge instead of running underneath it. All field positions, ids and tab order unchanged; this is width and type size only."},
   {rev:84, date:"2026-07-27", note:"The print in CALCULATIONS view now fills the whole area right of the grid instead of a fixed 420px strip. The pane grows into all leftover width and each page is capped to the height actually available below it, so the print renders as large as the window allows without running off the bottom. The cap is computed in JS rather than CSS vh because the quote screen runs under Ctrl+wheel zoom, which multiplies vh units \u2014 the rev 57 failure. Re-computed on window resize and every zoom change."},
@@ -1405,9 +1407,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 86;
+const APP_REV = 87;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "09:02";           /* increments every build — check both machines match */
+const BUILD_TIME = "09:22";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -4862,6 +4864,10 @@ async function emailQuote(){
     <div style="overflow-x:auto"><table class="grid"><tr><th>OP</th><th>Operation</th><th>Fixture hrs</th><th>Extra insp</th><th>S/U hrs</th><th>Cycle min</th><th>Load min</th><th>Insp min</th><th>Pcs b/4 reload</th><th>#.001"</th><th>#.0002"</th><th>Mach %</th><th>Sub $/pc</th><th>Sub batch</th><th>Sub $/batch</th><th>Cost/pc</th><th>Per shift $</th><th>Pcs/shift</th><th>C/T cost</th><th>Long cyc</th><th>Low vol</th><th>S/U cost</th><th>Lead</th><th>Notes</th></tr>${ops}</table></div>
     ${img}
   </body></html>`;
+  /* progress indicator for the slow part: fetching drawing pages from GitHub and
+     building the .eml can take several seconds, and until now nothing on screen said
+     anything was happening */
+  showEmailGen(true);
   /* The quote document renders in a full-screen overlay INSIDE the app, not a browser
      tab — a BACK button returns to the sheet. The iframe's contentWindow stands in for
      the old popup's `w`, so everything downstream (the .eml button injection, the bar
@@ -4904,6 +4910,24 @@ async function emailQuote(){
         +'<button style="background:#1a6b1a;border-color:#145214;color:#fff">\uD83D\uDCCE Outlook draft (WITH attachments)</button></a>');
     }
   }catch(e){}
+  showEmailGen(false);
+}
+/* full-screen 'generating e-mail' indicator — spinner + message, above everything */
+function showEmailGen(on){
+  let el=document.getElementById('emailGenOv');
+  if(!on){ if(el) el.remove(); return; }
+  if(el) return;
+  el=document.createElement('div');
+  el.id='emailGenOv';
+  el.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(20,10,10,.55);'
+    +'display:flex;align-items:center;justify-content:center';
+  el.innerHTML='<div style="background:#fff;border-radius:12px;padding:26px 40px;text-align:center;'
+    +'font:700 14px system-ui,sans-serif;color:#2a1315;box-shadow:0 8px 30px rgba(0,0,0,.4)">'
+    +'<div style="width:44px;height:44px;margin:0 auto 14px;border:5px solid #e8dede;'
+    +'border-top-color:#8a1c1c;border-radius:50%;animation:qsSpin 0.9s linear infinite"></div>'
+    +'GENERATING E-MAIL\u2026<div style="font-weight:400;font-size:12px;color:#6b5f5f;margin-top:6px">'
+    +'attaching the print, formal quotation and full quote</div></div>';
+  document.body.appendChild(el);
 }
 function buildCustomerQuote(qno, r){
   const v=id=>($(id)&&$(id).value)||'';

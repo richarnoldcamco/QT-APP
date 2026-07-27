@@ -71,7 +71,11 @@
   .brand .sub{display:none}
   .masthead .spacer{flex:1}
   .masthead .qbadge{font-size:12px; color:#d8ccc9; font-family:var(--ui)}
-  .buildstamp{display:block; font-family:var(--mono, monospace); font-size:9.5px; color:#c9a53f; letter-spacing:.06em; white-space:nowrap; margin-top:1px; font-weight:600}
+  /* rev badge in the CP-app format: white REV-N on a red pill, timestamp beside it */
+  .buildstamp{display:flex; align-items:center; gap:7px; white-space:nowrap; margin-top:2px; font-family:var(--ui)}
+  .buildstamp .rev-pill{background:#a02222; color:#fff; font-weight:800; font-size:11px;
+    letter-spacing:.04em; padding:1px 9px; border-radius:6px}
+  .buildstamp .rev-ts{color:#fff; font-weight:700; font-size:10.5px; letter-spacing:.02em}
   .masthead .qbadge b{color:#fff}
   .viewtabs{display:flex; align-self:flex-end; height:100%; margin-left:6px}
   .vtab{font-family:var(--ui); font-size:12.5px; font-weight:600; color:#cbb9b6; background:transparent; border:none; padding:0 16px; cursor:pointer; height:100%; border-bottom:3px solid transparent; box-shadow:none}
@@ -1340,6 +1344,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:92, date:"2026-07-27", note:"Rev badge restyled to the Control Plan Generator format: a red REV-N pill with the timestamp beside it as 2026-07-27 10:07 AM. Same content as before \u2014 the running rev and when this copy loaded on this machine\u2019s clock."},
   {rev:91, date:"2026-07-27", note:"The calc-view print now actually reaches the top of the screen. Rev 90\u2019s lift guard found the header table\u2019s box overhanging the pane\u2019s column and simply declined, so nothing moved. Now the pane shifts right until it clears the header, then lifts to the top \u2014 full window height. The print is height-limited, so the traded width is free; if a shift would leave under 360px of pane, it settles for lifting to just below the header instead."},
   {rev:90, date:"2026-07-27", note:"The print in CALCULATIONS view now rises to the very top of the quote screen, into the empty band beside the compressed header, and its height cap grows to match \u2014 maximum vertical size. Guarded: the lift only happens when the pane\u2019s left edge clears the header\u2019s right edge, so it can never cover the fields; with the header minimized it lifts fully. Re-computed on resize, zoom and every render, and the post-zoom/pre-zoom conversion is handled the same way as the drawing view\u2019s lift."},
   {rev:89, date:"2026-07-27", note:"Quantity-break quoting. A QTY BREAKS strip under the totals takes up to three extra batch sizes; each is priced by running the exact same engine at that quantity \u2014 setup amortisation, low-volume premium, bar yield and NRE depreciation all recompute per break, no parallel math. Results show live on the sheet, in the e-mail body and on the quote document. Deliberately NOT printed on the formal CAMCO quotation. Break quantities save with the quote."},
@@ -1425,9 +1430,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 91;
+const APP_REV = 92;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "10:52";           /* increments every build — check both machines match */
+const BUILD_TIME = "11:10";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -5603,8 +5608,11 @@ suspendAutosave = false;                 /* from here on, every edit autosaves *
   /* Show the running rev + when THIS copy loaded, in the browser's own local time.
      No hand-typed build time, no timezone guessing \u2014 it is always this machine's clock. */
   const now=new Date();
-  const s=now.toLocaleString(undefined,{month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
-  bs.textContent='REV '+APP_REV+' · loaded '+s;
+  /* CP-app format: REV-N pill, then 2026-07-27 10:07 AM */
+  const p=n=>String(n).padStart(2,'0');
+  let hr=now.getHours(); const ap=hr>=12?'PM':'AM'; hr=hr%12||12;
+  const s=now.getFullYear()+'-'+p(now.getMonth()+1)+'-'+p(now.getDate())+' '+hr+':'+p(now.getMinutes())+' '+ap;
+  bs.innerHTML='<span class="rev-pill">REV-'+APP_REV+'</span><span class="rev-ts">'+s+'</span>';
   bs.title='running app revision '+APP_REV+' \u00b7 this copy loaded at the time shown (your local clock)';
 })();
 updateDrawModeBtn();

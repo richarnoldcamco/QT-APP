@@ -1367,6 +1367,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:97, date:"2026-07-27", note:"The AI estimators now show a large centre-screen spinner while they work \u2014 the same style as the e-mail one \u2014 instead of only a small status line under the drawing. Vol/Wt says READING THE DRAWING, the FAI counter says COUNTING FAI DIMENSIONS, and both disappear the moment the answer lands (the detailed result still prints under the drawing as before)."},
   {rev:96, date:"2026-07-27", note:"Two things. (1) The material cost override was already in the app but disguised: the No/Yes dropdown on the MATERIAL row \u2014 set Yes and type the material cost per piece directly, replacing the cost/lb calculation entirely. Its chip label wrongly said /LB OVR; it now says /PC OVERRIDE and the dropdown carries a tooltip. (2) The AI drawing estimator (\U0001F916 Vol/Wt in the drawing toolbar) now returns the finished part\u2019s VOLUME in cubic inches alongside the weight, both bolded in its answer."},
   {rev:95, date:"2026-07-27", note:"Two refinements: the analysis columns in the grid (pcs/shift through batch sub-contract per pc) show their figures 30% smaller \u2014 they are reference numbers, not entry fields, and the entry columns and headers keep their size. And the collapsed QTY BREAKS table now shows a one-line summary bar (qty \u2192 price \u00b7 batch for each break) instead of nothing, so the breaks stay visible even folded."},
   {rev:94, date:"2026-07-27", note:"Qty breaks upgraded to a proper table \u2014 QTY, PRICE /PC, BATCH TOTAL, EST. LEADTIME \u2014 open by default with a \u25be collapse button whose state is remembered on this device. Now takes up to SIX break quantities, all saved with the quote and all flowing to the e-mail body and quote document as before. Cells update in place so typing a qty is never interrupted by the recalc."},
@@ -1457,9 +1458,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 96;
+const APP_REV = 97;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "12:28";           /* increments every build — check both machines match */
+const BUILD_TIME = "12:50";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -2947,7 +2948,7 @@ async function aiCountFaiDims(){
   const btn=$('faiCount'); const fld=$('faiDims');
   const out=$('aiWeightOut');
   const say=t=>{ if(out){ out.hidden=false; out.textContent=t; } };
-  const reset=()=>{ if(btn){ btn.disabled=false; btn.textContent='\u{1F916} #'; } };
+  const reset=()=>{ hideAiSpinner(); if(btn){ btn.disabled=false; btn.textContent='\u{1F916} #'; } };
   try{
     if(!curDrawing){ say('\u26a0 Attach a drawing to this quote first.'); return; }
     const key=(localStorage.getItem('qs_ai_key')||'').trim();
@@ -2958,6 +2959,7 @@ async function aiCountFaiDims(){
     const data=await ensureDrawingData();
     if(!data){ say('\u26a0 Could not load the drawing image.'); reset(); return; }
     say('\u{1F916} Counting dimension callouts\u2026 (5\u201320 seconds)');
+    showAiSpinner('🤖 COUNTING FAI DIMENSIONS ON THE DRAWING…');
     const body={
       model:'claude-sonnet-4-6',
       max_tokens:1200,
@@ -3018,6 +3020,7 @@ async function aiEstimateWeight(){
     const data=await ensureDrawingData();
     if(!data){ say('⚠ Could not load the drawing image — check GitHub Sync, or re-paste the drawing into this quote.'); return; }
     say('🤖 Reading the drawing and estimating weight… (takes 5–20 seconds)');
+    showAiSpinner('🤖 READING THE DRAWING — ESTIMATING VOLUME & WEIGHT…');
     const matName=$('material').value;
     const m=(matByName && matByName[matName])||{};
     const densityNote = m.density ? ` The material is ${matName} with density ${m.density} lb/in³ (use this value).`
@@ -3051,6 +3054,7 @@ async function aiEstimateWeight(){
     const text=(j.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\n').trim();
     const wm=text.match(/WEIGHT:\s*([\d.,]+)\s*lb/i);
     const vm=text.match(/VOLUME:\s*([\d.,]+)\s*in/i);
+    hideAiSpinner();
     out.innerHTML = esc(text)
       .replace(/WEIGHT:\s*[\d.,]+\s*lb/i, s=>'<b>'+s+'</b>')
       .replace(/VOLUME:\s*[\d.,]+\s*in3?/i, s=>'<b>'+s+'\u00b3</b>');
@@ -3058,6 +3062,7 @@ async function aiEstimateWeight(){
     if(!vm) out.innerHTML += '\n<b>(no clear volume line — see reasoning above)</b>';
     out.scrollIntoView({block:'nearest'});
   }catch(e){
+    hideAiSpinner();   /* never leave the overlay stuck on an error */
     say('⚠ Weight estimate failed: '+e.message
       +(String(e.message).includes('Failed to fetch')?' — this usually means no internet connection, or a firewall blocking api.anthropic.com.':''));
   }
@@ -5061,6 +5066,25 @@ async function emailQuote(){
   }catch(e){}
   showEmailGen(false);
 }
+/* full-screen AI progress indicator — large spinner + message, impossible to miss */
+function showAiSpinner(msg){
+  let el=document.getElementById('aiSpinOv');
+  if(!el){
+    el=document.createElement('div');
+    el.id='aiSpinOv';
+    el.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(20,10,10,.55);'
+      +'display:flex;align-items:center;justify-content:center';
+    el.innerHTML='<div style="background:#fff;border-radius:12px;padding:28px 46px;text-align:center;'
+      +'font:800 17px system-ui,sans-serif;color:#2a1315;box-shadow:0 8px 30px rgba(0,0,0,.4);max-width:520px">'
+      +'<div style="width:54px;height:54px;margin:0 auto 16px;border:6px solid #e8dede;'
+      +'border-top-color:#8a1c1c;border-radius:50%;animation:qsSpin 0.9s linear infinite"></div>'
+      +'<div id="aiSpinMsg"></div>'
+      +'<div style="font-weight:400;font-size:12.5px;color:#6b5f5f;margin-top:8px">takes 5\u201320 seconds \u2014 the result appears under the drawing</div></div>';
+    document.body.appendChild(el);
+  }
+  const m=document.getElementById('aiSpinMsg'); if(m) m.textContent=msg;
+}
+function hideAiSpinner(){ const el=document.getElementById('aiSpinOv'); if(el) el.remove(); }
 /* full-screen 'generating e-mail' indicator — spinner + message, above everything */
 function showEmailGen(on){
   let el=document.getElementById('emailGenOv');

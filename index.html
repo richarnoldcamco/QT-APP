@@ -1073,7 +1073,6 @@
           <button class="mini" id="dzCrop" type="button" title="crop to a selected area">✂ Crop</button>
           <span class="dz-sep"></span>
           <button class="mini" id="dzEdit" type="button" title="highlight the drawing">🖍 Highlighter</button>
-          <button class="mini" id="aiWeight" type="button" title="AI reads the drawing and estimates the finished part's volume (in³) and weight (lb)">🤖 Vol/Wt</button>
           <button class="mini" id="dzUndoBake" type="button" title="undo the last change to this page (crop, darken, highlights…)">↩ Undo</button>
           <button class="mini" id="drawDownload" type="button">⬇ Save</button>
           <button class="mini" id="drawMax" type="button" title="fill the screen with the drawing">⛶ Maximize</button>
@@ -1375,6 +1374,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:101, date:"2026-07-27", note:"Removed the Vol/Wt button from the drawing toolbar \u2014 the \U0001F916 AI WEIGHT button in the header bar is its home now, works from any view, and feeds the same chip and DETAILS popup. One less button crowding the drawing tools."},
   {rev:100, date:"2026-07-27", note:"AI weight is now a median-of-three ensemble. One vision pass can misread a single dimension; three passes rarely misread the same one, so three independent estimates run in parallel and the median is taken \u2014 the outlier is discarded automatically. The chip shows the median; the DETAILS popup opens with all three weights, the spread percentage and a verdict (GOOD AGREEMENT \u2264\u200910%, FAIR \u2264\u200925%, LOW CONFIDENCE above), followed by the median run\u2019s full segment table. A failed run out of the three is tolerated."},
   {rev:99, date:"2026-07-27", note:"AI weight estimate made repeatable and grounded. Three changes: temperature set to 0 so the same drawing returns the same answer run after run (default sampling randomness was most of the variation); the prompt forces a fixed method \u2014 a segment table of dia \u00d7 length \u2192 volume, summed, bores subtracted, weight = volume \u00d7 density; and the estimate is anchored to the quote header\u2019s own geometry \u2014 bar dia, part length, the computed stock cylinder volume as a hard ceiling, and the slug weight \u2014 with instructions to redo if the ceiling is exceeded. Token limit raised so the segment table never truncates."},
   {rev:98, date:"2026-07-27", note:"AI weight moved into the header bar. A \U0001F916 AI WEIGHT button sits beside the minimize control; after it runs, a chip shows FINISHED weight, VOLUME in cubic inches, and the SLUG weight (taken live from the engine\u2019s own Weight Of Slug field, which is computed from bar dia, part+extra length and material density in the header). A \u24d8 DETAILS button opens a popup with the AI\u2019s full reasoning. The estimate saves with the quote and the chip reappears when the quote is reopened. The drawing-toolbar Vol/Wt button still works and feeds the same chip."},
@@ -1469,9 +1469,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 100;
+const APP_REV = 101;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "14:02";           /* increments every build — check both machines match */
+const BUILD_TIME = "14:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -2954,7 +2954,7 @@ document.addEventListener('paste', e=>{
   $('pgPrev').addEventListener('click', ()=>gotoPage(curPage-1));
   $('pgNext').addEventListener('click', ()=>gotoPage(curPage+1));
   $('pgAdd').addEventListener('click', ()=>$('drawFile').click());
-  $('aiWeight').addEventListener('click', aiEstimateWeight);
+  { const aw=$('aiWeight'); if(aw) aw.addEventListener('click', aiEstimateWeight); }   /* toolbar copy removed rev 101; header button is the home now */
   $('faiCount') && $('faiCount').addEventListener('click', aiCountFaiDims);
 })();
 

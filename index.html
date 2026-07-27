@@ -1374,6 +1374,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:102, date:"2026-07-27", note:"New odd features can be added right from the quoting popup: a name box, a % box and an + ADD button at the bottom of the ODD FEATURES dialog. Adding one puts it PERMANENTLY on the same list Admin edits \u2014 saved and synced to GitHub with the tables \u2014 checks it on the current part immediately, and re-renders the dialog with it in place. Duplicate names are refused with a toast."},
   {rev:101, date:"2026-07-27", note:"Removed the Vol/Wt button from the drawing toolbar \u2014 the \U0001F916 AI WEIGHT button in the header bar is its home now, works from any view, and feeds the same chip and DETAILS popup. One less button crowding the drawing tools."},
   {rev:100, date:"2026-07-27", note:"AI weight is now a median-of-three ensemble. One vision pass can misread a single dimension; three passes rarely misread the same one, so three independent estimates run in parallel and the median is taken \u2014 the outlier is discarded automatically. The chip shows the median; the DETAILS popup opens with all three weights, the spread percentage and a verdict (GOOD AGREEMENT \u2264\u200910%, FAIR \u2264\u200925%, LOW CONFIDENCE above), followed by the median run\u2019s full segment table. A failed run out of the three is tolerated."},
   {rev:99, date:"2026-07-27", note:"AI weight estimate made repeatable and grounded. Three changes: temperature set to 0 so the same drawing returns the same answer run after run (default sampling randomness was most of the variation); the prompt forces a fixed method \u2014 a segment table of dia \u00d7 length \u2192 volume, summed, bores subtracted, weight = volume \u00d7 density; and the estimate is anchored to the quote header\u2019s own geometry \u2014 bar dia, part length, the computed stock cylinder volume as a hard ceiling, and the slug weight \u2014 with instructions to redo if the ceiling is exceeded. Token limit raised so the segment table never truncates."},
@@ -1469,9 +1470,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 101;
+const APP_REV = 102;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "14:20";           /* increments every build — check both machines match */
+const BUILD_TIME = "14:44";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -4729,6 +4730,11 @@ function openOddFeatures(){
         : '<div class="note">No odd features defined yet — add them in Admin → Odd-Feature Premium.</div>'}
     </div>
     <div class="odd-total" id="oddTotal"></div>
+    <div class="odd-add" style="display:flex; align-items:center; gap:6px; margin-top:10px; padding-top:10px; border-top:1px solid var(--cp-line)">
+      <input id="oddNewName" type="text" placeholder="new feature name" style="flex:1 1 auto; font-size:12px; padding:4px 7px">
+      <input id="oddNewPct" type="number" min="0" step="1" placeholder="%" style="width:58px; font-size:12px; padding:4px 5px">
+      <button class="btn" id="oddAdd" title="adds this feature PERMANENTLY to the odd-features list and checks it on this part">+ ADD</button>
+    </div>
     <div class="btns" style="display:flex; justify-content:flex-end; gap:10px; margin-top:12px">
       <button class="btn" id="oddCancel">Cancel</button>
       <button class="btn primary" id="oddOk">OK</button>
@@ -4742,6 +4748,28 @@ function openOddFeatures(){
   };
   tot();
   ov.querySelectorAll('.oddcb').forEach(c=>c.addEventListener('change', tot));
+  /* add a NEW feature from right here: it goes into TABLES.oddFeatures permanently
+     (same list Admin edits, synced to GitHub with the tables), is checked for this
+     part immediately, and the popup re-renders with it in place. */
+  ov.querySelector('#oddAdd').addEventListener('click', ()=>{
+    const nameEl=ov.querySelector('#oddNewName'), pctEl=ov.querySelector('#oddNewPct');
+    const name=(nameEl.value||'').trim();
+    const pct=parseFloat(pctEl.value);
+    if(!name){ nameEl.focus(); return; }
+    if(!(pct>=0)){ pctEl.focus(); return; }
+    if((TABLES.oddFeatures||[]).some(f=>String(f.name).trim().toUpperCase()===name.toUpperCase())){
+      if(window.updateToast) updateToast('\u201c'+name+'\u201d is already on the odd-features list');
+      return;
+    }
+    TABLES.oddFeatures.push({name:name, pct:pct});
+    saveTables();                              /* permanent + GitHub sync */
+    const keep=[...ov.querySelectorAll('.oddcb:checked')].map(c=>c.dataset.n);
+    keep.push(name);
+    oddSel=keep;                               /* carry checks through the re-render */
+    ov.remove();
+    openOddFeatures();                         /* rebuild with the new row present */
+    if(window.updateToast) updateToast('\u201c'+name+'\u201d added permanently at +'+pct+'%');
+  });
   const close=()=>ov.remove();
   ov.querySelector('#oddCancel').addEventListener('click', close);
   ov.addEventListener('click', e=>{ if(e.target===ov) close(); });

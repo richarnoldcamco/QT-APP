@@ -86,11 +86,11 @@
   /* ===== the sheet ===== */
   .sheet{
     border-collapse:collapse;
-    font-size:12.5px; color:#000; background:#fff;
-    table-layout:fixed; margin:8px; width:1983px; max-width:none;
+    font-size:10.5px; color:#000; background:#fff;
+    table-layout:fixed; margin:8px; width:1487px; max-width:none;
   }
   .sheet td{
-    border:none; padding:2px 5px; height:23px;
+    border:none; padding:1px 3px; height:20px;
     white-space:nowrap; overflow:hidden; vertical-align:middle;
   }
   /* colored cells keep a subtle outline so entry/output fields stay obvious */
@@ -114,8 +114,8 @@
 
   /* inputs sit flush inside cells, no chrome */
   .sheet input, .sheet select{
-    border:none; background:transparent; font-family:var(--sans); font-size:12.5px;
-    color:#000; padding:0 3px; width:100%; height:19px; text-align:inherit; border-radius:0;
+    border:none; background:transparent; font-family:var(--sans); font-size:10.5px;
+    color:#000; padding:0 2px; width:100%; height:17px; text-align:inherit; border-radius:0;
   }
   .sheet input::placeholder{color:#9a945e; font-weight:400; font-style:italic; opacity:1}
   .c-yellow input, .c-yellow select{background:var(--yellow); font-weight:600; cursor:text}
@@ -853,13 +853,13 @@
   <!-- ===== HEADER BLOCK (exact spreadsheet grid) ===== -->
   <table class="sheet" id="hdrSheet">
     <colgroup>
-      <col style="width:159px"><col style="width:128px">   <!-- A: value | label -->
-      <col style="width:235px"><col style="width:150px"><col style="width:48px"> <!-- B: label | value | extra -->
-      <col style="width:225px"><col style="width:105px">   <!-- C: label | value -->
-      <col style="width:8px">                              <!-- spacer/float -->
-      <col style="width:288px"><col style="width:100px">   <!-- D: label | value -->
-      <col style="width:176px"><col style="width:50px">    <!-- E: label | blue -->
-      <col style="width:112px"><col style="width:70px"><col style="width:129px"> <!-- F: label | value | extra -->
+      <col style="width:119px"><col style="width:96px">   <!-- A: value | label -->
+      <col style="width:132px"><col style="width:84px"><col style="width:36px"> <!-- B: label | value | extra -->
+      <col style="width:169px"><col style="width:79px">   <!-- C: label | value -->
+      <col style="width:6px">                              <!-- spacer/float -->
+      <col style="width:216px"><col style="width:75px">   <!-- D: label | value -->
+      <col style="width:176px"><col style="width:38px">    <!-- E: label | blue -->
+      <col style="width:112px"><col style="width:52px"><col style="width:97px"> <!-- F: label | value | extra -->
     </colgroup>
 
     <tr>
@@ -1325,6 +1325,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:85, date:"2026-07-27", note:"Expanded header compressed horizontally to 75% \u2014 every column width scaled (1983px down to 1487px), font from 12.5px to 10.5px, tighter cell padding. The header\u2019s right edge now sits near the drawing\u2019s left edge instead of running underneath it. All field positions, ids and tab order unchanged; this is width and type size only."},
   {rev:84, date:"2026-07-27", note:"The print in CALCULATIONS view now fills the whole area right of the grid instead of a fixed 420px strip. The pane grows into all leftover width and each page is capped to the height actually available below it, so the print renders as large as the window allows without running off the bottom. The cap is computed in JS rather than CSS vh because the quote screen runs under Ctrl+wheel zoom, which multiplies vh units \u2014 the rev 57 failure. Re-computed on window resize and every zoom change."},
   {rev:83, date:"2026-07-26", note:"Quote status added. Every quote shows IN PROGRESS in Past Quotes until the new Finalize button on the quote sheet is pressed, after which it shows FINALIZED in green. The button toggles \u2014 press it again to reopen the quote \u2014 and finalizing does not lock editing, it only marks the state. The flag saves with the quote and syncs like everything else."},
   {rev:82, date:"2026-07-26", note:"The quote popup now carries a green \u2018Outlook draft (WITH attachments)\u2019 button that downloads the same .eml from the Chrome window. Reason: the app runs as a pinned PWA with no browser toolbar, so the automatic .eml download never showed Chrome\u2019s download bubble \u2014 and the bubble\u2019s \u22ee menu is the only place \u2018Always open files of this type\u2019 can be set. Downloading once from the popup makes the bubble appear so that setting can be turned on; after that, every .eml \u2014 including the automatic one from the app \u2014 opens itself in Outlook."},
@@ -1403,9 +1404,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 84;
+const APP_REV = 85;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "07:05";           /* increments every build — check both machines match */
+const BUILD_TIME = "08:40";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */

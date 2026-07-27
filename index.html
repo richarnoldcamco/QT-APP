@@ -1326,6 +1326,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:88, date:"2026-07-27", note:"Leadtime now reads \u2018calendar days\u2019 everywhere the customer sees it: the e-mail body, the quote document table, and the formal CAMCO quotation (\u2018calendar days ARO\u2019). The on-screen grid footer keeps its short \u2018DAYS\u2019 label \u2014 internal only."},
   {rev:87, date:"2026-07-27", note:"E-MAIL now shows a spinner overlay \u2014 GENERATING E-MAIL, attaching the print, formal quotation and full quote \u2014 for the several seconds the drawing pages are pulled from GitHub and the .eml is built. It disappears the moment the draft is ready. Until now that gap was dead air."},
   {rev:86, date:"2026-07-27", note:"The quote document no longer opens as a separate browser tab. It renders in a full-screen overlay inside the app with a \u2190 BACK TO QUOTE button at the top, so E-MAIL keeps you in the app. All the document\u2019s own buttons \u2014 the green Outlook draft, Print/Save as PDF, Download quote file, the blank mailto draft \u2014 work exactly as before, and the automatic .eml download and auto-open are untouched."},
   {rev:85, date:"2026-07-27", note:"Expanded header compressed horizontally to 75% \u2014 every column width scaled (1983px down to 1487px), font from 12.5px to 10.5px, tighter cell padding. The header\u2019s right edge now sits near the drawing\u2019s left edge instead of running underneath it. All field positions, ids and tab order unchanged; this is width and type size only."},
@@ -1407,9 +1408,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 87;
+const APP_REV = 88;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "09:22";           /* increments every build — check both machines match */
+const BUILD_TIME = "09:38";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -4814,7 +4815,7 @@ async function emailQuote(){
     `Batch Qty: ${v('batchSize')}   Annual Usage: ${v('annualUsage')}   Min Order: ${v('minOrderQty')}`,``,
     `UNIT PRICE: ${money(r.perPc)} /pc`,
     r.faiPerPc>0?`(includes FAI ${money(r.faiPerPc)}/pc)`:'',
-    `Estimated Leadtime: ${r.maxLead||0} days`,``,
+    `Estimated Leadtime: ${r.maxLead||0} calendar days`,``,
     `Quoted by: ${v('quotedBy')}`,``,
     `The full quote is attached.`,
   ].filter(x=>x!=='' || true).join('\n');
@@ -4849,7 +4850,7 @@ async function emailQuote(){
       <tr><th>Customer</th><td>${esc(v('customer'))||'—'}</td><th>Part Number</th><td>${esc(v('partNo'))||'—'}</td></tr>
       <tr><th>Material</th><td>${esc(v('material'))}</td><th>Bar Dia / Length</th><td>${esc(v('barDia'))} / ${esc(v('partLength'))}</td></tr>
       <tr><th>Batch Qty</th><td>${esc(v('batchSize'))||'—'}</td><th>Annual Usage</th><td>${esc(v('annualUsage'))||'—'}</td></tr>
-      <tr><th>Min Order Qty</th><td>${esc(v('minOrderQty'))||'—'}</td><th>Est. Leadtime</th><td>${r.maxLead||0} days</td></tr>
+      <tr><th>Min Order Qty</th><td>${esc(v('minOrderQty'))||'—'}</td><th>Est. Leadtime</th><td>${r.maxLead||0} calendar days</td></tr>
     </table>
     <div class="sec"><h2>Pricing</h2></div>
     <table>
@@ -4972,7 +4973,7 @@ function buildCustomerQuote(qno, r){
     <table>
       <tr><th>Quantity</th><th>Unit Price</th><th>Extended</th><th>Lead Time</th></tr>
       <tr class="pr"><td>${esc(v('batchSize'))||0} pcs</td><td>${money(r.perPc)}</td>
-          <td>${money(r.batchTotal)}</td><td>${r.maxLead||0} days ARO</td></tr>
+          <td>${money(r.batchTotal)}</td><td>${r.maxLead||0} calendar days ARO</td></tr>
     </table>
     <div class="terms">
       <b>Terms &amp; Conditions</b><br>

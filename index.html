@@ -222,6 +222,8 @@
   .row-odd{font-size:10px; padding:0 3px; margin-left:0; border:1px solid var(--cp-line);
     border-radius:4px; background:#fff; cursor:pointer; vertical-align:middle}
   .row-odd.on{background:var(--yellow); border-color:#d9a400; font-weight:800}
+  .row-odd.add{background:#e9f6e9; border-color:#1a6b1a; color:#1a6b1a; font-weight:800;
+    font-size:11px; line-height:1; padding:0 5px}
   select[data-k="desc"]{font-size:12px}
   select[data-k="desc"] option{font-size:12px; padding:2px 4px}
   /* generic overlay used by the material-verify, odd-features, RFQ-paste, and photo modals */
@@ -1378,6 +1380,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:112, date:"2026-07-27", note:"The odd-features column only shows the \U0001F6A9 flag and count on ops that actually carry features. Ops with none show a very small green + button instead \u2014 an invitation to add one \u2014 which opens the same per-op dialog."},
   {rev:111, date:"2026-07-27", note:"Odd features icon is the \U0001F6A9 red flag \u2014 per-op column buttons, top aggregate button, dialog title and Admin description."},
   {rev:110, date:"2026-07-27", note:"Odd features icon changed from the \u2b50 star to a \U0001F527 wrench everywhere it appears \u2014 the per-op column buttons, the top aggregate button, the dialog title and the Admin description."},
   {rev:109, date:"2026-07-27", note:"Fixed odd-feature changes not sticking. OK used the debounced autosave, which left a several-second window in which the GitHub pull-on-focus could restore the quote from the stale saved copy and silently wipe the just-made change \u2014 which is why unchecked boxes came back. OK (and the +ADD path) now snapshot immediately with autosaveNow, so the change carries a fresh timestamp and survives any merge."},
@@ -1483,9 +1486,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 111;
+const APP_REV = 112;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "17:52";           /* increments every build — check both machines match */
+const BUILD_TIME = "21:04";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1808,8 +1811,12 @@ function renderOps(){
     const num = (k,step,dec)=> locked?'' : `<input type="text" inputmode="decimal" value="${dec!=null?(parseFloat(row[k])||0).toFixed(dec):(row[k]||0)}" data-i="${i}" data-k="${k}">`;
     const txt = (k)=> `<input value="${(row[k]||'').replace(/"/g,'&quot;')}" data-i="${i}" data-k="${k}">`;
     const _oddN=(Array.isArray(row.odd)?row.odd.length:0);
+    /* flag + count only when the op actually HAS features; otherwise a tiny green +
+       inviting you to add one */
     const oddCell = (!locked && row.desc)
-      ? `<td class="oddcell"><button type="button" class="row-odd${_oddN?' on':''}" data-oddrow="${i}" title="odd features on THIS operation">🚩${_oddN||''}</button></td>`
+      ? (_oddN
+          ? `<td class="oddcell"><button type="button" class="row-odd on" data-oddrow="${i}" title="odd features on THIS operation">🚩${_oddN}</button></td>`
+          : `<td class="oddcell"><button type="button" class="row-odd add" data-oddrow="${i}" title="no odd features on this op — click to add one">+</button></td>`)
       : `<td class="oddcell"></td>`;
     const descCell = locked
       ? `<input value="${row.desc}" disabled>`

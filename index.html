@@ -362,10 +362,10 @@
   .topbtns{display:flex; gap:8px; align-items:center; margin-right:14px}
   .btn.topbtn{
     padding:6px 16px; font-size:12px; border-radius:8px; font-weight:700;
-    background:linear-gradient(180deg,#9a2a2a 0%,#7a1818 50%,#5e1010 100%);
-    border:1px solid #4a0d0d; border-top-color:#b54a4a; color:#fff;
+    background:linear-gradient(180deg,#3f679a 0%,#2c4d7c 50%,#1d3a61 100%);
+    border:1px solid #14273f; border-top-color:#6d92bd; color:#fff;
   }
-  .btn.topbtn.ghost{background:linear-gradient(180deg,#3a2b2b,#2a1c1c); color:#e7dbd9; border:1px solid #4a3a3a; border-top-color:#5e4c4c}
+  .btn.topbtn.ghost{background:linear-gradient(180deg,#31465f,#22334a); color:#e6ecf4; border:1px solid #182739; border-top-color:#4c6786}
   .btn.topbtn.ghost:hover{filter:brightness(1.15)}
   /* EMAIL: its own colour so it reads as the send action, not another dark chip */
   /* glossy blue pill modelled on the reference button */
@@ -1383,6 +1383,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:115, date:"2026-07-28", note:"Top-bar buttons recoloured out of the brown family: the dark charcoal-brown ghost buttons (View Buyers Email, Save, Finalize, Add Op Row, Help Area, Prior Quotes) are now slate blue, and the maroon-red primary style is steel blue \u2014 matching the rev 114 view buttons. The ? HELP AREA button no longer disappears into the bar."},
   {rev:114, date:"2026-07-28", note:"Two things. The active view buttons (CALCULATIONS / DRAWING / ODD FEATURES) trade the maroon-brown gradient for steel blue. And a new ? HELP AREA button in the top bar opens a reference panel with a METRIC \u21c4 ENGLISH conversion section \u2014 mm\u2013inch, \u00b5m\u2013thou, kg\u2013lb, \u00b0C\u2013\u00b0F and N\u00b7m\u2013ft\u00b7lb, each a live two-way pair that converts as you type. The panel is built to take more sections later."},
   {rev:113, date:"2026-07-28", note:"\U0001F558 History button in the drawing toolbar, beside Undo. The in-session Undo cannot reach darken/lighten/clarify passes from earlier sessions, but every one of them was committed to the data repo \u2014 so History lists all saved versions of the current page with their dates and restores any of them, including the oldest (likely the original scan). A restore goes through the normal undo stack, so it can itself be un-done."},
   {rev:112, date:"2026-07-27", note:"The odd-features column only shows the \U0001F6A9 flag and count on ops that actually carry features. Ops with none show a very small green + button instead \u2014 an invitation to add one \u2014 which opens the same per-op dialog."},
@@ -1491,9 +1492,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 114;
+const APP_REV = 115;
 const BUILD_DATE = "2026-07-28";
-const BUILD_TIME = "09:48";           /* increments every build — check both machines match */
+const BUILD_TIME = "10:26";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */

@@ -1023,7 +1023,7 @@
     <button class="modebtn on" id="modeCalc" type="button">📊 Calculations</button>
     <button class="modebtn" id="modeDraw" type="button">📐 Drawing</button>
     <span style="flex:0 0 10px"></span>
-    <button class="modebtn oddbtn" id="oddBtn" type="button" title="mark unusual features on this part — each adds a % to cycle time">🔧 Odd Features</button>
+    <button class="modebtn oddbtn" id="oddBtn" type="button" title="mark unusual features on this part — each adds a % to cycle time">🚩 Odd Features</button>
   </div>
   <div class="ops-flex">
    <div class="ops-scroll">
@@ -1378,6 +1378,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:111, date:"2026-07-27", note:"Odd features icon is the \U0001F6A9 red flag \u2014 per-op column buttons, top aggregate button, dialog title and Admin description."},
   {rev:110, date:"2026-07-27", note:"Odd features icon changed from the \u2b50 star to a \U0001F527 wrench everywhere it appears \u2014 the per-op column buttons, the top aggregate button, the dialog title and the Admin description."},
   {rev:109, date:"2026-07-27", note:"Fixed odd-feature changes not sticking. OK used the debounced autosave, which left a several-second window in which the GitHub pull-on-focus could restore the quote from the stale saved copy and silently wipe the just-made change \u2014 which is why unchecked boxes came back. OK (and the +ADD path) now snapshot immediately with autosaveNow, so the change carries a fresh timestamp and survives any merge."},
   {rev:108, date:"2026-07-27", note:"New ODD FEATURE COST PER PC column, sitting just left of the last cost column: the direct dollar cost of that operation\u2019s odd-feature minutes (machine rate \u00d7 the extra cycle time the features add). Column width came out of DESCRIPTION\u2019s surplus (242 to 204px) so the grid\u2019s right edge stays flush with the drawing. 36 columns now \u2014 colgroup, both row templates, footer colspans, drawing-mode ranges and the small-font range all shifted; the new column joins the small-font analysis block and collapses in drawing mode."},
@@ -1482,9 +1483,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 110;
+const APP_REV = 111;
 const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "17:40";           /* increments every build — check both machines match */
+const BUILD_TIME = "17:52";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1808,7 +1809,7 @@ function renderOps(){
     const txt = (k)=> `<input value="${(row[k]||'').replace(/"/g,'&quot;')}" data-i="${i}" data-k="${k}">`;
     const _oddN=(Array.isArray(row.odd)?row.odd.length:0);
     const oddCell = (!locked && row.desc)
-      ? `<td class="oddcell"><button type="button" class="row-odd${_oddN?' on':''}" data-oddrow="${i}" title="odd features on THIS operation">🔧${_oddN||''}</button></td>`
+      ? `<td class="oddcell"><button type="button" class="row-odd${_oddN?' on':''}" data-oddrow="${i}" title="odd features on THIS operation">🚩${_oddN||''}</button></td>`
       : `<td class="oddcell"></td>`;
     const descCell = locked
       ? `<input value="${row.desc}" disabled>`
@@ -4084,7 +4085,7 @@ const ADMIN_SECTIONS = {
   },
   oddprem: {
     title:'Odd-Feature Premium', src:'App · odd-features checklist on each quote',
-    desc:'Unusual part features (OD thread, tap hole, tight finish, cross-holes…) that slow the cut. Each adds its percentage to CYCLE TIME on every op of a quote where it\'s checked. The 🔧 Odd Features button on the quote (and the pop-up on New Quote) selects which apply.',
+    desc:'Unusual part features (OD thread, tap hole, tight finish, cross-holes…) that slow the cut. Each adds its percentage to CYCLE TIME on every op of a quote where it\'s checked. The 🚩 Odd Features button on the quote (and the pop-up on New Quote) selects which apply.',
     render(){
       ensureOddFeatures();
       const cols=[
@@ -4755,7 +4756,7 @@ function updateOddBtn(){
   const b=$('oddBtn'); if(!b) return;
   ensureOddFeatures();
   const n=(opRows||[]).reduce((s,r)=>s+((Array.isArray(r.odd)&&r.odd.length)||0),0);
-  b.innerHTML = n ? `🔧 Odd Features (${n} across ops)` : '🔧 Odd Features — per op';
+  b.innerHTML = n ? `🚩 Odd Features (${n} across ops)` : '🚩 Odd Features — per op';
   b.title='odd features are per operation — use the \u2b50 button on each op row';
   b.classList.toggle('on', n>0);
 }
@@ -4774,7 +4775,7 @@ function openOddFeatures(rowIx){
   const ov=document.createElement('div');
   ov.className='ov'; ov.id='oddOv'; ov.style.display='flex';
   ov.innerHTML=`<div class="modal" style="width:420px">
-    <h3>🔧 Odd Features — OP ${_row.op||''} ${esc(_row.desc||'')}</h3>
+    <h3>🚩 Odd Features — OP ${_row.op||''} ${esc(_row.desc||'')}</h3>
     <div class="note" style="margin-bottom:8px">Check what THIS OPERATION has to deal with — each adds its percentage to THIS op's cycle time only. Edit the list &amp; rates in Admin → Odd-Feature Premium.</div>
     <div class="odd-list">
       ${feats.length? feats.map(f=>`

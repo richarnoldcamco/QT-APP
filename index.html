@@ -260,7 +260,8 @@
     box-shadow:0 2px 6px rgba(140,30,20,.35);
   }
   .modebtn{font-family:var(--ui); font-size:12px; font-weight:700; padding:5px 15px; border-radius:8px; border:1px solid var(--cp-line); border-top-color:#fff; background:linear-gradient(180deg,#fff,#f0ede8); color:var(--cp-dim); letter-spacing:0}
-  .modebtn.on{background:linear-gradient(180deg,#8a1c1c,var(--cp-signal) 55%,var(--cp-signal-dark)); color:#fff; border-color:#4a0d0d; border-top-color:#b54a4a}
+  /* steel blue — the maroon-brown gradient was disliked */
+  .modebtn.on{background:linear-gradient(180deg,#33557f,#24436b 55%,#182f4d); color:#fff; border-color:#101f33; border-top-color:#5b7ea8}
   [hidden]{display:none !important}
   /* width:100% matters — without it this row is content-sized, so .drawwrap sized itself
      to the full drawing bitmap and ran off the right edge instead of fitting the window. */
@@ -854,6 +855,7 @@
     <button class="btn topbtn ghost" id="saveNowBtn" title="save this quote and push it to GitHub right now">⬇ Save</button>
     <button class="btn topbtn ghost" id="finalizeBtn" title="mark this quote finalized — it shows FINALIZED instead of IN PROGRESS in Past Quotes. Click again to reopen it.">✓ Finalize</button>
     <button class="btn topbtn ghost" id="addOp">+ Add Op Row</button>
+    <button class="btn topbtn ghost" id="helpAreaBtn" title="reference tools — metric/english conversions">? Help Area</button>
     <button class="btn topbtn ghost" id="priorQuotesBtn">📂 Prior Quotes</button>
     <button class="btn topbtn menulike" id="newQuote">New Quote</button>
   </div>
@@ -1381,6 +1383,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:114, date:"2026-07-28", note:"Two things. The active view buttons (CALCULATIONS / DRAWING / ODD FEATURES) trade the maroon-brown gradient for steel blue. And a new ? HELP AREA button in the top bar opens a reference panel with a METRIC \u21c4 ENGLISH conversion section \u2014 mm\u2013inch, \u00b5m\u2013thou, kg\u2013lb, \u00b0C\u2013\u00b0F and N\u00b7m\u2013ft\u00b7lb, each a live two-way pair that converts as you type. The panel is built to take more sections later."},
   {rev:113, date:"2026-07-28", note:"\U0001F558 History button in the drawing toolbar, beside Undo. The in-session Undo cannot reach darken/lighten/clarify passes from earlier sessions, but every one of them was committed to the data repo \u2014 so History lists all saved versions of the current page with their dates and restores any of them, including the oldest (likely the original scan). A restore goes through the normal undo stack, so it can itself be un-done."},
   {rev:112, date:"2026-07-27", note:"The odd-features column only shows the \U0001F6A9 flag and count on ops that actually carry features. Ops with none show a very small green + button instead \u2014 an invitation to add one \u2014 which opens the same per-op dialog."},
   {rev:111, date:"2026-07-27", note:"Odd features icon is the \U0001F6A9 red flag \u2014 per-op column buttons, top aggregate button, dialog title and Admin description."},
@@ -1488,9 +1491,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 113;
+const APP_REV = 114;
 const BUILD_DATE = "2026-07-28";
-const BUILD_TIME = "09:20";           /* increments every build — check both machines match */
+const BUILD_TIME = "09:48";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -5285,6 +5288,47 @@ async function emailQuote(){
   }catch(e){}
   showEmailGen(false);
 }
+/* HELP AREA (rev 114): reference panel. First section: metric ⇄ english conversions
+   with live two-way inputs. Built to grow — more sections can be added later. */
+function showHelpArea(){
+  let ov=document.getElementById('helpAreaOv'); if(ov){ ov.remove(); return; }
+  ov=document.createElement('div');
+  ov.id='helpAreaOv';
+  ov.style.cssText='position:fixed;inset:0;z-index:99995;background:rgba(20,10,10,.5);display:flex;align-items:center;justify-content:center';
+  const pair=(id,l1,l2)=>`<div style=\"display:flex;align-items:center;gap:8px;padding:5px 0\">`
+    +`<input id=\"${id}A\" type=\"number\" step=\"any\" style=\"width:110px;font:700 13px system-ui;padding:5px 8px;border:1px solid #b7a94a;border-radius:5px;background:#fffbe6\">`
+    +`<span style=\"width:52px;font-weight:800\">${l1}</span>`
+    +`<span style=\"font-weight:800;color:#888\">⇄</span>`
+    +`<input id=\"${id}B\" type=\"number\" step=\"any\" style=\"width:110px;font:700 13px system-ui;padding:5px 8px;border:1px solid #b7a94a;border-radius:5px;background:#fffbe6\">`
+    +`<span style=\"width:56px;font-weight:800\">${l2}</span></div>`;
+  const box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:12px;padding:20px 28px;max-width:520px;width:94vw;max-height:80vh;overflow:auto;font:13px system-ui,sans-serif;color:#2a1315;box-shadow:0 8px 30px rgba(0,0,0,.4)';
+  box.innerHTML='<div style=\"font-weight:800;font-size:15px;margin-bottom:4px\">? HELP AREA</div>'
+    +'<div style=\"font-weight:800;letter-spacing:.05em;color:#6b5f5f;border-bottom:2px solid #eee;padding-bottom:4px;margin:10px 0 4px\">METRIC ⇄ ENGLISH CONVERSIONS</div>'
+    +'<div style=\"font-size:11.5px;color:#6b5f5f;margin-bottom:6px\">type in either box — the other side converts as you type</div>'
+    +pair('cvMm','MM','INCH')
+    +pair('cvUm','µM','THOU')
+    +pair('cvKg','KG','LB')
+    +pair('cvC','°C','°F')
+    +pair('cvNm','N·M','FT·LB')
+    +'<div style=\"margin-top:14px;text-align:right\"><button id=\"helpClose\" style=\"font:700 12px system-ui;padding:6px 18px;border-radius:6px;border:1px solid #101f33;background:#24436b;color:#fff;cursor:pointer\">CLOSE</button></div>';
+  ov.appendChild(box);
+  ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
+  box.querySelector('#helpClose').addEventListener('click', ()=>ov.remove());
+  const wire=(id, aToB, bToA, dp)=>{
+    const A=box.querySelector('#'+id+'A'), B=box.querySelector('#'+id+'B');
+    const fmt=v=>{ const n=Math.abs(v); const d=(n!==0&&n<0.01)?6:dp; return (+v.toFixed(d)).toString(); };
+    A.addEventListener('input', ()=>{ const v=parseFloat(A.value); B.value=isFinite(v)? fmt(aToB(v)) : ''; });
+    B.addEventListener('input', ()=>{ const v=parseFloat(B.value); A.value=isFinite(v)? fmt(bToA(v)) : ''; });
+  };
+  wire('cvMm', v=>v/25.4,        v=>v*25.4,        4);
+  wire('cvUm', v=>v/25.4,        v=>v*25.4,        3);   /* µm ⇄ thousandths of an inch */
+  wire('cvKg', v=>v*2.2046226,   v=>v/2.2046226,   3);
+  wire('cvC',  v=>v*9/5+32,      v=>(v-32)*5/9,    1);
+  wire('cvNm', v=>v*0.7375621,   v=>v/0.7375621,   3);
+  document.body.appendChild(ov);
+}
+(function(){ const b=$('helpAreaBtn'); if(b) b.addEventListener('click', showHelpArea); })();
 /* full-screen AI progress indicator — large spinner + message, impossible to miss */
 /* NON-BLOCKING: a pill in the header bar, no backdrop — keep working while it runs */
 function showAiSpinner(msg){

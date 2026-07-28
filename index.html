@@ -1080,6 +1080,7 @@
           <span class="dz-sep"></span>
           <button class="mini" id="dzEdit" type="button" title="highlight the drawing">🖍 Highlighter</button>
           <button class="mini" id="dzUndoBake" type="button" title="undo the last change to this page (crop, darken, highlights…)">↩ Undo</button>
+          <button class="mini" id="dzHistory" type="button" title="every saved version of this page from GitHub — restore any of them, including from before today">🕘 History</button>
           <button class="mini" id="drawDownload" type="button">⬇ Save</button>
           <button class="mini" id="drawMax" type="button" title="fill the screen with the drawing">⛶ Maximize</button>
           <button class="mini delb" id="drawRemove" type="button" title="remove this page">✕</button>
@@ -1380,6 +1381,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:113, date:"2026-07-28", note:"\U0001F558 History button in the drawing toolbar, beside Undo. The in-session Undo cannot reach darken/lighten/clarify passes from earlier sessions, but every one of them was committed to the data repo \u2014 so History lists all saved versions of the current page with their dates and restores any of them, including the oldest (likely the original scan). A restore goes through the normal undo stack, so it can itself be un-done."},
   {rev:112, date:"2026-07-27", note:"The odd-features column only shows the \U0001F6A9 flag and count on ops that actually carry features. Ops with none show a very small green + button instead \u2014 an invitation to add one \u2014 which opens the same per-op dialog."},
   {rev:111, date:"2026-07-27", note:"Odd features icon is the \U0001F6A9 red flag \u2014 per-op column buttons, top aggregate button, dialog title and Admin description."},
   {rev:110, date:"2026-07-27", note:"Odd features icon changed from the \u2b50 star to a \U0001F527 wrench everywhere it appears \u2014 the per-op column buttons, the top aggregate button, the dialog title and the Admin description."},
@@ -1486,9 +1488,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 112;
-const BUILD_DATE = "2026-07-27";
-const BUILD_TIME = "21:04";           /* increments every build — check both machines match */
+const APP_REV = 113;
+const BUILD_DATE = "2026-07-28";
+const BUILD_TIME = "09:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -2191,6 +2193,8 @@ function setOpsMode(m){
   if(dw) dw.hidden = m!=='draw';
   const ub=$('dzUndoBake');
   if(ub) ub.addEventListener('click', undoBake);
+  const hb=$('dzHistory');
+  if(hb && !hb.__wired){ hb.__wired=true; hb.addEventListener('click', showDrawHistory); }
   /* difficulty cell color scales with severity; Un-Machinable flags the quote */
   function paintDifficulty(){
     const el=$('difficulty'); if(!el) return;
@@ -2379,6 +2383,8 @@ function addDrawingPage(dw){
 (function(){
   const ub=$('dzUndoBake');
   if(ub) ub.addEventListener('click', undoBake);
+  const hb=$('dzHistory');
+  if(hb && !hb.__wired){ hb.__wired=true; hb.addEventListener('click', showDrawHistory); }
   /* difficulty cell color scales with severity; Un-Machinable flags the quote */
   function paintDifficulty(){
     const el=$('difficulty'); if(!el) return;
@@ -2402,6 +2408,67 @@ function addDrawingPage(dw){
 })();
 /* fetch a drawing file from the repo into the cache (and screen, if still open) */
 function ghFetchDrawing(no){ return ghFetchDrawingRef(drawingPath(no)); }
+/* VERSION HISTORY (rev 113): every darken/lighten/clarify/crop lands as a commit on
+   the page's file in the data repo, so states from EARLIER SESSIONS — out of reach of
+   the in-session Undo — are all recoverable. Lists the commits, restores any chosen
+   version; the restore itself goes through the normal undo stack. */
+async function showDrawHistory(){
+  if(!curDrawing || !curDrawing.ref){ if(window.updateToast) updateToast('No saved file for this page yet'); return; }
+  if(!ghEnabled()){ if(window.updateToast) updateToast('GitHub sync is off — no history available'); return; }
+  const c=ghCfg();
+  let commits=[];
+  try{
+    const u=`https://api.github.com/repos/${c.owner}/${c.repo}/commits?path=${encodeURIComponent(curDrawing.ref)}&per_page=25`;
+    const r=await fetch(u,{headers:{Authorization:'Bearer '+c.token, Accept:'application/vnd.github+json'}, cache:'no-store'});
+    if(!r.ok) throw new Error('http '+r.status);
+    commits=await r.json();
+  }catch(e){ if(window.updateToast) updateToast('Could not load history: '+e.message); return; }
+  if(!commits.length){ if(window.updateToast) updateToast('No saved versions found for this page'); return; }
+  let ov=document.getElementById('drawHistOv'); if(ov) ov.remove();
+  ov=document.createElement('div');
+  ov.id='drawHistOv';
+  ov.style.cssText='position:fixed;inset:0;z-index:99996;background:rgba(20,10,10,.5);display:flex;align-items:center;justify-content:center';
+  const rows=commits.map((cm,ix)=>{
+    const d=new Date(cm.commit.author.date);
+    const when=d.toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+    return `<div style="display:flex;align-items:center;gap:12px;padding:6px 2px;border-bottom:1px solid #eee">`
+      +`<span style="flex:1 1 auto">${when}${ix===0?' <b>(current)</b>':''}${ix===commits.length-1?' <b>(oldest — likely the original)</b>':''}</span>`
+      +(ix===0?'':`<button data-sha="${cm.sha}" style="font:700 11px system-ui;padding:4px 14px;border-radius:5px;border:1px solid #7a3b3b;background:#8a1c1c;color:#fff;cursor:pointer">RESTORE</button>`)
+      +`</div>`;
+  }).join('');
+  const box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:12px;padding:18px 24px;max-width:460px;width:92vw;max-height:70vh;overflow:auto;font:13px system-ui,sans-serif;color:#2a1315;box-shadow:0 8px 30px rgba(0,0,0,.4)';
+  box.innerHTML='<div style="font-weight:800;margin-bottom:6px">\U0001F558 SAVED VERSIONS OF THIS PAGE</div>'
+    +'<div style="font-size:11.5px;color:#6b5f5f;margin-bottom:8px">Every darken / lighten / clarify / crop was saved. Restore any earlier state — the restore itself can be un-done with ↩ Undo.</div>'
+    +rows
+    +'<div style="margin-top:12px;text-align:right"><button id="histClose" style="font:700 12px system-ui;padding:5px 16px;border-radius:6px;border:1px solid #999;background:#eee;cursor:pointer">CLOSE</button></div>';
+  ov.appendChild(box);
+  ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
+  box.querySelector('#histClose').addEventListener('click', ()=>ov.remove());
+  box.querySelectorAll('button[data-sha]').forEach(b=>b.addEventListener('click', async ()=>{
+    b.disabled=true; b.textContent='LOADING…';
+    try{
+      const u=`https://api.github.com/repos/${c.owner}/${c.repo}/contents/${curDrawing.ref}?ref=${b.dataset.sha}`;
+      const r=await fetch(u,{headers:{Authorization:'Bearer '+c.token, Accept:'application/vnd.github.raw+json'}, cache:'no-store'});
+      if(!r.ok) throw new Error('http '+r.status);
+      const buf=await r.arrayBuffer();
+      const bytes=new Uint8Array(buf);
+      let bin=''; const CH=0x8000;
+      for(let i=0;i<bytes.length;i+=CH) bin+=String.fromCharCode.apply(null, bytes.subarray(i,i+CH));
+      const dataURL='data:image/jpeg;base64,'+btoa(bin);
+      const img=new Image();
+      img.onload=()=>{
+        setDrawing({data:dataURL, name:curDrawing.name, w:img.naturalWidth, h:img.naturalHeight,
+                    kb:Math.round(dataURL.length*0.75/1024), ts:Date.now(), tone:0});
+        ov.remove();
+        if(window.updateToast) updateToast('Earlier version restored — ↩ Undo brings back what you had');
+      };
+      img.onerror=()=>{ b.disabled=false; b.textContent='RESTORE'; if(window.updateToast) updateToast('Restore failed: could not decode image'); };
+      img.src=dataURL;
+    }catch(e){ b.disabled=false; b.textContent='RESTORE'; if(window.updateToast) updateToast('Restore failed: '+e.message); }
+  }));
+  document.body.appendChild(ov);
+}
 async function ghFetchDrawingRef(refPath){
   if(!ghEnabled()) return null;
   const c=ghCfg();

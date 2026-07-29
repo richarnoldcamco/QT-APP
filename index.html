@@ -782,6 +782,10 @@
   table.adm td .del{border:1px solid var(--grid); background:#fff; cursor:pointer; font-size:12px; padding:2px 7px; border-radius:2px}
   table.adm td .del:hover{background:#ffecec; color:#c00}
   .adm-actions{display:flex; gap:10px; margin-top:10px; align-items:center; flex-wrap:wrap}
+  .adm-save{font:800 12px var(--ui); padding:7px 22px; border-radius:8px; cursor:pointer;
+    background:linear-gradient(180deg,#2e8b2e,#1f6b1f 55%,#155215); color:#fff;
+    border:1px solid #0e3a0e; border-top-color:#54a854}
+  .adm-save:hover{filter:brightness(1.1)}
   .adm-actions .add{font-size:12.5px; font-weight:700; letter-spacing:.02em; color:#fff; background:linear-gradient(180deg,#8a1c1c,var(--cp-signal) 55%,var(--cp-signal-dark)); border:1px solid #4a0d0d; border-top-color:#b54a4a; border-radius:8px; padding:8px 16px; cursor:pointer; box-shadow:0 3px 0 #3f0b0b, 0 5px 10px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.28)}
   .adm-actions .add:hover{filter:brightness(1.07)}
   .adm-actions .note{font-size:12px; color:var(--cp-dim); font-family:var(--ui)}
@@ -1384,6 +1388,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:117, date:"2026-07-28", note:"Green \u2714 SAVE button on every Admin table, beside + Add Row \u2014 forces the save and the GitHub push immediately and reports plainly what happened, same semantics as the quote sheet\u2019s Save. Also fixed a real bug the new Order Qty table exposed: the threshold lookup assumed ascending rows and returned nothing for a descending table; it now sorts internally, so rows work in whatever order they were typed."},
   {rev:116, date:"2026-07-28", note:"Quantity entry consolidated. The intake now asks ANNUAL USAGE plus a JOB TYPE toggle in the same cell \u2014 ONE-TIME JOB fills batch size and min order with the same qty; REPEAT JOB fills them from the new Admin \u2192 Order Qty By Annual Usage table (threshold lookup, same pattern as the volume discount \u2014 populate it with your standard order sizes). Batch and min order left the guided walk but stay in the header, auto-filled and still editable for overrides. Job type saves with the quote."},
   {rev:115, date:"2026-07-28", note:"Top-bar buttons recoloured out of the brown family: the dark charcoal-brown ghost buttons (View Buyers Email, Save, Finalize, Add Op Row, Help Area, Prior Quotes) are now slate blue, and the maroon-red primary style is steel blue \u2014 matching the rev 114 view buttons. The ? HELP AREA button no longer disappears into the bar."},
   {rev:114, date:"2026-07-28", note:"Two things. The active view buttons (CALCULATIONS / DRAWING / ODD FEATURES) trade the maroon-brown gradient for steel blue. And a new ? HELP AREA button in the top bar opens a reference panel with a METRIC \u21c4 ENGLISH conversion section \u2014 mm\u2013inch, \u00b5m\u2013thou, kg\u2013lb, \u00b0C\u2013\u00b0F and N\u00b7m\u2013ft\u00b7lb, each a live two-way pair that converts as you type. The panel is built to take more sections later."},
@@ -1494,9 +1499,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 116;
+const APP_REV = 117;
 const BUILD_DATE = "2026-07-28";
-const BUILD_TIME = "11:02";           /* increments every build — check both machines match */
+const BUILD_TIME = "11:34";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1748,8 +1753,10 @@ function repeatDisc(pcs){
 function ensureOrderQty(){ if(!Array.isArray(TABLES.orderQty)) TABLES.orderQty=[[0,0]]; }
 function orderQtyLookup(usage){
   ensureOrderQty();
+  /* sorted copy — the table works whether rows were entered ascending or descending */
+  const t=TABLES.orderQty.slice().sort((a,b)=>Number(a[0])-Number(b[0]));
   let q=0;
-  for(const [thr,qty] of TABLES.orderQty){ if(usage>=Number(thr)) q=Number(qty)||0; else break; }
+  for(const [thr,qty] of t){ if(usage>=Number(thr)) q=Number(qty)||0; else break; }
   return q;
 }
 /* CONSOLIDATED QTY ENTRY (rev 116): type the ANNUAL USAGE and pick the job type —
@@ -4518,9 +4525,9 @@ function renderAdmin(){
   pane.innerHTML = `<div class="adm-card">
     <div class="ah"><h2>${def.title}</h2><p>${def.desc}</p><div class="src">${def.src}</div></div>
     <div class="adm-body">
-      ${built.rows && built.addTop ? `<div class="adm-actions adm-top"><button class="add" id="admAdd">${built.addLabel||'+ Add row'}</button><span class="note">Edits save &amp; recalculate live.</span><span class="save-flag">✓ saved</span></div>` : ''}
+      ${built.rows && built.addTop ? `<div class="adm-actions adm-top"><button class="add" id="admAdd">${built.addLabel||'+ Add row'}</button><button class="adm-save" id="admSave">✔ SAVE</button><span class="note">Edits save &amp; recalculate live.</span><span class="save-flag">✓ saved</span></div>` : ''}
       ${built.custom!=null ? built.custom : built.html}
-      ${built.rows && !built.addTop ? `<div class="adm-actions"><button class="add" id="admAdd">${built.addLabel||'+ Add row'}</button><span class="note">Edits save &amp; recalculate live.</span><span class="save-flag">✓ saved</span></div>` : ''}
+      ${built.rows && !built.addTop ? `<div class="adm-actions"><button class="add" id="admAdd">${built.addLabel||'+ Add row'}</button><button class="adm-save" id="admSave">✔ SAVE</button><span class="note">Edits save &amp; recalculate live.</span><span class="save-flag">✓ saved</span></div>` : ''}
       ${!built.rows ? `<div class="adm-actions" style="margin-top:14px"><span class="save-flag">✓ saved</span></div>` : ''}
     </div></div>`;
 
@@ -4530,6 +4537,17 @@ function renderAdmin(){
     if(built.writeBack){
       pane.querySelectorAll('input[data-k]').forEach(el=>el.addEventListener('input',()=>{ built.writeBack(); saveTables(); reindex(); renderAll(); }));
     }
+    const saveBtn = pane.querySelector('#admSave');
+    if(saveBtn) saveBtn.addEventListener('click', async ()=>{
+      if(built.writeBack) built.writeBack();
+      saveTables();
+      saveBtn.disabled=true; const was=saveBtn.textContent; saveBtn.textContent='SAVING\u2026';
+      try{
+        if(typeof ghEnabled==='function' && ghEnabled()){ await ghPush(); if(window.updateToast) updateToast('Table saved \u2014 pushed to GitHub'); }
+        else if(window.updateToast) updateToast('Table saved on this device');
+      }catch(e){ if(window.updateToast) updateToast('Saved locally \u2014 GitHub push failed, it will retry'); }
+      saveBtn.disabled=false; saveBtn.textContent=was;
+    });
     const addBtn = pane.querySelector('#admAdd');
     if(addBtn) addBtn.addEventListener('click',()=>{ built.add(); if(built.writeBack) built.writeBack(); renderAdmin(); commit(); });
   }

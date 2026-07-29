@@ -941,7 +941,7 @@
     </tr>
 
     <tr>
-      <td class="c-yellow"><input id="annualUsage" type="number" value="1000"></td>
+      <td class="c-yellow" style="white-space:nowrap"><input id="annualUsage" type="number" value="1000" style="width:52%"><select id="jobType" title="ONE-TIME: batch and min order = annual qty. REPEAT: batch and min order come from the Admin → Order Qty table." style="width:46%;font-size:9px"><option>ONE-TIME JOB</option><option>REPEAT JOB</option></select></td>
       <td class="lbl-l">Annual Usage</td>
       <td class="lbl-r">36" Bar or Slugged</td>
       <td class="c-yellow"><select id="barForm">
@@ -1172,6 +1172,7 @@
       <button class="railitem" data-sec="custface">Customer-Facing Terms</button>
       <button class="railitem" data-sec="customers">Customer List</button>
       <button class="railitem prem" data-sec="annvol">Annual Volume Discount</button>
+      <button class="railitem" data-sec="orderqty">Order Qty By Annual Usage</button>
       <button class="railitem prem" data-sec="repeat">Repeat-Parts Discount</button>
       <button class="railitem" data-sec="fai">FAI Cost Model</button>
       <button class="railitem" data-sec="settings">Global Settings</button>
@@ -1383,6 +1384,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:116, date:"2026-07-28", note:"Quantity entry consolidated. The intake now asks ANNUAL USAGE plus a JOB TYPE toggle in the same cell \u2014 ONE-TIME JOB fills batch size and min order with the same qty; REPEAT JOB fills them from the new Admin \u2192 Order Qty By Annual Usage table (threshold lookup, same pattern as the volume discount \u2014 populate it with your standard order sizes). Batch and min order left the guided walk but stay in the header, auto-filled and still editable for overrides. Job type saves with the quote."},
   {rev:115, date:"2026-07-28", note:"Top-bar buttons recoloured out of the brown family: the dark charcoal-brown ghost buttons (View Buyers Email, Save, Finalize, Add Op Row, Help Area, Prior Quotes) are now slate blue, and the maroon-red primary style is steel blue \u2014 matching the rev 114 view buttons. The ? HELP AREA button no longer disappears into the bar."},
   {rev:114, date:"2026-07-28", note:"Two things. The active view buttons (CALCULATIONS / DRAWING / ODD FEATURES) trade the maroon-brown gradient for steel blue. And a new ? HELP AREA button in the top bar opens a reference panel with a METRIC \u21c4 ENGLISH conversion section \u2014 mm\u2013inch, \u00b5m\u2013thou, kg\u2013lb, \u00b0C\u2013\u00b0F and N\u00b7m\u2013ft\u00b7lb, each a live two-way pair that converts as you type. The panel is built to take more sections later."},
   {rev:113, date:"2026-07-28", note:"\U0001F558 History button in the drawing toolbar, beside Undo. The in-session Undo cannot reach darken/lighten/clarify passes from earlier sessions, but every one of them was committed to the data repo \u2014 so History lists all saved versions of the current page with their dates and restores any of them, including the oldest (likely the original scan). A restore goes through the normal undo stack, so it can itself be un-done."},
@@ -1492,9 +1494,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 115;
+const APP_REV = 116;
 const BUILD_DATE = "2026-07-28";
-const BUILD_TIME = "10:26";           /* increments every build — check both machines match */
+const BUILD_TIME = "11:02";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -1742,6 +1744,25 @@ function repeatDisc(pcs){
   let d=0;
   for(const [a,b] of TABLES.repeat){ if(pcs>=a) d=b; else break; }
   return Math.min(d, 35);          /* workbook rev 4: "-35% cap on pieces run before operator percentage" */
+}
+function ensureOrderQty(){ if(!Array.isArray(TABLES.orderQty)) TABLES.orderQty=[[0,0]]; }
+function orderQtyLookup(usage){
+  ensureOrderQty();
+  let q=0;
+  for(const [thr,qty] of TABLES.orderQty){ if(usage>=Number(thr)) q=Number(qty)||0; else break; }
+  return q;
+}
+/* CONSOLIDATED QTY ENTRY (rev 116): type the ANNUAL USAGE and pick the job type —
+   ONE-TIME fills batch and min order with the same qty; REPEAT fills them from the
+   Admin → Order Qty table (threshold lookup). Both stay editable for overrides. */
+function applyJobQty(){
+  const a=parseInt(($('annualUsage')&&$('annualUsage').value)||'',10);
+  if(!(a>0)) return;
+  const jt=($('jobType')&&$('jobType').value)||'ONE-TIME JOB';
+  let q = (jt==='REPEAT JOB') ? orderQtyLookup(a) : a;
+  if(!(q>0)) q=a;   /* empty table → fall back to the annual qty */
+  if($('batchSize'))   $('batchSize').value=q;
+  if($('minOrderQty')) $('minOrderQty').value=q;
 }
 function annVolLookup(usage){
   const t = TABLES.annVol||[]; let d=0;
@@ -2005,7 +2026,7 @@ $('addOp').addEventListener('click', ()=>{
 });
 
 /* ---- recompute on any header input ---- */
-const HDR_FIELDS = ['qtyBrk1','qtyBrk2','qtyBrk3','qtyBrk4','qtyBrk5','qtyBrk6','customer','partNo','annualUsage','batchSize','minOrderQty','buyer','quotedBy','salesman',
+const HDR_FIELDS = ['jobType','qtyBrk1','qtyBrk2','qtyBrk3','qtyBrk4','qtyBrk5','qtyBrk6','customer','partNo','annualUsage','batchSize','minOrderQty','buyer','quotedBy','salesman',
  'material','priceLevel','stockForm','barForm','barOverride','difficulty','nreSep','barDia','partLength',
  'extraLength','chuckExtra','scrapPct','barLen','faiReq','faiDims','custQuoteNo','faiQty','margin','meCost','suCost',
  'soFee','coFee','sawCost'];
@@ -3769,6 +3790,10 @@ if(_sn) _sn.addEventListener('click', async ()=>{
   }
   btn.disabled=false; btn.textContent=was;
 });
+['annualUsage','jobType'].forEach(id=>{
+  const el=$(id);
+  if(el) el.addEventListener('input', ()=>{ applyJobQty(); renderAll(); });
+});
 $('newQuote').addEventListener('click', ()=>{ startNewQuote(); quoteFinalized=false; updateFinalizeBtn(); if(window.__matAutoReset) window.__matAutoReset(false); switchView('quote'); updateOddBtn(); setTimeout(startGuide, 100); });
 $('menuNew').addEventListener('click', ()=>{ startNewQuote(); switchView('quote'); updateOddBtn(); setTimeout(startGuide, 100); });
 $('menuPullAll') && $('menuPullAll').addEventListener('click', async ()=>{
@@ -4119,6 +4144,18 @@ const ADMIN_SECTIONS = {
       return {html:editableTable(rows,cols,{deletable:true}), rows, cols,
         writeBack:()=>{ TABLES.annVol = rows.map(r=>[r.usage,r.disc]); },
         add:()=>{ rows.push({usage:0,disc:0}); }};
+    }
+  },
+  orderqty: {
+    title:'Order Qty By Annual Usage', src:'CAMCO practice',
+    desc:'For REPEAT JOB quotes: the standard order (batch) quantity used for a given annual usage. Highest threshold at or below the quote\'s annual usage wins — keep sorted ascending. ONE-TIME JOB quotes ignore this table (batch = annual qty).',
+    render(){
+      ensureOrderQty();
+      const rows = TABLES.orderQty.map(([a,q])=>({usage:a,qty:q}));
+      const cols=[{key:'usage',label:'Annual Usage ≥',type:'num',step:'1'},{key:'qty',label:'Order Qty',type:'num',step:'1'}];
+      return {html:editableTable(rows,cols,{deletable:true}), rows, cols,
+        writeBack:()=>{ TABLES.orderQty = rows.map(r=>[r.usage,r.qty]); },
+        add:()=>{ rows.push({usage:0,qty:0}); }};
     }
   },
   repeat: {
@@ -4546,7 +4583,7 @@ document.querySelectorAll('.vtab').forEach(t=>t.addEventListener('click',()=>swi
 
 /* ---- tab order: follows the sheet columns top-to-bottom, then next column (per user's flow) ---- */
 const TAB_ORDER = [
-  /* zone A: down */    'customer','partNo','annualUsage','batchSize','minOrderQty','buyer',
+  /* zone A: down */    'customer','partNo','annualUsage','jobType','buyer',
   /* zone B: down */    'material','priceLevel','barForm','barOverride','faiReq','difficulty',
   /* zone C: down */    'barDia','partLength','extraLength','chuckExtra','stockForm','faiDims',
   /* zone D: down */    'scrapPct','quotedBy','salesman','faiQty','nreSep',
@@ -4621,7 +4658,7 @@ $('matQuoteFile').addEventListener('change', async e=>{
 window.__openMaterialVerify=openMaterialVerify;
 
 /* ===== GUIDED INTAKE: New Quote walks every yellow mandatory field before the grid unlocks ===== */
-const GUIDE_ORDER=['customer','partNo','annualUsage','batchSize','minOrderQty','buyer',
+const GUIDE_ORDER=['customer','partNo','annualUsage','buyer',
                    'material','priceLevel','barForm','barOverride','faiReq','difficulty',
                    'barDia','partLength','extraLength','chuckExtra','stockForm','faiDims',
                    'scrapPct','quotedBy','salesman','faiQty','nreSep','barLen'];
@@ -4706,6 +4743,9 @@ function buildIntakePanel(){
   /* panel order follows TAB_ORDER so tabbing runs straight down the panel */
   const order=(typeof TAB_ORDER!=='undefined'? TAB_ORDER.slice() : []);
   const seen=new Set(order);
+  /* batch and min order are auto-filled from ANNUAL USAGE + JOB TYPE (rev 116) —
+     they stay in the expanded header for overrides but out of the intake panel */
+  seen.add('batchSize'); seen.add('minOrderQty');
   sheet.querySelectorAll('input,select').forEach(el=>{ if(el.id && !seen.has(el.id)){ order.push(el.id); seen.add(el.id); } });
 
   const panel=document.createElement('div');

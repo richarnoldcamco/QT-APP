@@ -656,6 +656,8 @@
   .qtable td.money{font-weight:700; color:var(--cp-signal); font-variant-numeric:tabular-nums}
   .qtable td.dt{white-space:nowrap; color:var(--cp-dim); font-size:11.5px}
   .qtable td.qno{font-weight:400; font-size:9px; white-space:nowrap; color:var(--cp-dim)}
+  /* part numbers never wrap — the column takes whatever width the longest one needs */
+  .qtable td.partno{white-space:nowrap; min-width:140px}
   .qtable tr:hover td{background:#faf8f5}
   .qtable tr.active td{background:#f7e9e9}
   .qtable .ednow{font-size:9.5px; font-weight:800; color:var(--cp-signal); text-transform:uppercase; letter-spacing:.05em}
@@ -1388,6 +1390,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:118, date:"2026-07-29", note:"Part numbers in Past Quotes no longer wrap onto two lines \u2014 the column holds them on one line and takes the width it needs, so 1044096-001 and 828-003-164 read whole at a glance."},
   {rev:117, date:"2026-07-28", note:"Green \u2714 SAVE button on every Admin table, beside + Add Row \u2014 forces the save and the GitHub push immediately and reports plainly what happened, same semantics as the quote sheet\u2019s Save. Also fixed a real bug the new Order Qty table exposed: the threshold lookup assumed ascending rows and returned nothing for a descending table; it now sorts internally, so rows work in whatever order they were typed."},
   {rev:116, date:"2026-07-28", note:"Quantity entry consolidated. The intake now asks ANNUAL USAGE plus a JOB TYPE toggle in the same cell \u2014 ONE-TIME JOB fills batch size and min order with the same qty; REPEAT JOB fills them from the new Admin \u2192 Order Qty By Annual Usage table (threshold lookup, same pattern as the volume discount \u2014 populate it with your standard order sizes). Batch and min order left the guided walk but stay in the header, auto-filled and still editable for overrides. Job type saves with the quote."},
   {rev:115, date:"2026-07-28", note:"Top-bar buttons recoloured out of the brown family: the dark charcoal-brown ghost buttons (View Buyers Email, Save, Finalize, Add Op Row, Help Area, Prior Quotes) are now slate blue, and the maroon-red primary style is steel blue \u2014 matching the rev 114 view buttons. The ? HELP AREA button no longer disappears into the bar."},
@@ -1499,9 +1502,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 117;
-const BUILD_DATE = "2026-07-28";
-const BUILD_TIME = "11:34";           /* increments every build — check both machines match */
+const APP_REV = 118;
+const BUILD_DATE = "2026-07-29";
+const BUILD_TIME = "17:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -3552,7 +3555,7 @@ function renderSaved(){
       const qty=parseFloat(f.batchSize)||0;
       return `<tr class="${isActive?'active':''}">
         <td class="qno">${q.drawing?'<span class="clip" title="has drawing">📎</span>':''}#${q.no}${f.finalized==='1'?' <span class="st-fin">FINALIZED</span>':' <span class="st-prog">IN PROGRESS</span>'}${isActive?' <span class="ednow">editing</span>':''}</td>
-        <td>${esc(f.partNo)||'—'}</td>
+        <td class="partno">${esc(f.partNo)||'—'}</td>
         <td>${esc(f.customer)||'—'}</td>
         <td class="dt">${when}</td>
         <td class="num">${qty||'—'}</td>

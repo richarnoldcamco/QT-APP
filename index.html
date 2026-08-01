@@ -751,23 +751,30 @@
 
   /* ===== admin: CP design language ===== */
   main#view-admin{padding:18px 22px; font-family:var(--ui); letter-spacing:-.005em}
-  .admin-shell{display:grid; grid-template-columns:245px 1fr; gap:18px; align-items:start; max-width:1400px}
+  /* The admin screen fills the window instead of growing past it: the rail is
+     compressed so all its items fit, and each column scrolls inside itself if it must,
+     so the PAGE never scrolls and the rail never slides out of reach.
+     Safe to use vh here — #view-admin carries no zoom, unlike #view-quote. */
+  main#view-admin{overflow:hidden}
+  .admin-shell{display:grid; grid-template-columns:230px 1fr; gap:16px; align-items:stretch;
+    max-width:1400px; height:calc(100vh - 64px)}
   @media(max-width:820px){.admin-shell{grid-template-columns:1fr}}
   .admin-rail{
     background:var(--cp-panel); border:1px solid var(--cp-line); border-radius:var(--r);
-    box-shadow:var(--cp-shadow-lg); padding:10px; position:sticky; top:52px;
+    box-shadow:var(--cp-shadow-lg); padding:8px; overflow-y:auto; min-height:0;
+    scrollbar-width:thin;
   }
   @media(max-width:820px){.admin-rail{position:static}}
-  .rail-head{font-size:10.5px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--cp-faint); padding:11px 10px 5px}
+  .rail-head{font-size:9.5px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--cp-faint); padding:7px 9px 3px}
   .railitem.prem{
     background:linear-gradient(180deg,#fdf1ee,#f7e4de);
     border-color:#e2c4ba;
   }
   .railitem.prem:hover{border-color:var(--cp-signal)}
   .railitem{
-    display:block; width:100%; text-align:left; font-family:var(--ui); font-size:13px; font-weight:600;
+    display:block; width:100%; text-align:left; font-family:var(--ui); font-size:11.5px; font-weight:600;
     color:var(--cp-ink); background:var(--cp-panel); border:1px solid var(--cp-line); border-radius:var(--r-sm);
-    padding:8px 12px; margin-bottom:5px; cursor:pointer;
+    padding:5px 10px; margin-bottom:3px; cursor:pointer; line-height:1.25;
     box-shadow:0 2px 0 var(--cp-line-strong), 0 3px 7px rgba(40,30,30,.10), inset 0 1px 0 rgba(255,255,255,.6);
   }
   .railitem:hover{border-color:var(--cp-line-strong)}
@@ -775,9 +782,9 @@
     background:linear-gradient(180deg,#8a1c1c,var(--cp-signal) 55%,var(--cp-signal-dark)); color:#fff;
     border-color:#4a0d0d; box-shadow:0 2px 0 #3f0b0b, 0 4px 8px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.25);
   }
-  .rail-foot{margin-top:12px; padding:10px 4px 2px; border-top:1px solid var(--cp-line); display:flex; flex-direction:column; gap:7px}
+  .rail-foot{margin-top:8px; padding:7px 3px 2px; border-top:1px solid var(--cp-line); display:flex; flex-direction:column; gap:5px}
   .rail-foot .btn{margin:0; font-size:11.5px; padding:8px; width:100%; border-radius:8px}
-  .admin-pane{min-width:0}
+  .admin-pane{min-width:0; overflow-y:auto; min-height:0; padding-right:4px; scrollbar-width:thin}
   .adm-card{
     background:var(--cp-panel); border:1px solid var(--cp-line); border-radius:var(--r);
     box-shadow:var(--cp-shadow-lg); overflow:visible; margin-bottom:16px;   /* visible: overflow:hidden disables the sticky table headers */
@@ -1410,6 +1417,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:127, date:"2026-08-01", note:"The Admin screen no longer scrolls the whole page. It now fills the window exactly: the left rail is compressed so all of its items fit at once, and the rail and the content pane each scroll inside themselves only if their own content demands it \u2014 so the rail stays put and nothing slides off the top."},
   {rev:126, date:"2026-08-01", note:"Compare-to-workbook now explains itself when there is nothing to compare. Quotes imported before the app began capturing the source figures have no workbook totals or sheet copy stored, and the window was showing an empty table of dashes as though the workbook had no prices; it now says plainly that the quote predates the capture and that re-importing the file will record them."},
   {rev:125, date:"2026-08-01", note:"The original-sheet view is far closer to the real workbook. It now keeps Excel\u2019s own formatting of every value ($24.00, 360%, 5%) instead of raw numbers, reproduces merged cells, and shades entered cells amber against calculated cells blue by reading which cells hold formulas \u2014 the same convention the workbook uses. The sheet\u2019s actual fill colours and fonts still cannot be read by the spreadsheet parser."},
   {rev:124, date:"2026-08-01", note:"The original quote sheet can now be viewed inside the app. An import captures the source workbook\u2019s cells \u2014 values only, trimmed to the used range, about 5 KB a quote \u2014 and a \U0001F4C4 VIEW THE ORIGINAL QUOTE SHEET button in the compare window rebuilds it as a table. It is not a screenshot: colour, fonts and merged cells are not reproduced, but every label and number is there to read against the app\u2019s own figures."},
@@ -1530,9 +1538,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 126;
+const APP_REV = 127;
 const BUILD_DATE = "2026-08-01";
-const BUILD_TIME = "17:24";           /* increments every build — check both machines match */
+const BUILD_TIME = "17:48";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */

@@ -1417,6 +1417,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:128, date:"2026-08-01", note:"Fixes \u201crec is not defined\u201d on import, introduced in rev 125. The edit that improved the original-sheet capture removed ten lines with it \u2014 the block that builds the quote record, runs it through the costing engine and stores its price \u2014 so every import failed at that point. Restored."},
   {rev:127, date:"2026-08-01", note:"The Admin screen no longer scrolls the whole page. It now fills the window exactly: the left rail is compressed so all of its items fit at once, and the rail and the content pane each scroll inside themselves only if their own content demands it \u2014 so the rail stays put and nothing slides off the top."},
   {rev:126, date:"2026-08-01", note:"Compare-to-workbook now explains itself when there is nothing to compare. Quotes imported before the app began capturing the source figures have no workbook totals or sheet copy stored, and the window was showing an empty table of dashes as though the workbook had no prices; it now says plainly that the quote predates the capture and that re-importing the file will record them."},
   {rev:125, date:"2026-08-01", note:"The original-sheet view is far closer to the real workbook. It now keeps Excel\u2019s own formatting of every value ($24.00, 360%, 5%) instead of raw numbers, reproduces merged cells, and shades entered cells amber against calculated cells blue by reading which cells hold formulas \u2014 the same convention the workbook uses. The sheet\u2019s actual fill colours and fonts still cannot be read by the spreadsheet parser."},
@@ -1538,9 +1539,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 127;
+const APP_REV = 128;
 const BUILD_DATE = "2026-08-01";
-const BUILD_TIME = "17:48";           /* increments every build — check both machines match */
+const BUILD_TIME = "18:06";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -6083,6 +6084,16 @@ async function importQuoteFiles(files){
           wbSheet={c:trimmed, f:flags.map(s=>s.slice(0,maxc)), m:merges};
         }
       }catch(e){}
+      const rec={ no:Math.max(nextNo(all), Number(activeQuoteNo||0)+1), updated:f.lastModified||Date.now(),
+                  fields, ops, drawing:null, importedFrom:f.name };
+      /* run the imported quote through the live engine for its price */
+      const full=Object.assign({}, FIELD_DEFAULTS, fields);
+      restore({fields:full, ops:ops.length?ops:undefined, drawing:null});
+      const r=compute();
+      rec.perPc=r.perPc;
+      rec.fields=full;
+      rec.warn=warn;
+      rec.detail={ opCost:r.opCostSum, matlPrem:r.matlPrem, fai:r.faiPerPc, batchTotal:r.batchTotal, lead:r.maxLead };
       rec.wbTotal=wbTotal;
       rec.wbSheet=wbSheet;
       rec.appRowCosts=(r.rowCosts||[]).slice();

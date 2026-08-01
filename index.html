@@ -1410,6 +1410,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:124, date:"2026-08-01", note:"The original quote sheet can now be viewed inside the app. An import captures the source workbook\u2019s cells \u2014 values only, trimmed to the used range, about 5 KB a quote \u2014 and a \U0001F4C4 VIEW THE ORIGINAL QUOTE SHEET button in the compare window rebuilds it as a table. It is not a screenshot: colour, fonts and merged cells are not reproduced, but every label and number is there to read against the app\u2019s own figures."},
   {rev:123, date:"2026-08-01", note:"\u2696 COMPARE TO WORKBOOK button on the imported-quote banner. It opens a table lining the source workbook\u2019s cost for each operation up against what this app computes, with the difference in dollars and percent per row, a sum-of-operations row and a quoted-total row. The spreadsheet itself is never stored \u2014 these are the figures read out of it at import time."},
   {rev:122, date:"2026-08-01", note:"Import review now shows the old quote and the app side by side. The parser reads the workbook\u2019s own cost column, so each review card carries a WORKBOOK $ and an APP $ figure per operation plus a headline comparison of the two totals with the difference in dollars and percent \u2014 colour-coded green within 2%, amber within 10%, red beyond. A \u2715 DISCARD ALL button clears every parsed quote at once after a confirm."},
   {rev:121, date:"2026-08-01", note:"Imported quotes must now be approved on the quote sheet itself. Opening one shows an amber banner \u2014 IMPORTED FROM <file> \u2014 NOT YET APPROVED \u2014 with a green \u2714 APPROVE THIS QUOTE button, so the whole calculation grid can be checked against the workbook before it is blessed. Until then Past Quotes shows the quote as NEEDS REVIEW instead of IN PROGRESS. Keyed off the imported-from record, so quotes imported before this rev are flagged too."},
@@ -1527,9 +1528,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 123;
+const APP_REV = 124;
 const BUILD_DATE = "2026-08-01";
-const BUILD_TIME = "15:52";           /* increments every build — check both machines match */
+const BUILD_TIME = "16:26";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -2139,12 +2140,47 @@ function showWorkbookCompare(rec){
     +'<td class="n" style="border:1px solid #ddd;padding:5px 8px">'+(wt?((dt>=0?'+':'')+'$'+dt.toFixed(2)+' ('+(dt/wt*100>=0?'+':'')+(dt/wt*100).toFixed(1)+'%)'):'\u2014')+'</td></tr>'
     +'</tbody></table>'
     +'<div style="font-size:11.5px;color:#6b5f5f;margin-top:10px">A gap between the two SUM rows and the two TOTAL rows means the workbook carried costs outside its operation rows \u2014 material, NRE or admin fees \u2014 which this app accounts for in its own header and settings.</div>'
-    +'<div style="margin-top:14px;text-align:right"><button id="wbCmpClose" style="font:700 12px system-ui;padding:6px 18px;border-radius:6px;border:1px solid #14273f;background:#2c4d7c;color:#fff;cursor:pointer">CLOSE</button></div>';
+    +'<div style="margin-top:14px;display:flex;justify-content:space-between;gap:10px">'
+    +(rec.wbSheet && rec.wbSheet.length
+        ? '<button id="wbShowSheet" style="font:700 12px system-ui;padding:6px 18px;border-radius:6px;border:1px solid #6b5200;background:#d9a400;color:#2a1315;cursor:pointer">\U0001F4C4 VIEW THE ORIGINAL QUOTE SHEET</button>'
+        : '<span style="font-size:11.5px;color:#888">original sheet not captured for this quote</span>')
+    +'<button id="wbCmpClose" style="font:700 12px system-ui;padding:6px 18px;border-radius:6px;border:1px solid #14273f;background:#2c4d7c;color:#fff;cursor:pointer">CLOSE</button></div>';
   box.querySelectorAll('td.n,th').forEach(td=>{ if(td.classList.contains('n')) td.style.cssText+=';text-align:right;font-variant-numeric:tabular-nums'; });
   box.querySelectorAll('tbody td').forEach(td=>{ if(!td.style.border) td.style.cssText+=';border:1px solid #ddd;padding:3px 8px'; });
   ov.appendChild(box);
   ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
   box.querySelector('#wbCmpClose').addEventListener('click', ()=>ov.remove());
+  const ss=box.querySelector('#wbShowSheet');
+  if(ss) ss.addEventListener('click', ()=>showOriginalSheet(rec));
+  document.body.appendChild(ov);
+}
+/* the source sheet's own cells, rebuilt as a table — the closest thing to looking at
+   the original workbook without storing the file itself */
+function showOriginalSheet(rec){
+  const g=rec && rec.wbSheet;
+  if(!g || !g.length) return;
+  let ov=document.getElementById('wbSheetOv'); if(ov) ov.remove();
+  ov=document.createElement('div');
+  ov.id='wbSheetOv';
+  ov.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(20,10,10,.6);display:flex;align-items:center;justify-content:center';
+  const isNum=s=>s!=='' && isFinite(Number(s));
+  const body=g.map(r=>'<tr>'+r.map(c=>{
+    const t=String(c==null?'':c);
+    const n=isNum(t);
+    const shown = n ? (Math.abs(Number(t))<1000 ? (+Number(t).toFixed(4)).toString() : Number(t).toLocaleString(undefined,{maximumFractionDigits:2})) : t;
+    return '<td style="border:1px solid #e2e2e2;padding:2px 6px;white-space:nowrap;'
+      +(n?'text-align:right;font-variant-numeric:tabular-nums;':'')
+      +(t&&!n?'font-weight:600;color:#333;':'')+'">'+esc(shown)+'</td>';
+  }).join('')+'</tr>').join('');
+  const box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:12px;padding:16px 18px;max-width:96vw;max-height:88vh;overflow:auto;font:11px system-ui,sans-serif;color:#2a1315;box-shadow:0 8px 30px rgba(0,0,0,.45)';
+  box.innerHTML='<div style="font-weight:800;font-size:14px;margin-bottom:2px">\U0001F4C4 ORIGINAL QUOTE SHEET \u2014 '+esc(rec.importedFrom||'')+'</div>'
+    +'<div style="font-size:11px;color:#6b5f5f;margin-bottom:8px">The cells as they were read from the workbook. Formatting, colour and merged cells are not reproduced \u2014 the values are.</div>'
+    +'<table style="border-collapse:collapse;font-size:10.5px">'+body+'</table>'
+    +'<div style="margin-top:12px;text-align:right"><button id="wbSheetClose" style="font:700 12px system-ui;padding:6px 18px;border-radius:6px;border:1px solid #14273f;background:#2c4d7c;color:#fff;cursor:pointer">CLOSE</button></div>';
+  ov.appendChild(box);
+  ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
+  box.querySelector('#wbSheetClose').addEventListener('click', ()=>ov.remove());
   document.body.appendChild(ov);
 }
 function renderAll(){ renderOps(); renderSummary(); scheduleAutosave(); if(window.updateImportBanner) updateImportBanner(); }
@@ -5965,6 +6001,28 @@ async function importQuoteFiles(files){
       }
       const grid=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
       const {fields, ops, warn, wbTotal}=parseQuoteGrid(grid);
+      /* snapshot of the source sheet so the original quote can be viewed later. Values
+         only, trimmed to the used range and capped — about 5 KB a quote, which keeps the
+         synced data file reasonable even across a whole back catalogue. */
+      let wbSheet=null;
+      try{
+        const R=Math.min(grid.length,30), C=34;
+        let g=[];
+        for(let r=0;r<R;r++){
+          const row=grid[r]||[];
+          g.push(Array.from({length:C},(_,c)=>{
+            const v=row[c];
+            if(v==null) return '';
+            const s=String(v);
+            return s.length>60? s.slice(0,60)+'\u2026' : s;
+          }));
+        }
+        let maxc=0;
+        g.forEach(r=>r.forEach((v,i)=>{ if(String(v).trim()) maxc=Math.max(maxc,i+1); }));
+        g=g.map(r=>r.slice(0,maxc));
+        while(g.length && !g[g.length-1].some(v=>String(v).trim())) g.pop();
+        wbSheet=g;
+      }catch(e){}
       const rec={ no:Math.max(nextNo(all), Number(activeQuoteNo||0)+1), updated:f.lastModified||Date.now(),
                   fields, ops, drawing:null, importedFrom:f.name };
       /* run the imported quote through the live engine for its price */
@@ -5976,6 +6034,7 @@ async function importQuoteFiles(files){
       rec.warn=warn;
       rec.detail={ opCost:r.opCostSum, matlPrem:r.matlPrem, fai:r.faiPerPc, batchTotal:r.batchTotal, lead:r.maxLead };
       rec.wbTotal=wbTotal;
+      rec.wbSheet=wbSheet;
       rec.appRowCosts=(r.rowCosts||[]).slice();
       /* STAGED, not saved — nothing reaches Prior Quotes until it is approved below */
       pendingImports.push(rec);

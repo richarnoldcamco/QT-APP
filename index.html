@@ -628,6 +628,17 @@
     text-align:center; font-family:var(--ui); font-size:13.5px; color:var(--cp-ink); background:#fbfaf8;
   }
   .imp-zone.dragover{border-color:var(--cp-signal); background:#f7efe9}
+  .imp-hint{background:#fff8e6; border:1px solid #d9a400; border-radius:7px; padding:7px 12px; margin-bottom:10px}
+  .imp-card{border:1px solid var(--cp-line); border-radius:9px; padding:12px 14px; margin-bottom:12px; background:#fff}
+  .imp-card-head{font-size:13.5px; margin-bottom:6px}
+  .imp-price{float:right; font-weight:800; color:var(--cp-signal)}
+  .imp-fields{font-size:11.5px; line-height:1.6; margin:6px 0 8px; color:#333}
+  .imp-ops{width:100%; border-collapse:collapse; font-size:11px; margin-bottom:8px}
+  .imp-ops th{background:#f3efe9; border:1px solid var(--cp-line); padding:3px 6px; font-size:10px; letter-spacing:.04em}
+  .imp-ops td{border:1px solid var(--cp-line); padding:2px 6px}
+  .imp-ops td.num{text-align:right; font-variant-numeric:tabular-nums}
+  .imp-sum{font-size:12px; background:var(--blue); border-radius:6px; padding:5px 10px; margin-bottom:9px}
+  .imp-acts{display:flex; gap:10px}
   .imp-log{margin-top:14px; font-family:var(--ui); font-size:12.5px; line-height:1.6}
   .imp-ok{padding:6px 10px; border-left:3px solid #1f7a4d; background:#f2f8f4; border-radius:4px; margin-bottom:6px}
   .imp-bad{padding:6px 10px; border-left:3px solid #b03225; background:#fbf1ef; border-radius:4px; margin-bottom:6px}
@@ -1390,6 +1401,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:120, date:"2026-08-01", note:"Imported quotes are now reviewed before they are saved. An import parses and prices the file but holds it in a review card showing every header field, every operation row and the cost breakdown \u2014 nothing reaches Prior Quotes until \u2714 APPROVE is pressed, and \u2715 DISCARD throws it away with nothing written. Quote numbers are assigned at approval, so discarded imports do not burn a number."},
   {rev:119, date:"2026-08-01", note:"Excel import fixed \u2014 it was producing header-only quotes with no operations. Two causes: it read the operation name from the Description column, but in the workbook that column holds free-text notes and the real op name is in Workcenter (which also failed to match because the alias was spelled \u2018work center\u2019 and the sheet says \u2018Workcenter\u2019); and a single blank row in the op block ended the parse outright, discarding every op below it. Now the workcenter is the operation, the description becomes the row note, blank rows are tolerated, and the S.O./C.O. administrative lines are skipped since the app models those as global fees."},
   {rev:118, date:"2026-07-29", note:"Part numbers in Past Quotes no longer wrap onto two lines \u2014 the column holds them on one line and takes the width it needs, so 1044096-001 and 828-003-164 read whole at a glance."},
   {rev:117, date:"2026-07-28", note:"Green \u2714 SAVE button on every Admin table, beside + Add Row \u2014 forces the save and the GitHub push immediately and reports plainly what happened, same semantics as the quote sheet\u2019s Save. Also fixed a real bug the new Order Qty table exposed: the threshold lookup assumed ascending rows and returned nothing for a descending table; it now sorts internally, so rows work in whatever order they were typed."},
@@ -1503,9 +1515,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 119;
+const APP_REV = 120;
 const BUILD_DATE = "2026-08-01";
-const BUILD_TIME = "13:30";           /* increments every build — check both machines match */
+const BUILD_TIME = "14:10";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -5833,18 +5845,77 @@ async function importQuoteFiles(files){
       const r=compute();
       rec.perPc=r.perPc;
       rec.fields=full;
-      all.push(rec);
-      lines.push(`<div class="imp-ok">✓ ${esc(f.name)} → quote <b>#${rec.no}</b> · ${esc(full.customer||'—')} · ${esc(full.partNo||'—')} · ${money(rec.perPc)}/pc${warn.length?'<div class="imp-warn">⚠ '+warn.map(esc).join('<br>⚠ ')+'</div>':''}</div>`);
+      rec.warn=warn;
+      rec.detail={ opCost:r.opCostSum, matlPrem:r.matlPrem, fai:r.faiPerPc, batchTotal:r.batchTotal, lead:r.maxLead };
+      /* STAGED, not saved — nothing reaches Prior Quotes until it is approved below */
+      pendingImports.push(rec);
     }catch(e){
       lines.push(`<div class="imp-bad">✗ ${esc(f.name)} — ${esc(e.message)}</div>`);
     }
   }
-  persist(all.sort((a,b)=>Number(a.no)-Number(b.no)));
   restore(keepSnap);
   suspendAutosave=false;
+  renderImportReview(lines);
+}
+/* ===== IMPORT REVIEW (rev 120) =====
+   Imported files are parsed and priced but held here until approved, so a bad parse
+   never lands in Prior Quotes. Each card shows the header fields, every operation row
+   and the computed price for checking against the workbook. */
+let pendingImports=[];
+function renderImportReview(errLines){
+  const log=$('impLog'); if(!log) return;
+  log.hidden=false;
+  const bad=(errLines||[]).filter(l=>l.includes('imp-bad')).join('');
+  if(!pendingImports.length){ log.innerHTML=bad||'<div class="imp-bad">Nothing imported.</div>'; return; }
+  const cards=pendingImports.map((rec,ix)=>{
+    const f=rec.fields||{};
+    const hdr=[['Customer',f.customer],['Part #',f.partNo],['Material',f.material],
+               ['Bar dia',f.barDia],['Part length',f.partLength],['Annual usage',f.annualUsage],
+               ['Batch size',f.batchSize],['Min order',f.minOrderQty],['Quoted by',f.quotedBy]]
+      .map(([k,v])=>`<span style="display:inline-block;min-width:190px;padding:2px 0"><b>${k}:</b> ${esc(v==null||v===''?'\u2014':String(v))}</span>`).join('');
+    const opRowsHtml=(rec.ops||[]).map(o=>`<tr>`
+      +`<td>${esc(String(o.op))}</td><td>${esc(o.desc||'')}</td><td>${esc(o.quote||'')}</td>`
+      +`<td class="num">${o.setup||0}</td><td class="num">${o.cycle||0}</td>`
+      +`<td class="num">${o.load||0}</td><td class="num">${o.insp||0}</td>`
+      +`<td class="num">${o.tol001||0}</td><td class="num">${o.subPc?('$'+Number(o.subPc).toFixed(2)):''}</td></tr>`).join('');
+    const d=rec.detail||{};
+    return `<div class="imp-card" data-ix="${ix}">
+      <div class="imp-card-head">
+        <b>${esc(rec.importedFrom||'file')}</b> → quote <b>#${rec.no}</b>
+        <span class="imp-price">${money(rec.perPc)} /pc</span>
+      </div>
+      ${rec.warn && rec.warn.length? '<div class="imp-warn">⚠ '+rec.warn.map(esc).join('<br>⚠ ')+'</div>' : ''}
+      <div class="imp-fields">${hdr}</div>
+      <table class="imp-ops"><thead><tr><th>OP</th><th>Operation</th><th>Note</th><th>S/U</th><th>Cycle</th><th>Load</th><th>Insp</th><th>Tol .001</th><th>Sub/pc</th></tr></thead>
+        <tbody>${opRowsHtml||'<tr><td colspan="9"><i>no operation rows parsed</i></td></tr>'}</tbody></table>
+      <div class="imp-sum">Ops ${money(d.opCost||0)} · Matl prem ${money(d.matlPrem||0)} · FAI ${money(d.fai||0)}
+        · <b>Total ${money(rec.perPc)}/pc</b> · Batch ${money(d.batchTotal||0)} · Lead ${d.lead||0} days</div>
+      <div class="imp-acts">
+        <button class="btn primary imp-ok-btn" data-ix="${ix}">✔ APPROVE — ADD TO PRIOR QUOTES</button>
+        <button class="btn ghost imp-no-btn" data-ix="${ix}">✕ DISCARD</button>
+      </div>
+    </div>`;
+  }).join('');
+  log.innerHTML=bad+`<div class="imp-hint"><b>${pendingImports.length} quote(s) parsed — nothing is saved yet.</b> Check the figures against the workbook, then approve.</div>`+cards;
+  log.querySelectorAll('.imp-ok-btn').forEach(b=>b.addEventListener('click', ()=>approveImport(+b.dataset.ix)));
+  log.querySelectorAll('.imp-no-btn').forEach(b=>b.addEventListener('click', ()=>{
+    pendingImports.splice(+b.dataset.ix,1);
+    renderImportReview();
+    if(window.updateToast) updateToast('Import discarded — nothing was saved');
+  }));
+}
+function approveImport(ix){
+  const rec=pendingImports[ix]; if(!rec) return;
+  const all=loadSaved();
+  rec.no=Math.max(nextNo(all), Number(activeQuoteNo||0)+1);   /* re-number at approval time */
+  delete rec.warn; delete rec.detail;
+  all.push(rec);
+  persist(all.sort((a,b)=>Number(a.no)-Number(b.no)));
   renderSaved();
   scheduleGhPush();
-  if(log) log.innerHTML=lines.join('')+`<div style="margin-top:8px"><b>${lines.filter(l=>l.includes('imp-ok')).length} imported.</b> Find them under 📂 Prior Quotes.</div>`;
+  pendingImports.splice(ix,1);
+  renderImportReview();
+  if(window.updateToast) updateToast('Quote #'+rec.no+' approved — now in Prior Quotes');
 }
 window.importQuoteFiles=importQuoteFiles;
 window.__parseQuoteGrid=parseQuoteGrid;

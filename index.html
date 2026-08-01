@@ -344,7 +344,8 @@
   .opgrid tr.foot td.calc,
   .opgrid tr.foot td.lead,
   .opgrid tr.foot td.flbl{color:var(--cp-ink)}
-  .opgrid td.yellow input#reqLead{background:var(--yellow); font-weight:700; text-align:center}
+  .opgrid td.yellow input#reqLead{background:var(--yellow); font-weight:700; text-align:center;
+    width:100%; box-sizing:border-box; border:1px solid #b9a94f; border-radius:3px; padding:1px 2px}
 
   .addop{margin:8px; font-size:12px; font-weight:600; color:#fff; background:var(--xlgreen); border:1px solid #581010; border-radius:8px; padding:6px 14px; cursor:pointer}
   .addop:hover{background:#581010}
@@ -1216,6 +1217,7 @@
       <button class="railitem prem" data-sec="annvol">Annual Volume Discount</button>
       <button class="railitem" data-sec="orderqty">Order Qty By Annual Usage</button>
       <button class="railitem prem" data-sec="repeat">Repeat-Parts Discount</button>
+      <button class="railitem prem" data-sec="leadprem">Leadtime Premium</button>
       <button class="railitem" data-sec="fai">FAI Cost Model</button>
       <button class="railitem" data-sec="settings">Global Settings</button>
       <div class="rail-head">Records &amp; Docs</div>
@@ -1426,6 +1428,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:135, date:"2026-08-01", note:"Leadtime Premium is live. A REQUESTED LEADTIME box \u2014 yellow, bottom right of the ops grid on the Leadtime Premium row \u2014 takes the calendar days the customer is asking for. The quote works out how hard that squeezes the schedule as a PERCENT REDUCTION off our own estimate: (estimate \u2212 requested) \u00f7 estimate. That percentage is looked up in a new Admin table, \u2018Leadtime Premium\u2019, which returns a markup as a fraction of price \u2014 same shape as the Annual Volume and Repeat-Parts tables, add and delete rows, synced to GitHub. Because it works in percent rather than days, the same squeeze costs the same on a 20-day job and a 200-day job. Leaving the box blank, or asking for more days than the estimate, gives no premium. The label reads back the reduction it found (\u2018Leadtime Premium \u2014 25% faster\u2019) so the number is never a mystery. Starting figures are placeholders \u2014 set the real ones in Admin. Also fixed: the premium was missing from the compute result entirely, so the mini-totals strip had been showing a blank for it."},
   {rev:134, date:"2026-08-01", note:"Publish to Website now points at the right repo. The button and the prompt both defaulted to \u201cquote-app\u201d, which is not a repo that exists \u2014 publishing from that button would have failed or, worse, created a stray repo. Both now read QT-APP, the repo GitHub Pages actually serves. The stale note about it has been dropped from the new-chat briefing."},
   {rev:133, date:"2026-08-01", note:"\u{1F4AC} NEW CHAT PROMPT button added to the top bar. It opens a briefing for a fresh Claude chat \u2014 current rev, both repos, the patch-and-verify method, the hard-won layout and autosave rules, recent revisions and the open items \u2014 with a copy button. It deliberately no longer embeds the GitHub token: the previous handoff did, that text was pasted into another AI tool in July, and the token had to be revoked and rotated. The new chat is told to ask for the token instead."},
   {rev:132, date:"2026-08-01", note:"Customer, part-number and buyer autocomplete now match only from the START of the name. Typing L used to offer EATON and MOLEX because the match ran anywhere in the text; it now lists only names beginning with what was typed, and says so plainly when none do."},
@@ -1554,11 +1557,12 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 134;
+const APP_REV = 135;
 const BUILD_DATE = "2026-08-01";
-const BUILD_TIME = "21:15";           /* increments every build — check both machines match */
+const BUILD_TIME = "22:40";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
+let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
 let matOverride='No';        /* Cost/Pc Over-Ride (Material row, mirrors sheet M22) */
 let matOverrideVal=0;        /* Mat'l Cost Over-ride $ (Y22) */
@@ -1750,7 +1754,13 @@ function compute(){
   const matlPrem   = matlPc > 0.4*price ? matlPc*0.15 : 0;            // AC35
   const salesPrem  = $('salesman').value!=='NONE' ? price*0.05 : 0;   // AC36
   const slugPrem   = slugWeight>10 ? price*0.05 : 0;                  // AC37
-  const leadPrem   = 0;                                               // AC38 (leadtime premium hook)
+  /* AC38 leadtime premium: (estimate - requested) / estimate, looked up in the
+     Leadtime Premium table. Asking for MORE days than the estimate is never a
+     premium, and a blank requested-leadtime box means no premium at all. */
+  const reqLeadDays = parseFloat(reqLeadVal)||0;
+  const leadRedPct  = (maxLead>0 && reqLeadDays>0)
+        ? Math.max(0, (maxLead-reqLeadDays)/maxLead*100) : 0;
+  const leadPrem    = leadPremLookup(leadRedPct)*price;
   /* FAI amortized (AC39): use FAI cost model total, amortized into qty */
   const faiOn      = $('faiReq').value==='yes';
   const faiQtyRaw  = num('faiQty');
@@ -1773,6 +1783,7 @@ function compute(){
 
   return {
     perPc, price, matlPc, matlPrem, salesPrem, slugPrem, faiPerPc, custPrem, volDisc,
+    leadPrem, leadRedPct, reqLeadDays,
     sawPc, opCostSum, baseCostSum, batchTotal, nre, maxLead, faiTotal,
     pcsBar, slugWeight, costLb, mach:mat.mach, rowCosts, rowDetail, margin,
     oddPct: 0,   /* legacy field — premiums are per-operation now, see each row's odd list */
@@ -1825,6 +1836,20 @@ function applyJobQty(){
   if(!(q>0)) q=a;   /* empty table → fall back to the annual qty */
   if($('batchSize'))   $('batchSize').value=q;
   if($('minOrderQty')) $('minOrderQty').value=q;
+}
+/* Leadtime Premium: markup keyed on how far the schedule is being squeezed.
+   Left column is a PERCENT REDUCTION off our own estimate, so the same
+   squeeze costs the same whether the job estimates at 20 days or 200. */
+function ensureLeadPrem(){
+  if(!Array.isArray(TABLES.leadPrem) || !TABLES.leadPrem.length){
+    TABLES.leadPrem = [[0,0],[10,0.05],[20,0.10],[30,0.20],[40,0.30],[50,0.50]];
+  }
+}
+function leadPremLookup(redPct){
+  ensureLeadPrem();
+  let m=0;
+  for(const [thr,mk] of TABLES.leadPrem){ if(redPct>=Number(thr)) m=Number(mk)||0; else break; }
+  return m;
 }
 function annVolLookup(usage){
   const t = TABLES.annVol||[]; let d=0;
@@ -1892,6 +1917,7 @@ function renderOps(){
   const ae=document.activeElement;
   const foc=(ae && ae.dataset && ae.dataset.k!=null && b.contains(ae))
       ? {i:ae.dataset.i, k:ae.dataset.k, val:ae.value} : null;
+  const focLead=(ae && ae.id==='reqLead') ? ae.value : null;
   b.innerHTML = opRows.map((row,i)=>{
     const locked = !!row.locked;
     const d = r.rowDetail[i]||{};
@@ -1983,8 +2009,8 @@ function renderOps(){
   + `
   <tr class="foot"><td class="void" colspan="33"></td><td class="calc bold dbltop" id="tPrice"></td><td class="flbl"></td><td class="lead bold dbltop" id="leadEst"></td></tr>
   <tr class="foot"><td class="void" colspan="33"></td><td class="calc" id="tMatlPrem"></td><td class="flbl">Material Cost Premium</td><td class="void"></td></tr>
-  <tr class="foot"><td class="void" colspan="33"></td><td class="calc" id="tSalesPrem"></td><td class="flbl">Salesman Premium</td><td class="void"><input id="reqLead" type="hidden" value=""></td></tr>
-  <tr class="foot"><td class="void" colspan="33"></td><td class="calc" id="tLeadPrem"></td><td class="flbl">Leadtime Premium</td><td class="void"></td></tr>
+  <tr class="foot"><td class="void" colspan="33"></td><td class="calc" id="tSalesPrem"></td><td class="flbl">Salesman Premium</td><td class="void"></td></tr>
+  <tr class="foot"><td class="void" colspan="33"></td><td class="calc" id="tLeadPrem"></td><td class="flbl" id="leadPremLbl">Leadtime Premium</td><td class="lead yellow"><input id="reqLead" type="text" inputmode="numeric" value="${reqLeadVal}" title="REQUESTED LEADTIME \u2014 calendar days the customer is asking for. Leave blank if they did not ask for one."></td></tr>
   <tr class="foot"><td class="void" colspan="33"></td><td class="redc" id="tFai"></td><td class="flbl">FAI</td><td class="void"></td></tr>
   <tr class="foot trow"><td class="void" colspan="33"></td><td class="calc bold" id="totalPerPc"></td><td class="flbl big">TOTAL PRICE</td><td class="void"></td></tr>`;
   b.querySelectorAll('input,select').forEach(el=>{
@@ -2000,6 +2026,15 @@ function renderOps(){
   const mo=$('matOvr'), mov=$('matOvrVal');
   if(mo) mo.addEventListener('change', ()=>{ matOverride=mo.value; renderAll(); scheduleAutosave(); });
   if(mov) mov.addEventListener('input', ()=>{ matOverrideVal=parseFloat(mov.value)||0; renderAll(); scheduleAutosave(); });
+  const rl=$('reqLead');
+  if(rl) rl.addEventListener('input', ()=>{ reqLeadVal=rl.value; renderAll(); });
+  if(focLead!=null && rl){
+    rl.value=focLead;
+    window.__noSelectRestore=true;
+    rl.focus();
+    window.__noSelectRestore=false;
+    try{ rl.setSelectionRange(rl.value.length, rl.value.length); }catch(err){}
+  }
   if(foc){
     const el=b.querySelector(`[data-i="${foc.i}"][data-k="${foc.k}"]`);
     if(el){
@@ -2064,7 +2099,11 @@ function renderSummary(){
   set('tPrice', money(basePrice));
   set('tMatlPrem', money(r.matlPrem));
   set('tSalesPrem', money(r.salesPrem));
-  set('tLeadPrem', money(0));
+  set('tLeadPrem', money(r.leadPrem));
+  const _lpl=$('leadPremLbl');
+  if(_lpl) _lpl.textContent = (r.leadRedPct>0)
+      ? 'Leadtime Premium \u2014 ' + Math.round(r.leadRedPct) + '% faster'
+      : 'Leadtime Premium';
   set('tFai', money(r.faiPerPc));
   set('totalPerPc', money(r.perPc));
   set('leadEst', (r.maxLead||0)+' days');
@@ -2289,6 +2328,7 @@ function snapshot(){
   const fields={};
   HDR_FIELDS.forEach(id=>{ if($(id)) fields[id]=$(id).value; });
   fields.matOvr=matOverride;
+  fields.reqLead=reqLeadVal;
   fields.matOvrVal=matOverrideVal;
   fields.oddSel=JSON.stringify(oddSel);
   fields.intakePending=intakePending?'1':'';
@@ -2317,6 +2357,7 @@ function restore(s){
   if(_resumeIntake) setTimeout(()=>{ intakePending=true; resumeGuide(); }, 60);
   setTimeout(()=>window.__paintDifficulty&&window.__paintDifficulty(),0);
   matOverrideVal=parseFloat(s.fields&&s.fields.matOvrVal)||0;
+  reqLeadVal=(s.fields&&s.fields.reqLead)||'';
   suspendAutosave=true;
   Object.entries(s.fields).forEach(([id,v])=>{ if($(id)) $(id).value=v; });
   opRows = s.ops && s.ops.length ? s.ops : (blankOps(),opRows);
@@ -3994,7 +4035,7 @@ function startNewQuote(){
   delete $('soFee').dataset.touched;  delete $('margin').dataset.touched;
   applySettingsDefaults();
   blankOps();
-  matOverride='No'; matOverrideVal=0;
+  matOverride='No'; matOverrideVal=0; reqLeadVal='';
   oddSel=[];
   matVerified=false;
   drawPages=[]; curPage=0; docPages=[]; curDoc=0; renderDrawing(); setOpsMode('calc');
@@ -4407,6 +4448,18 @@ const ADMIN_SECTIONS = {
       return {html:editableTable(rows,cols,{deletable:true}), rows, cols,
         writeBack:()=>{ TABLES.annVol = rows.map(r=>[r.usage,r.disc]); },
         add:()=>{ rows.push({usage:0,disc:0}); }};
+    }
+  },
+  leadprem: {
+    title:'Leadtime Premium', src:'CAMCO practice',
+    desc:'Markup for compressing the schedule. The quote works out a PERCENT REDUCTION \u2014 (estimated leadtime \u2212 requested leadtime) \u00f7 estimated leadtime \u2014 and the highest threshold at or below that number wins. Keep sorted ascending. Markup is a fraction of price, so 0.20 = 20%. A blank REQUESTED LEADTIME box on the quote, or a request for MORE days than the estimate, means no premium.',
+    render(){
+      ensureLeadPrem();
+      const rows = TABLES.leadPrem.map(([a,b])=>({red:a,mk:b}));
+      const cols=[{key:'red',label:'Leadtime Reduction % \u2265',type:'num',step:'1'},{key:'mk',label:'Markup (0\u20131)',type:'num',step:'0.01'}];
+      return {html:editableTable(rows,cols,{deletable:true}), rows, cols,
+        writeBack:()=>{ TABLES.leadPrem = rows.map(r=>[r.red,r.mk]); },
+        add:()=>{ rows.push({red:0,mk:0}); }};
     }
   },
   orderqty: {
@@ -5351,11 +5404,10 @@ function applyRfqFields(parsed){
       skipped.push(id+' (already '+cur+')');
     }
   }
-  if(parsed.requestedLeadtimeDays!=null && $('reqLead')){
-    const el=$('reqLead');
-    if(!String(el.value||'').trim() || String(el.value).trim()===String(el.defaultValue||'').trim()){
-      el.value=parsed.requestedLeadtimeDays;
-      el.dispatchEvent(new Event('input',{bubbles:true}));
+  if(parsed.requestedLeadtimeDays!=null){
+    if(!String(reqLeadVal||'').trim()){
+      reqLeadVal=String(parsed.requestedLeadtimeDays);
+      renderAll();
       filled.push('requested leadtime = '+parsed.requestedLeadtimeDays);
     }
   }

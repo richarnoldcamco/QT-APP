@@ -637,7 +637,14 @@
   .imp-ops th{background:#f3efe9; border:1px solid var(--cp-line); padding:3px 6px; font-size:10px; letter-spacing:.04em}
   .imp-ops td{border:1px solid var(--cp-line); padding:2px 6px}
   .imp-ops td.num{text-align:right; font-variant-numeric:tabular-nums}
-  .imp-sum{font-size:12px; background:var(--blue); border-radius:6px; padding:5px 10px; margin-bottom:9px}
+  .imp-sum{font-size:12px; background:var(--blue); border-radius:6px; padding:5px 10px; margin-bottom:6px}
+  .imp-cmp{font-size:12.5px; border-radius:6px; padding:6px 10px; margin-bottom:9px; font-weight:700}
+  .imp-cmp.ok{background:#e9f6e9; border:1px solid #1a6b1a; color:#14520f}
+  .imp-cmp.warn{background:#fff3cd; border:1px solid #d9a400; color:#6b5200}
+  .imp-cmp.bad{background:#fdecec; border:1px solid #a02222; color:#7a1414}
+  .imp-cmp.none{background:#f2f2f2; border:1px solid #ccc; color:#555; font-weight:400}
+  .imp-ops th.wbc, .imp-ops td.wbc{background:#faf6ec}
+  .imp-ops th.appc, .imp-ops td.appc{background:#eef3fa}
   .imp-acts{display:flex; gap:10px}
   .imp-log{margin-top:14px; font-family:var(--ui); font-size:12.5px; line-height:1.6}
   .imp-ok{padding:6px 10px; border-left:3px solid #1f7a4d; background:#f2f8f4; border-radius:4px; margin-bottom:6px}
@@ -1403,6 +1410,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:122, date:"2026-08-01", note:"Import review now shows the old quote and the app side by side. The parser reads the workbook\u2019s own cost column, so each review card carries a WORKBOOK $ and an APP $ figure per operation plus a headline comparison of the two totals with the difference in dollars and percent \u2014 colour-coded green within 2%, amber within 10%, red beyond. A \u2715 DISCARD ALL button clears every parsed quote at once after a confirm."},
   {rev:121, date:"2026-08-01", note:"Imported quotes must now be approved on the quote sheet itself. Opening one shows an amber banner \u2014 IMPORTED FROM <file> \u2014 NOT YET APPROVED \u2014 with a green \u2714 APPROVE THIS QUOTE button, so the whole calculation grid can be checked against the workbook before it is blessed. Until then Past Quotes shows the quote as NEEDS REVIEW instead of IN PROGRESS. Keyed off the imported-from record, so quotes imported before this rev are flagged too."},
   {rev:120, date:"2026-08-01", note:"Imported quotes are now reviewed before they are saved. An import parses and prices the file but holds it in a review card showing every header field, every operation row and the cost breakdown \u2014 nothing reaches Prior Quotes until \u2714 APPROVE is pressed, and \u2715 DISCARD throws it away with nothing written. Quote numbers are assigned at approval, so discarded imports do not burn a number."},
   {rev:119, date:"2026-08-01", note:"Excel import fixed \u2014 it was producing header-only quotes with no operations. Two causes: it read the operation name from the Description column, but in the workbook that column holds free-text notes and the real op name is in Workcenter (which also failed to match because the alias was spelled \u2018work center\u2019 and the sheet says \u2018Workcenter\u2019); and a single blank row in the op block ended the parse outright, discarding every op below it. Now the workcenter is the operation, the description becomes the row note, blank rows are tolerated, and the S.O./C.O. administrative lines are skipped since the app models those as global fees."},
@@ -1518,9 +1526,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 121;
+const APP_REV = 122;
 const BUILD_DATE = "2026-08-01";
-const BUILD_TIME = "14:44";           /* increments every build — check both machines match */
+const BUILD_TIME = "15:22";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -5821,6 +5829,19 @@ function parseQuoteGrid(grid){
     }
   }
   if(colFor.desc==null){ warn.push('no Description column recognized in the ops table'); }
+  /* the workbook prints its own cost per op in a column whose HEADER CELL is a number
+     (the sheet shows the grand total there). Capture it so the import can be shown
+     side by side with what this app computes. */
+  let wbCol=-1, wbTotal=null;
+  {
+    const hrow=grid[hr]||[];
+    let best=-1;
+    for(let c=0;c<hrow.length;c++){
+      const v=parseFloat(cleanNum(hrow[c]));
+      if(isFinite(v) && v>best){ best=v; wbCol=c; }
+    }
+    if(wbCol>=0 && best>0){ wbTotal=best; }
+  }
   if(fixCols[0]!=null) colFor.fix1=fixCols[0];
   if(fixCols[1]!=null) colFor.fix2=fixCols[1];
   const unknownOps=new Set();
@@ -5840,7 +5861,8 @@ function parseQuoteGrid(grid){
     if(!desc || SKIP_OPS.has(impNorm(desc))) continue;
     const num=k=> colFor[k]!=null ? (parseFloat(cleanNum(row[colFor[k]]))||0) : 0;
     if(desc && !opByName[desc]) unknownOps.add(desc);
-    ops.push({op:opn, desc, quote:String(row[colFor.quote]||''),
+    const wbCost = wbCol>=0 ? (parseFloat(cleanNum(row[wbCol]))||0) : 0;
+    ops.push({op:opn, desc, quote:String(row[colFor.quote]||''), wbCost,
       fix1:num('fix1'), fix2:num('fix2'), extraInsp:num('extraInsp'), setup:num('setup'),
       cycle:num('cycle'), load:num('load'), insp:num('insp'), pcsReload:num('pcsReload'),
       tol001:num('tol001'), tol0002:num('tol0002'),
@@ -5848,7 +5870,7 @@ function parseQuoteGrid(grid){
   }
   if(unknownOps.size) warn.push('operations not in your rate table (imported as text, priced at base rate): '+[...unknownOps].join(', '));
   if(!ops.length) warn.push('no operation rows with a description found');
-  return {fields, ops, warn};
+  return {fields, ops, warn, wbTotal};
 }
 async function importQuoteFiles(files){
   files=files.filter(f=>/\.(xlsx|xlsm|xls)$/i.test(f.name));
@@ -5884,7 +5906,7 @@ async function importQuoteFiles(files){
         ws=wb.Sheets[best||wb.SheetNames[0]];
       }
       const grid=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
-      const {fields, ops, warn}=parseQuoteGrid(grid);
+      const {fields, ops, warn, wbTotal}=parseQuoteGrid(grid);
       const rec={ no:Math.max(nextNo(all), Number(activeQuoteNo||0)+1), updated:f.lastModified||Date.now(),
                   fields, ops, drawing:null, importedFrom:f.name };
       /* run the imported quote through the live engine for its price */
@@ -5895,6 +5917,8 @@ async function importQuoteFiles(files){
       rec.fields=full;
       rec.warn=warn;
       rec.detail={ opCost:r.opCostSum, matlPrem:r.matlPrem, fai:r.faiPerPc, batchTotal:r.batchTotal, lead:r.maxLead };
+      rec.wbTotal=wbTotal;
+      rec.appRowCosts=(r.rowCosts||[]).slice();
       /* STAGED, not saved — nothing reaches Prior Quotes until it is approved below */
       pendingImports.push(rec);
     }catch(e){
@@ -5921,11 +5945,13 @@ function renderImportReview(errLines){
                ['Bar dia',f.barDia],['Part length',f.partLength],['Annual usage',f.annualUsage],
                ['Batch size',f.batchSize],['Min order',f.minOrderQty],['Quoted by',f.quotedBy]]
       .map(([k,v])=>`<span style="display:inline-block;min-width:190px;padding:2px 0"><b>${k}:</b> ${esc(v==null||v===''?'\u2014':String(v))}</span>`).join('');
-    const opRowsHtml=(rec.ops||[]).map(o=>`<tr>`
+    const opRowsHtml=(rec.ops||[]).map((o,oi)=>`<tr>`
       +`<td>${esc(String(o.op))}</td><td>${esc(o.desc||'')}</td><td>${esc(o.quote||'')}</td>`
       +`<td class="num">${o.setup||0}</td><td class="num">${o.cycle||0}</td>`
       +`<td class="num">${o.load||0}</td><td class="num">${o.insp||0}</td>`
-      +`<td class="num">${o.tol001||0}</td><td class="num">${o.subPc?('$'+Number(o.subPc).toFixed(2)):''}</td></tr>`).join('');
+      +`<td class="num">${o.tol001||0}</td><td class="num">${o.subPc?('$'+Number(o.subPc).toFixed(2)):''}</td>`
+      +`<td class="num wbc">${o.wbCost?('$'+Number(o.wbCost).toFixed(2)):'\u2014'}</td>`
+      +`<td class="num appc">${(rec.appRowCosts&&rec.appRowCosts[oi]!=null)?('$'+Number(rec.appRowCosts[oi]).toFixed(2)):'\u2014'}</td></tr>`).join('');
     const d=rec.detail||{};
     return `<div class="imp-card" data-ix="${ix}">
       <div class="imp-card-head">
@@ -5934,17 +5960,36 @@ function renderImportReview(errLines){
       </div>
       ${rec.warn && rec.warn.length? '<div class="imp-warn">⚠ '+rec.warn.map(esc).join('<br>⚠ ')+'</div>' : ''}
       <div class="imp-fields">${hdr}</div>
-      <table class="imp-ops"><thead><tr><th>OP</th><th>Operation</th><th>Note</th><th>S/U</th><th>Cycle</th><th>Load</th><th>Insp</th><th>Tol .001</th><th>Sub/pc</th></tr></thead>
-        <tbody>${opRowsHtml||'<tr><td colspan="9"><i>no operation rows parsed</i></td></tr>'}</tbody></table>
+      <table class="imp-ops"><thead><tr><th>OP</th><th>Operation</th><th>Note</th><th>S/U</th><th>Cycle</th><th>Load</th><th>Insp</th><th>Tol .001</th><th>Sub/pc</th><th class="wbc">WORKBOOK $</th><th class="appc">APP $</th></tr></thead>
+        <tbody>${opRowsHtml||'<tr><td colspan="11"><i>no operation rows parsed</i></td></tr>'}</tbody></table>
       <div class="imp-sum">Ops ${money(d.opCost||0)} · Matl prem ${money(d.matlPrem||0)} · FAI ${money(d.fai||0)}
         · <b>Total ${money(rec.perPc)}/pc</b> · Batch ${money(d.batchTotal||0)} · Lead ${d.lead||0} days</div>
+      ${(function(){
+        if(!(rec.wbTotal>0)) return '<div class="imp-cmp none">Workbook total not found in this file — compare manually.</div>';
+        const diff=rec.perPc-rec.wbTotal, pct=rec.wbTotal? (diff/rec.wbTotal*100):0;
+        const cls=Math.abs(pct)<=2? 'ok' : (Math.abs(pct)<=10? 'warn' : 'bad');
+        return `<div class="imp-cmp ${cls}">WORKBOOK <b>${money(rec.wbTotal)}/pc</b>`
+          +` · THIS APP <b>${money(rec.perPc)}/pc</b>`
+          +` · DIFFERENCE <b>${diff>=0?'+':''}${money(diff)} (${pct>=0?'+':''}${pct.toFixed(1)}%)</b></div>`;
+      })()}
       <div class="imp-acts">
         <button class="btn primary imp-ok-btn" data-ix="${ix}">✔ APPROVE — ADD TO PRIOR QUOTES</button>
         <button class="btn ghost imp-no-btn" data-ix="${ix}">✕ DISCARD</button>
       </div>
     </div>`;
   }).join('');
-  log.innerHTML=bad+`<div class="imp-hint"><b>${pendingImports.length} quote(s) parsed — nothing is saved yet.</b> Check the figures against the workbook, then approve.</div>`+cards;
+  log.innerHTML=bad+`<div class="imp-hint"><b>${pendingImports.length} quote(s) parsed — nothing is saved yet.</b>
+      Check the figures against the workbook, then approve.
+      <button id="impDiscardAll" style="float:right;font:800 11.5px var(--ui);padding:5px 16px;border-radius:6px;
+        cursor:pointer;background:#8a1c1c;color:#fff;border:1px solid #4a0d0d">✕ DISCARD ALL</button></div>`+cards;
+  const da=log.querySelector('#impDiscardAll');
+  if(da) da.addEventListener('click', async ()=>{
+    const n=pendingImports.length;
+    if(!(await appConfirm('Discard all '+n+' parsed quote(s)? Nothing has been saved, so nothing is lost from Prior Quotes.'))) return;
+    pendingImports=[];
+    renderImportReview();
+    if(window.updateToast) updateToast(n+' import(s) discarded — nothing was saved');
+  });
   log.querySelectorAll('.imp-ok-btn').forEach(b=>b.addEventListener('click', ()=>approveImport(+b.dataset.ix)));
   log.querySelectorAll('.imp-no-btn').forEach(b=>b.addEventListener('click', ()=>{
     pendingImports.splice(+b.dataset.ix,1);

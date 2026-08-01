@@ -1359,17 +1359,17 @@ function attachAutocomplete(inputId, menuId, getOptions){
     if(!Q){
       items=all.slice(0,300);              /* empty field: show the whole list (scrollable) */
     }else{
-      const starts=[], contains=[];
+      /* STARTS-WITH ONLY. Matching anywhere in the name meant typing L offered EATON
+         and MOLEX; the list should narrow to names that begin with what was typed. */
+      const starts=[];
       for(const o of all){
-        const U=String(o).toUpperCase();
-        if(U.startsWith(Q)) starts.push(o);
-        else if(U.includes(Q)) contains.push(o);
+        if(String(o).toUpperCase().startsWith(Q)) starts.push(o);
       }
-      items=starts.concat(contains).slice(0,15);
+      items=starts.slice(0,15);
     }
-    if(!items.length){ menu.innerHTML='<div class="ac-none">no matches</div>'; show(); return; }
+    if(!items.length){ menu.innerHTML='<div class="ac-none">no name starts with \u201c'+escv(q.trim())+'\u201d</div>'; show(); return; }
     menu.innerHTML=items.map((o,i)=>{
-      const U=String(o), idx=Q? U.toUpperCase().indexOf(Q) : -1;
+      const U=String(o), idx=Q? 0 : -1;   /* always a leading match now */
       const hl = idx>=0 ? escv(U.slice(0,idx))+'<b>'+escv(U.slice(idx,idx+Q.length))+'</b>'+escv(U.slice(idx+Q.length)) : escv(U);
       return `<div class="ac-item${i===sel?' sel':''}" data-v="${escv(U)}">${hl}</div>`;
     }).join('');
@@ -1425,6 +1425,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:132, date:"2026-08-01", note:"Customer, part-number and buyer autocomplete now match only from the START of the name. Typing L used to offer EATON and MOLEX because the match ran anywhere in the text; it now lists only names beginning with what was typed, and says so plainly when none do."},
   {rev:131, date:"2026-08-01", note:"During a new-quote intake the drawing reclaims the band above it: the step banner and the VIEW bar are slimmed down, and the drawing pane lifts up beside the view buttons instead of starting below them. Guarded the same way as the calculations-view lift \u2014 it measures where the last view button actually ends and only lifts when the drawing clears it, so the buttons can never be covered."},
   {rev:130, date:"2026-08-01", note:"Past Quotes width settled at 1120px \u2014 enough to seat the OPEN and DELETE buttons that 980px was cutting off, without the full-window sprawl of rev 129."},
   {rev:129, date:"2026-08-01", note:"Past Quotes now uses the full window width. The panel was capped at 980px, which pushed the OPEN and DELETE buttons off the right edge once part numbers stopped wrapping onto two lines; the buttons are back on screen and the columns have room to breathe."},
@@ -1550,9 +1551,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 131;
+const APP_REV = 132;
 const BUILD_DATE = "2026-08-01";
-const BUILD_TIME = "19:10";           /* increments every build — check both machines match */
+const BUILD_TIME = "19:28";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */

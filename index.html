@@ -444,6 +444,11 @@
   /* While the panel is up the original header table and its bar must stay gone. An
      inline display:none was not enough — the header-minimize logic rewrites that inline
      style on load, which brought the empty duplicate table back. */
+  /* intake: give the vertical space back to the drawing — the banner and the view bar
+     shrink, and the drawing pane lifts beside them (measured, see liftDrawIntake). */
+  body.intake-panel-on .guide-banner{padding:3px 12px; font-size:11px; line-height:1.3; margin-bottom:2px}
+  body.intake-panel-on .ops-modebar{margin:2px 0 2px}
+  body.intake-panel-on .ops-modebar .modebtn{padding:4px 12px; font-size:11px}
   body.intake-panel-on #hdrSheet,
   body.intake-panel-on .hdr-bar,
   body.intake-panel-on .ops-scroll{display:none !important}
@@ -1420,6 +1425,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:131, date:"2026-08-01", note:"During a new-quote intake the drawing reclaims the band above it: the step banner and the VIEW bar are slimmed down, and the drawing pane lifts up beside the view buttons instead of starting below them. Guarded the same way as the calculations-view lift \u2014 it measures where the last view button actually ends and only lifts when the drawing clears it, so the buttons can never be covered."},
   {rev:130, date:"2026-08-01", note:"Past Quotes width settled at 1120px \u2014 enough to seat the OPEN and DELETE buttons that 980px was cutting off, without the full-window sprawl of rev 129."},
   {rev:129, date:"2026-08-01", note:"Past Quotes now uses the full window width. The panel was capped at 980px, which pushed the OPEN and DELETE buttons off the right edge once part numbers stopped wrapping onto two lines; the buttons are back on screen and the columns have room to breathe."},
   {rev:128, date:"2026-08-01", note:"Fixes \u201crec is not defined\u201d on import, introduced in rev 125. The edit that improved the original-sheet capture removed ten lines with it \u2014 the block that builds the quote record, runs it through the costing engine and stores its price \u2014 so every import failed at that point. Restored."},
@@ -1544,9 +1550,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 130;
+const APP_REV = 131;
 const BUILD_DATE = "2026-08-01";
-const BUILD_TIME = "18:44";           /* increments every build — check both machines match */
+const BUILD_TIME = "19:10";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -2490,6 +2496,29 @@ function updateDrawModeBtn(){
 /* cap each thumbnail page to the height actually available below the pane's top edge.
    getBoundingClientRect() returns post-zoom pixels, so divide by sheetZoom to get the
    pre-zoom CSS value the max-height rule needs. */
+/* Lift the drawing pane up beside the view bar during intake, reclaiming the empty band
+   to its right. Guarded exactly like sizeThumbs: the lift only happens when the pane's
+   left edge clears the view bar's right edge, so it can never cover the buttons. All
+   rects are post-zoom, so the margin divides by the zoom factor. */
+function liftDrawIntake(){
+  const dw=document.querySelector('.drawwrap');
+  if(!dw) return;
+  dw.style.marginTop='';
+  if(!document.body.classList.contains('intake-panel-on')) return;
+  if(dw.hidden || dw.offsetParent===null) return;
+  const bar=document.querySelector('.ops-modebar');
+  if(!bar) return;
+  const z=(typeof sheetZoom!=='undefined' && sheetZoom)||1.2;
+  const d=dw.getBoundingClientRect(), b=bar.getBoundingClientRect();
+  /* the bar's BUTTONS end well before its box does; measure the last one */
+  const btns=bar.querySelectorAll('button');
+  const lastRight=btns.length? btns[btns.length-1].getBoundingClientRect().right : b.right;
+  if(d.left <= lastRight + 12) return;          /* would overlap the buttons — leave it */
+  const lift=d.top - b.top;
+  if(lift>4) dw.style.marginTop=(-lift/z)+'px';
+}
+window.liftDrawIntake=liftDrawIntake;
+window.addEventListener('resize', ()=>liftDrawIntake());
 function sizeThumbs(){
   const tw=$('thumbWrap'); if(!tw || tw.hidden) return;
   const z=(typeof sheetZoom!=='undefined' && sheetZoom)||1.2;
@@ -5011,6 +5040,7 @@ function buildIntakePanel(){
   flex.insertBefore(panel, flex.firstChild);
   document.body.classList.add('intake-panel-on');   /* CSS hides the header table + grid */
   if(window.__sizeDrawVp) setTimeout(window.__sizeDrawVp, 0);
+  setTimeout(liftDrawIntake, 0);
 }
 function teardownIntakePanel(){
   const panel=document.getElementById('intakePanel');
@@ -5018,6 +5048,7 @@ function teardownIntakePanel(){
   _ipRestore=[];
   if(panel) panel.remove();
   document.body.classList.remove('intake-panel-on');
+  const _dw=document.querySelector('.drawwrap'); if(_dw) _dw.style.marginTop='';
   /* clear any inline display left behind by earlier revs */
   const hb=document.querySelector('.hdr-bar'); if(hb) hb.style.display='';
   const sheet=$('hdrSheet'); if(sheet) sheet.style.display='';

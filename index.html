@@ -611,11 +611,9 @@
 
   /* ===== dedicated Past Quotes screen ===== */
   main#view-quotes{zoom:1.2; padding:18px 22px; font-family:var(--ui)}
-  /* was 980px, which cut the OPEN/DELETE buttons off the right edge once the part-number
-   column stopped wrapping. Fills the window instead, with a ceiling so it stays
-   readable on a very wide monitor. The zoom:1.2 on this view is why the cap is
-   expressed against the zoomed width. */
-.quotes-shell{max-width:none; width:100%}
+  /* 980px cut the OPEN/DELETE buttons off once part numbers stopped wrapping (rev 118).
+   1120px is just enough to seat both buttons — full width was too much. */
+.quotes-shell{max-width:1120px}
   .qr-card{background:var(--cp-panel); border:1px solid var(--cp-line); border-radius:var(--r); box-shadow:var(--cp-shadow-lg); overflow:hidden}
   .qr-head{padding:16px 18px 13px; border-bottom:1px solid var(--cp-line)}
   .qr-head h2{margin:0; font-size:17px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--cp-signal)}
@@ -1422,6 +1420,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:130, date:"2026-08-01", note:"Past Quotes width settled at 1120px \u2014 enough to seat the OPEN and DELETE buttons that 980px was cutting off, without the full-window sprawl of rev 129."},
   {rev:129, date:"2026-08-01", note:"Past Quotes now uses the full window width. The panel was capped at 980px, which pushed the OPEN and DELETE buttons off the right edge once part numbers stopped wrapping onto two lines; the buttons are back on screen and the columns have room to breathe."},
   {rev:128, date:"2026-08-01", note:"Fixes \u201crec is not defined\u201d on import, introduced in rev 125. The edit that improved the original-sheet capture removed ten lines with it \u2014 the block that builds the quote record, runs it through the costing engine and stores its price \u2014 so every import failed at that point. Restored."},
   {rev:127, date:"2026-08-01", note:"The Admin screen no longer scrolls the whole page. It now fills the window exactly: the left rail is compressed so all of its items fit at once, and the rail and the content pane each scroll inside themselves only if their own content demands it \u2014 so the rail stays put and nothing slides off the top."},
@@ -1545,9 +1544,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 129;
+const APP_REV = 130;
 const BUILD_DATE = "2026-08-01";
-const BUILD_TIME = "18:32";           /* increments every build — check both machines match */
+const BUILD_TIME = "18:44";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */

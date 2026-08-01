@@ -674,6 +674,8 @@
   .qtable .ednow{font-size:9.5px; font-weight:800; color:var(--cp-signal); text-transform:uppercase; letter-spacing:.05em}
   .qtable .st-prog{color:#a4640a; font-size:9.5px; font-weight:800; letter-spacing:.05em; white-space:nowrap}
   .qtable .st-fin{color:#1a6b1a; font-size:9.5px; font-weight:800; letter-spacing:.05em; white-space:nowrap}
+  .qtable .st-imp{background:#d9a400; color:#2a1315; font-size:9.5px; font-weight:800;
+    letter-spacing:.05em; white-space:nowrap; padding:1px 6px; border-radius:4px}
   .qtable .acts{white-space:nowrap; text-align:right}
   .qtable .acts button{margin-left:5px}
   .qtable .load{
@@ -1401,6 +1403,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:121, date:"2026-08-01", note:"Imported quotes must now be approved on the quote sheet itself. Opening one shows an amber banner \u2014 IMPORTED FROM <file> \u2014 NOT YET APPROVED \u2014 with a green \u2714 APPROVE THIS QUOTE button, so the whole calculation grid can be checked against the workbook before it is blessed. Until then Past Quotes shows the quote as NEEDS REVIEW instead of IN PROGRESS. Keyed off the imported-from record, so quotes imported before this rev are flagged too."},
   {rev:120, date:"2026-08-01", note:"Imported quotes are now reviewed before they are saved. An import parses and prices the file but holds it in a review card showing every header field, every operation row and the cost breakdown \u2014 nothing reaches Prior Quotes until \u2714 APPROVE is pressed, and \u2715 DISCARD throws it away with nothing written. Quote numbers are assigned at approval, so discarded imports do not burn a number."},
   {rev:119, date:"2026-08-01", note:"Excel import fixed \u2014 it was producing header-only quotes with no operations. Two causes: it read the operation name from the Description column, but in the workbook that column holds free-text notes and the real op name is in Workcenter (which also failed to match because the alias was spelled \u2018work center\u2019 and the sheet says \u2018Workcenter\u2019); and a single blank row in the op block ended the parse outright, discarding every op below it. Now the workcenter is the operation, the description becomes the row note, blank rows are tolerated, and the S.O./C.O. administrative lines are skipped since the app models those as global fees."},
   {rev:118, date:"2026-07-29", note:"Part numbers in Past Quotes no longer wrap onto two lines \u2014 the column holds them on one line and takes the width it needs, so 1044096-001 and 828-003-164 read whole at a glance."},
@@ -1515,9 +1518,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 120;
+const APP_REV = 121;
 const BUILD_DATE = "2026-08-01";
-const BUILD_TIME = "14:10";           /* increments every build — check both machines match */
+const BUILD_TIME = "14:44";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -2037,7 +2040,48 @@ function renderSummary(){
   set('tCustVol', money(r.custPrem - r.volDisc));
 }
 
-function renderAll(){ renderOps(); renderSummary(); scheduleAutosave(); }
+/* IMPORTED-QUOTE APPROVAL (rev 121). A quote that came from Excel carries importedFrom
+   and stays NEEDS REVIEW until it is approved on its own sheet — where the whole grid
+   is visible to check against the workbook. Keyed off importedFrom, so quotes imported
+   before this rev are flagged too. */
+function activeImportRec(){
+  try{
+    const rec=(loadSaved()||[]).find(q=>Number(q.no)===Number(activeQuoteNo));
+    if(rec && rec.importedFrom && !(rec.fields&&rec.fields.importApproved==='1')) return rec;
+  }catch(e){}
+  return null;
+}
+function updateImportBanner(){
+  const rec=activeImportRec();
+  let b=document.getElementById('importBanner');
+  if(!rec){ if(b) b.remove(); return; }
+  if(!b){
+    b=document.createElement('div');
+    b.id='importBanner';
+    b.style.cssText='display:flex;align-items:center;gap:14px;flex-wrap:wrap;'
+      +'background:#fff3cd;border:2px solid #d9a400;border-radius:8px;'
+      +'padding:8px 14px;margin:6px 8px;font:700 12.5px var(--ui)';
+    const anchor=document.querySelector('.ops-modebar');
+    if(anchor && anchor.parentNode) anchor.parentNode.insertBefore(b, anchor);
+    else document.body.appendChild(b);
+  }
+  b.innerHTML='<span>\u26a0 IMPORTED FROM '+esc(rec.importedFrom)+' \u2014 NOT YET APPROVED.</span>'
+    +'<span style="font-weight:400">Check the operations and the total against the workbook, then approve.</span>'
+    +'<button id="approveImportBtn" style="font:800 12px var(--ui);padding:6px 18px;border-radius:7px;cursor:pointer;'
+    +'background:linear-gradient(180deg,#2e8b2e,#1f6b1f);color:#fff;border:1px solid #0e3a0e">\u2714 APPROVE THIS QUOTE</button>';
+  const btn=b.querySelector('#approveImportBtn');
+  if(btn) btn.addEventListener('click', ()=>{
+    const all=loadSaved();
+    const r=all.find(q=>Number(q.no)===Number(activeQuoteNo));
+    if(r){ r.fields=r.fields||{}; r.fields.importApproved='1'; persist(all); }
+    autosaveNow();
+    updateImportBanner();
+    renderSaved();
+    if(window.updateToast) updateToast('Quote #'+activeQuoteNo+' approved');
+  });
+}
+window.updateImportBanner=updateImportBanner;
+function renderAll(){ renderOps(); renderSummary(); scheduleAutosave(); if(window.updateImportBanner) updateImportBanner(); }
 
 /* ---- add operation row ---- */
 $('addOp').addEventListener('click', ()=>{
@@ -2082,6 +2126,7 @@ function snapshot(){
   fields.intakePending=intakePending?'1':'';
   fields.matVerified=matVerified?'1':'';
   fields.finalized=quoteFinalized?'1':'';
+  if(_importApproved) fields.importApproved='1';
   fields.aiWtLb=aiWtLb; fields.aiVolIn3=aiVolIn3; fields.aiWtText=aiWtText;
   const _slim=p=>({name:p.name, w:p.w, h:p.h, kb:p.kb, ts:p.ts, ref:p.ref||drawingPath(activeQuoteNo)});
   const dmeta = (drawPages.length||docPages.length)
@@ -2095,6 +2140,7 @@ function restore(s){
   try{ oddSel=JSON.parse((s.fields&&s.fields.oddSel)||'[]')||[]; }catch(e){ oddSel=[]; }
   matVerified=(s.fields&&s.fields.matVerified==='1');
   quoteFinalized=(s.fields&&s.fields.finalized==='1');
+  _importApproved=(s.fields&&s.fields.importApproved==='1');
   aiWtLb=(s.fields&&s.fields.aiWtLb)||''; aiVolIn3=(s.fields&&s.fields.aiVolIn3)||'';
   aiWtText=(s.fields&&s.fields.aiWtText)||'';
   if(window.updateAiWtChip) setTimeout(updateAiWtChip, 0);
@@ -3567,7 +3613,8 @@ function renderSaved(){
       const isActive=q.no==activeQuoteNo;
       const qty=parseFloat(f.batchSize)||0;
       return `<tr class="${isActive?'active':''}">
-        <td class="qno">${q.drawing?'<span class="clip" title="has drawing">📎</span>':''}#${q.no}${f.finalized==='1'?' <span class="st-fin">FINALIZED</span>':' <span class="st-prog">IN PROGRESS</span>'}${isActive?' <span class="ednow">editing</span>':''}</td>
+        <td class="qno">${q.drawing?'<span class="clip" title="has drawing">📎</span>':''}#${q.no}${q.importedFrom && f.importApproved!=='1' ? ' <span class="st-imp">NEEDS REVIEW</span>'
+          : (f.finalized==='1'?' <span class="st-fin">FINALIZED</span>':' <span class="st-prog">IN PROGRESS</span>')}${isActive?' <span class="ednow">editing</span>':''}</td>
         <td class="partno">${esc(f.partNo)||'—'}</td>
         <td>${esc(f.customer)||'—'}</td>
         <td class="dt">${when}</td>
@@ -3776,6 +3823,7 @@ function startNewQuote(){
    the flag is per-quote, saved with it, and freely toggled — finalizing does NOT lock
    editing, it only marks the state for the Past Quotes list. */
 let quoteFinalized=false;
+let _importApproved=false;   /* survives snapshot/restore of an imported quote */
 function updateFinalizeBtn(){
   const b=$('finalizeBtn'); if(!b) return;
   b.textContent = quoteFinalized ? '\u2713 FINALIZED' : '\u2713 Finalize';

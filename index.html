@@ -898,6 +898,7 @@
     <button class="btn topbtn ghost" id="addOp">+ Add Op Row</button>
     <button class="btn topbtn ghost" id="helpAreaBtn" title="reference tools — metric/english conversions">? Help Area</button>
     <button class="btn topbtn ghost" id="priorQuotesBtn">📂 Prior Quotes</button>
+    <button class="btn topbtn ghost" id="newChatBtn" title="copy a briefing to paste into a new Claude chat">💬 New Chat Prompt</button>
     <button class="btn topbtn menulike" id="newQuote">New Quote</button>
   </div>
   <div class="spacer"></div>
@@ -1425,6 +1426,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:133, date:"2026-08-01", note:"\u{1F4AC} NEW CHAT PROMPT button added to the top bar. It opens a briefing for a fresh Claude chat \u2014 current rev, both repos, the patch-and-verify method, the hard-won layout and autosave rules, recent revisions and the open items \u2014 with a copy button. It deliberately no longer embeds the GitHub token: the previous handoff did, that text was pasted into another AI tool in July, and the token had to be revoked and rotated. The new chat is told to ask for the token instead."},
   {rev:132, date:"2026-08-01", note:"Customer, part-number and buyer autocomplete now match only from the START of the name. Typing L used to offer EATON and MOLEX because the match ran anywhere in the text; it now lists only names beginning with what was typed, and says so plainly when none do."},
   {rev:131, date:"2026-08-01", note:"During a new-quote intake the drawing reclaims the band above it: the step banner and the VIEW bar are slimmed down, and the drawing pane lifts up beside the view buttons instead of starting below them. Guarded the same way as the calculations-view lift \u2014 it measures where the last view button actually ends and only lifts when the drawing clears it, so the buttons can never be covered."},
   {rev:130, date:"2026-08-01", note:"Past Quotes width settled at 1120px \u2014 enough to seat the OPEN and DELETE buttons that 980px was cutting off, without the full-window sprawl of rev 129."},
@@ -1551,9 +1553,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 132;
+const APP_REV = 133;
 const BUILD_DATE = "2026-08-01";
-const BUILD_TIME = "19:28";           /* increments every build — check both machines match */
+const BUILD_TIME = "20:02";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -4053,6 +4055,7 @@ if(_sn) _sn.addEventListener('click', async ()=>{
   const el=$(id);
   if(el) el.addEventListener('input', ()=>{ applyJobQty(); renderAll(); });
 });
+{ const _nc=$('newChatBtn'); if(_nc) _nc.addEventListener('click', showHandoffPopup); }
 $('newQuote').addEventListener('click', ()=>{ startNewQuote(); quoteFinalized=false; updateFinalizeBtn(); if(window.__matAutoReset) window.__matAutoReset(false); switchView('quote'); updateOddBtn(); setTimeout(startGuide, 100); });
 $('menuNew').addEventListener('click', ()=>{ startNewQuote(); switchView('quote'); updateOddBtn(); setTimeout(startGuide, 100); });
 $('menuPullAll') && $('menuPullAll').addEventListener('click', async ()=>{
@@ -4723,23 +4726,9 @@ const ADMIN_SECTIONS = {
     }
   },
   handoff: {
-    title:'New Chat Handoff', src:'Copy then paste into a fresh Claude chat to continue development',
-    desc:'Primes a new chat with everything it needs and includes your GitHub token so the new session can push immediately. The token is read from THIS browser only \u2014 it is never stored in the app file on GitHub. Treat the copied text as sensitive.',
-    render(){
-      let tok=''; try{ tok=(JSON.parse(localStorage.getItem(GH_LS)||'{}').token)||''; }catch(e){}
-      const base = "CAMCO QUOTING APP \u2014 SESSION HANDOFF. Read this fully before making changes.\n\nWHO: Rich (github richarnoldcamco), machinist at CAMCO, not a programmer. You do all coding. Terse all-caps replies are normal. Give click-by-click steps; he confirms with a screenshot before you proceed.\n\nWHAT: single-file HTML machining quote app. Hosted on GitHub Pages, pinned to his taskbar. The app shows its current REV on the badge under the title.\n\nFIRST STEP \u2014 FETCH THE LATEST CODE YOURSELF: do not ask Rich to upload anything. Pull the current app fresh from the public repo before doing anything else:\n  https://raw.githubusercontent.com/richarnoldcamco/QT-APP/main/index.html\nSave it as work.html in your sandbox. That is the authoritative current version. Confirm the APP_REV you read there matches the REV on his badge.\n\nREPOS (both under github.com/richarnoldcamco):\n- QT-APP (public) serves index.html (the live app) at https://richarnoldcamco.github.io/QT-APP/\n- Quote-Data (private) holds quote-data.json (all quotes) AND quote_app.html (the auto-update copy of the code)\n\nGITHUB TOKEN (fine-grained PAT, scoped to BOTH repos, Contents read+write) is included at the bottom of this handoff. Use it to push. If it is missing or rejected, ask Rich to paste a fresh one.\n\nHOW YOU SHIP CHANGES:\n1. Edit the single HTML file. NEVER regex on the HTML \u2014 use exact string replace with an assert the anchor appears exactly once. Validate with node --check on the extracted script blocks before every push.\n2. Bump APP_REV, add a CHANGE_LOG entry, then push the SAME file to BOTH targets via the GitHub Contents API: QT-APP/index.html and Quote-Data/quote_app.html (read the current sha first, include it in the PUT).\n3. The running app auto-updates from Quote-Data/quote_app.html and reloads once on a newer REV. Rich just refreshes.\n\nHARD-WON RULES (do not relearn these the hard way):\n- Email attachments only survive in CLASSIC Outlook; New Outlook silently drops them. The .eml uses FLAT multipart/mixed (plain body + attachments). Do NOT nest related/alternative.\n- Auto-update must reload at most ONCE per target rev or it loops when GitHub's CDN serves a stale cached copy.\n- Taskbar pinning only works via the hosted PWA (Install page as app), never a local file.\n- Header tab order is a flat id array (TAB_ORDER); preserve every id across layout changes.\n- One change at a time; Rich screenshots to confirm before the next.\n\nOPEN ITEMS: header rebuild as a CSS grid; Leadtime Premium is an unbuilt stub (always $0) awaiting a business rule; the app's Publish to Website button targets the wrong repo name.\n\nSTART BY: greeting Rich, fetching index.html fresh from the raw URL above, confirming the REV matches his badge, and asking what he wants to change.";
-      const tokLine = tok
-        ? ('\n\nGITHUB TOKEN (paste-ready, scoped to both repos):\n'+tok)
-        : ('\n\nGITHUB TOKEN: not found in this browser \u2014 open Admin \u2192 GitHub Sync and save your token first, then re-copy.');
-      const txt = base + tokLine + '\n\nCurrent app REV when copied: ' + APP_REV + '.';
-      return {custom:
-        '<div style="display:flex; gap:8px; margin-bottom:6px; align-items:center">'
-        + '<button class="btn" id="copyHandoff" type="button">\u{1F4CB} Copy handoff text</button>'
-        + '<span class="note" id="copyHandoffMsg"></span></div>'
-        + '<div class="note" style="color:#8a2020; margin-bottom:8px">\u26a0 This text contains your GitHub token. Paste it only into a Claude chat.</div>'
-        + '<textarea id="handoffText" readonly style="width:100%; height:330px; font-family:ui-monospace,Consolas,monospace; font-size:11.5px; line-height:1.5; padding:10px; border:1px solid var(--cp-line); border-radius:8px; background:#fbfaf8; white-space:pre-wrap">'
-        + esc(txt) + '</textarea>'};
-    }
+    title:'New Chat Handoff', src:'Copy, then paste into a fresh Claude chat to continue development',
+    desc:'Primes a new chat with the current state of the app. It deliberately does NOT include your GitHub token \u2014 a handoff containing one was pasted into another AI tool in July 2026 and the token had to be revoked and rotated. Give the new chat the token separately, only after it asks.',
+    render(){ return { custom: buildHandoffPane() }; }
   },
   ideas: {
     title:'Future Ideas', src:'Workbook · "Future Ideas" sheet',
@@ -4770,6 +4759,115 @@ function wireList(wrap, objs, backingArr){
   });
 }
 
+/* ===== NEW CHAT HANDOFF =====
+   Builds a briefing for a fresh Claude chat. NO TOKEN: an earlier handoff carried the
+   GitHub token into another AI tool and it had to be revoked and rotated, so the new
+   chat is told to ask for it instead. */
+function buildHandoffText(){
+  const revs=(typeof CHANGE_LOG!=='undefined'? CHANGE_LOG.slice(0,14) : []);
+  const recent=revs.map(r=>'  REV '+r.rev+' ('+r.date+'): '+String(r.note||'').slice(0,300)).join('\n');
+  let nQuotes=0; try{ nQuotes=(loadSaved()||[]).length; }catch(e){}
+  const L=[];
+  L.push('CAMCO MACHINING QUOTE APP \u2014 SESSION HANDOFF. Read fully before changing anything.');
+  L.push('');
+  L.push('CURRENT STATE: REV '+APP_REV+', built '+BUILD_DATE+' '+BUILD_TIME+'. '+nQuotes+' saved quotes.');
+  L.push('');
+  L.push('WHO: Rich Arnold (GitHub: richarnoldcamco), machinist at CAMCO, not a programmer.');
+  L.push('You do all the coding. He writes terse ALL-CAPS messages and confirms by screenshot,');
+  L.push('not by reading code. Give click-by-click instructions.');
+  L.push('');
+  L.push('WHAT: one single-file HTML app \u2014 a machining quote calculator ported from an Excel');
+  L.push('workbook. Runs from GitHub Pages, pinned to his taskbar as a PWA.');
+  L.push('');
+  L.push('REPOS \u2014 both must be updated on EVERY change, they hold the same file:');
+  L.push('  richarnoldcamco/QT-APP        index.html      (public, GitHub Pages, what he runs)');
+  L.push('  richarnoldcamco/Quote-Data    quote_app.html  (private, auto-update source)');
+  L.push('  quote-data.json in Quote-Data holds his quotes; drawings/ holds print images.');
+  L.push('');
+  L.push('TOKEN: do NOT ask him to paste a token into any tool other than this chat, and');
+  L.push('never echo it back. A previous handoff embedded the token in its text, he pasted');
+  L.push('that into another AI panel, and it had to be revoked and rotated (Jul 2026). Ask');
+  L.push('him for it when you first need to push, and keep it out of anything you display.');
+  L.push('');
+  L.push('HOW TO WORK ON IT (this method was arrived at the hard way):');
+  L.push('  1. Fetch index.html from QT-APP into your sandbox.');
+  L.push('  2. Patch with Python EXACT-STRING replace and an assert on the match count.');
+  L.push('     NEVER regex the HTML, and never slice by index ranges \u2014 a range slice silently');
+  L.push('     deleted ten lines at REV 125 and broke the importer.');
+  L.push('  3. Validate: extract every <script> block and run node --check on each.');
+  L.push('     node --check finds syntax errors ONLY. It will not catch a deleted variable,');
+  L.push('     so also assert that identifiers exist and are declared before use.');
+  L.push('  4. Push to BOTH repos via the Contents API, then re-read both and confirm the');
+  L.push('     sha matches and APP_REV is the new number.');
+  L.push('  5. Bump APP_REV, BUILD_TIME, BUILD_DATE and prepend a CHANGE_LOG entry every push.');
+  L.push('');
+  L.push('HARD-WON RULES \u2014 breaking these has cost whole sessions:');
+  L.push('  \u2022 position:fixed and vh units are forbidden inside #view-quote and #view-quotes.');
+  L.push('    Those carry zoom:1.2 (Ctrl+wheel), which multiplies them. This caused a full');
+  L.push('    revert at REV 64. #view-admin has no zoom, so vh is safe there.');
+  L.push('  \u2022 Any dialog-driven change must call autosaveNow(), never scheduleAutosave().');
+  L.push('    The debounce window lets the GitHub pull-on-focus restore stale data over it.');
+  L.push('  \u2022 Layout measurements are post-zoom; divide by sheetZoom before using them as');
+  L.push('    CSS values. See sizeThumbs() and liftDrawIntake() for the pattern.');
+  L.push('  \u2022 Reverts must ship as a HIGHER rev number \u2014 the auto-updater never downgrades.');
+  L.push('  \u2022 The ops grid has 36 columns summing to exactly 1487px. Adding one means');
+  L.push('    updating OP_COLS, the colgroup, both row templates, six footer colspans, the');
+  L.push('    drawing-mode hide ranges and the small-font range. Verify the sum before push.');
+  L.push('  \u2022 Before diagnosing a layout bug, confirm which VIEW he is in. Fourteen revisions');
+  L.push('    were spent fixing the drawing-mode pane when the problem was the calculations');
+  L.push('    thumbnail pane.');
+  L.push('');
+  L.push('RECENT WORK (newest first):');
+  L.push(recent);
+  L.push('');
+  L.push('OPEN ITEMS:');
+  L.push('  \u2022 Publish to Website button targets repo "quote-app"; should be "QT-APP". One word.');
+  L.push('  \u2022 Leadtime Premium is a stub returning $0 \u2014 awaiting his business rule.');
+  L.push('  \u2022 Excel import: he has ~147 legacy workbooks to bring in. Import five first to');
+  L.push('    collect operation names missing from the rate table, add them, then batch.');
+  L.push('  \u2022 Imported quotes show NEEDS REVIEW until approved on their own sheet.');
+  L.push('  \u2022 The AI weight estimator reads the print image; accuracy is limited by image');
+  L.push('    resolution. Median-of-three with geometry anchoring is already in place.');
+  L.push('  \u2022 Other apps (PFMEA, Control Plan, machinist-validation) are SEPARATE repos.');
+  L.push('    Do not assume a screenshot belongs to this app \u2014 check before editing.');
+  L.push('');
+  L.push('Ask him what he wants to work on. Do not start changing things unprompted.');
+  return L.join('\n');
+}
+function buildHandoffPane(){
+  const txt=buildHandoffText();
+  return '<div style="display:flex; gap:8px; margin-bottom:6px; align-items:center">'
+    + '<button class="btn" id="copyHandoff" type="button">\u{1F4CB} Copy handoff text</button>'
+    + '<span class="note" id="copyHandoffMsg"></span></div>'
+    + '<div class="note" style="margin-bottom:8px">No token is included \u2014 the new chat will ask for it when it needs to push.</div>'
+    + '<textarea id="handoffText" readonly style="width:100%; height:340px; font-family:ui-monospace,Consolas,monospace; font-size:11.5px; line-height:1.5; padding:10px; border:1px solid var(--cp-line); border-radius:8px; background:#fbfaf8; white-space:pre-wrap">'
+    + esc(txt) + '</textarea>';
+}
+/* top-bar button: same panel, reachable without going into Admin */
+function showHandoffPopup(){
+  let ov=document.getElementById('handoffOv'); if(ov){ ov.remove(); return; }
+  ov=document.createElement('div');
+  ov.id='handoffOv';
+  ov.style.cssText='position:fixed;inset:0;z-index:99993;background:rgba(20,10,10,.55);display:flex;align-items:center;justify-content:center';
+  const box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:12px;padding:20px 24px;max-width:900px;width:94vw;font:13px system-ui,sans-serif;color:#2a1315;box-shadow:0 8px 30px rgba(0,0,0,.4)';
+  box.innerHTML='<div style="font-weight:800;font-size:15px;margin-bottom:3px">\u{1F4AC} NEW CHAT PROMPT</div>'
+    + '<div style="font-size:11.5px;color:#6b5f5f;margin-bottom:10px">Copy this and paste it as the first message in a new Claude chat.</div>'
+    + buildHandoffPane()
+    + '<div style="margin-top:12px;text-align:right"><button id="handoffClose" style="font:700 12px system-ui;padding:6px 18px;border-radius:6px;border:1px solid #14273f;background:#2c4d7c;color:#fff;cursor:pointer">CLOSE</button></div>';
+  ov.appendChild(box);
+  ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
+  box.querySelector('#handoffClose').addEventListener('click', ()=>ov.remove());
+  document.body.appendChild(ov);
+  const cb=box.querySelector('#copyHandoff');
+  if(cb) cb.addEventListener('click', ()=>{
+    const ta=box.querySelector('#handoffText');
+    ta.select();
+    try{ document.execCommand('copy'); }catch(e){}
+    try{ navigator.clipboard.writeText(ta.value); }catch(e){}
+    const m=box.querySelector('#copyHandoffMsg'); if(m) m.textContent='\u2713 copied';
+  });
+}
 function renderAdmin(){
   const def = ADMIN_SECTIONS[adminSec]; if(!def) return;
   const built = def.render();

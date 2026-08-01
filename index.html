@@ -1390,6 +1390,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:119, date:"2026-08-01", note:"Excel import fixed \u2014 it was producing header-only quotes with no operations. Two causes: it read the operation name from the Description column, but in the workbook that column holds free-text notes and the real op name is in Workcenter (which also failed to match because the alias was spelled \u2018work center\u2019 and the sheet says \u2018Workcenter\u2019); and a single blank row in the op block ended the parse outright, discarding every op below it. Now the workcenter is the operation, the description becomes the row note, blank rows are tolerated, and the S.O./C.O. administrative lines are skipped since the app models those as global fees."},
   {rev:118, date:"2026-07-29", note:"Part numbers in Past Quotes no longer wrap onto two lines \u2014 the column holds them on one line and takes the width it needs, so 1044096-001 and 828-003-164 read whole at a glance."},
   {rev:117, date:"2026-07-28", note:"Green \u2714 SAVE button on every Admin table, beside + Add Row \u2014 forces the save and the GitHub push immediately and reports plainly what happened, same semantics as the quote sheet\u2019s Save. Also fixed a real bug the new Order Qty table exposed: the threshold lookup assumed ascending rows and returned nothing for a descending table; it now sorts internally, so rows work in whatever order they were typed."},
   {rev:116, date:"2026-07-28", note:"Quantity entry consolidated. The intake now asks ANNUAL USAGE plus a JOB TYPE toggle in the same cell \u2014 ONE-TIME JOB fills batch size and min order with the same qty; REPEAT JOB fills them from the new Admin \u2192 Order Qty By Annual Usage table (threshold lookup, same pattern as the volume discount \u2014 populate it with your standard order sizes). Batch and min order left the guided walk but stay in the header, auto-filled and still editable for overrides. Job type saves with the quote."},
@@ -1502,9 +1503,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 118;
-const BUILD_DATE = "2026-07-29";
-const BUILD_TIME = "17:20";           /* increments every build — check both machines match */
+const APP_REV = 119;
+const BUILD_DATE = "2026-08-01";
+const BUILD_TIME = "13:30";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -5665,8 +5666,12 @@ const IMP_LABELS = [
 ];
 /* op-table columns: [key, ...aliases]; first alias hit wins, longest aliases checked first */
 const IMP_OPCOLS = [
-  ['desc','description','operation description','operation','work center','machine'],
-  ['quote','quote','notes','comment'],
+  /* the operation NAME is the workcenter (it must match the rate table); the
+     Description column is free text and belongs in the note field. 'workcenter' is
+     listed as one word AND two — impNorm keeps them distinct. Description stays a
+     desc fallback for workbooks that have no workcenter column. */
+  ['desc','workcenter','work center','operation','machine','description','operation description'],
+  ['quote','description','quote','notes','comment'],
   ['extraInsp','extra inspection items'],
   ['setup','s u hrs','setup hrs','set up hrs','s u','setup'],
   ['cycle','cycle time','run time','c t mins','cycle'],
@@ -5759,12 +5764,20 @@ function parseQuoteGrid(grid){
   if(fixCols[0]!=null) colFor.fix1=fixCols[0];
   if(fixCols[1]!=null) colFor.fix2=fixCols[1];
   const unknownOps=new Set();
+  /* rows the app models elsewhere: MATERIAL and SAW are locked rows, and the S.O./C.O.
+     administrative lines are global fee settings — importing them as ops double-counts */
+  const SKIP_OPS=new Set(['material','saw','s o administrative','c o administrative',
+                          'engineering drawing','traveler','traveller']);
+  let blanks=0;
   for(let r=hr+1; r<grid.length; r++){
     const row=grid[r]||[];
     const opn=parseFloat(row[opCol]);
-    if(!isFinite(opn)) break;
+    /* a blank op number used to end the table outright — real sheets leave gaps between
+       op blocks, which silently truncated the import. Tolerate gaps, stop after 5. */
+    if(!isFinite(opn)){ if(++blanks>5) break; continue; }
+    blanks=0;
     const desc=String(row[colFor.desc]||'').trim();
-    if(!desc || desc==='Material' || desc==='Saw') continue;
+    if(!desc || SKIP_OPS.has(impNorm(desc))) continue;
     const num=k=> colFor[k]!=null ? (parseFloat(cleanNum(row[colFor[k]]))||0) : 0;
     if(desc && !opByName[desc]) unknownOps.add(desc);
     ops.push({op:opn, desc, quote:String(row[colFor.quote]||''),

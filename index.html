@@ -611,7 +611,11 @@
 
   /* ===== dedicated Past Quotes screen ===== */
   main#view-quotes{zoom:1.2; padding:18px 22px; font-family:var(--ui)}
-  .quotes-shell{max-width:980px}
+  /* was 980px, which cut the OPEN/DELETE buttons off the right edge once the part-number
+   column stopped wrapping. Fills the window instead, with a ceiling so it stays
+   readable on a very wide monitor. The zoom:1.2 on this view is why the cap is
+   expressed against the zoomed width. */
+.quotes-shell{max-width:none; width:100%}
   .qr-card{background:var(--cp-panel); border:1px solid var(--cp-line); border-radius:var(--r); box-shadow:var(--cp-shadow-lg); overflow:hidden}
   .qr-head{padding:16px 18px 13px; border-bottom:1px solid var(--cp-line)}
   .qr-head h2{margin:0; font-size:17px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--cp-signal)}
@@ -676,6 +680,7 @@
   .qtable td.qno{font-weight:400; font-size:9px; white-space:nowrap; color:var(--cp-dim)}
   /* part numbers never wrap — the column takes whatever width the longest one needs */
   .qtable td.partno{white-space:nowrap; min-width:140px}
+  .qtable td.acts{white-space:nowrap; text-align:right; padding-right:12px}
   .qtable tr:hover td{background:#faf8f5}
   .qtable tr.active td{background:#f7e9e9}
   .qtable .ednow{font-size:9.5px; font-weight:800; color:var(--cp-signal); text-transform:uppercase; letter-spacing:.05em}
@@ -1417,6 +1422,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:129, date:"2026-08-01", note:"Past Quotes now uses the full window width. The panel was capped at 980px, which pushed the OPEN and DELETE buttons off the right edge once part numbers stopped wrapping onto two lines; the buttons are back on screen and the columns have room to breathe."},
   {rev:128, date:"2026-08-01", note:"Fixes \u201crec is not defined\u201d on import, introduced in rev 125. The edit that improved the original-sheet capture removed ten lines with it \u2014 the block that builds the quote record, runs it through the costing engine and stores its price \u2014 so every import failed at that point. Restored."},
   {rev:127, date:"2026-08-01", note:"The Admin screen no longer scrolls the whole page. It now fills the window exactly: the left rail is compressed so all of its items fit at once, and the rail and the content pane each scroll inside themselves only if their own content demands it \u2014 so the rail stays put and nothing slides off the top."},
   {rev:126, date:"2026-08-01", note:"Compare-to-workbook now explains itself when there is nothing to compare. Quotes imported before the app began capturing the source figures have no workbook totals or sheet copy stored, and the window was showing an empty table of dashes as though the workbook had no prices; it now says plainly that the quote predates the capture and that re-importing the file will record them."},
@@ -1539,9 +1545,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 128;
+const APP_REV = 129;
 const BUILD_DATE = "2026-08-01";
-const BUILD_TIME = "18:06";           /* increments every build — check both machines match */
+const BUILD_TIME = "18:32";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */

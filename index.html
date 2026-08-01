@@ -1426,6 +1426,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:134, date:"2026-08-01", note:"Publish to Website now points at the right repo. The button and the prompt both defaulted to \u201cquote-app\u201d, which is not a repo that exists \u2014 publishing from that button would have failed or, worse, created a stray repo. Both now read QT-APP, the repo GitHub Pages actually serves. The stale note about it has been dropped from the new-chat briefing."},
   {rev:133, date:"2026-08-01", note:"\u{1F4AC} NEW CHAT PROMPT button added to the top bar. It opens a briefing for a fresh Claude chat \u2014 current rev, both repos, the patch-and-verify method, the hard-won layout and autosave rules, recent revisions and the open items \u2014 with a copy button. It deliberately no longer embeds the GitHub token: the previous handoff did, that text was pasted into another AI tool in July, and the token had to be revoked and rotated. The new chat is told to ask for the token instead."},
   {rev:132, date:"2026-08-01", note:"Customer, part-number and buyer autocomplete now match only from the START of the name. Typing L used to offer EATON and MOLEX because the match ran anywhere in the text; it now lists only names beginning with what was typed, and says so plainly when none do."},
   {rev:131, date:"2026-08-01", note:"During a new-quote intake the drawing reclaims the band above it: the step banner and the VIEW bar are slimmed down, and the drawing pane lifts up beside the view buttons instead of starting below them. Guarded the same way as the calculations-view lift \u2014 it measures where the last view button actually ends and only lifts when the drawing clears it, so the buttons can never be covered."},
@@ -1553,9 +1554,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 133;
+const APP_REV = 134;
 const BUILD_DATE = "2026-08-01";
-const BUILD_TIME = "20:02";           /* increments every build — check both machines match */
+const BUILD_TIME = "21:15";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let matVerified=false;       /* material price checked for THIS quote (resets when material changes) */
@@ -4583,7 +4584,7 @@ const ADMIN_SECTIONS = {
           <summary style="cursor:pointer;font-weight:700;font-size:12.5px">🛠️ Advanced — rarely needed</summary>
           <div class="adm-actions" style="margin-top:10px">
             <button class="add" id="ghPushAppBtn" style="background:#fff;color:#581010">Push App Code (this REV → data repo)</button>
-            <button class="add" id="ghPublishBtn" style="background:#fff;color:#581010">Publish to Website (→ quote-app repo)</button>
+            <button class="add" id="ghPublishBtn" style="background:#fff;color:#581010">Publish to Website (→ QT-APP repo)</button>
             <button class="add" id="ghResetBtn" style="background:#fff;color:#a00">Reset Data on this device…</button>
           </div>
           <div class="note" style="margin-top:6px">Push App Code and Publish include a never-downgrade guard — they refuse to overwrite a newer REV on GitHub without a typed confirmation.</div>
@@ -4622,7 +4623,7 @@ const ADMIN_SECTIONS = {
         });
         container.querySelector('#ghPushAppBtn').addEventListener('click', ()=>pushAppCode(true).catch(e=>ghStatus('App push failed: '+e.message,false)));
         container.querySelector('#ghPublishBtn').addEventListener('click', async ()=>{
-          const site=prompt('Publish this REV to the PUBLIC website repo. Repo name:', 'quote-app');
+          const site=prompt('Publish this REV to the PUBLIC website repo. Repo name:', 'QT-APP');
           if(!site) return;
           try{
             const c=ghCfg();
@@ -4821,7 +4822,6 @@ function buildHandoffText(){
   L.push(recent);
   L.push('');
   L.push('OPEN ITEMS:');
-  L.push('  \u2022 Publish to Website button targets repo "quote-app"; should be "QT-APP". One word.');
   L.push('  \u2022 Leadtime Premium is a stub returning $0 \u2014 awaiting his business rule.');
   L.push('  \u2022 Excel import: he has ~147 legacy workbooks to bring in. Import five first to');
   L.push('    collect operation names missing from the rate table, add them, then batch.');

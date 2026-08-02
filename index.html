@@ -459,6 +459,7 @@
      inline on .dz-viewport; do NOT override that with an !important rule here, which is
      what made the pane balloon in rev 65. max-width caps it on very wide prints. */
   .drawwrap{flex:0 1 auto; min-width:0; width:auto; max-width:50%; margin:0 8px 8px 0; font-family:var(--ui)}
+  body.intake-panel-on .drawwrap{flex:1 1 0; max-width:none}
   body.draw-max .drawwrap{max-width:none}
   .drawwrap h3{font-size:12px; margin:0 0 4px; text-transform:uppercase; letter-spacing:.03em}
   .drawzone{
@@ -1430,6 +1431,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:139, date:"2026-08-02", note:"The drawing now takes every pixel left over during intake instead of stopping at half the sheet. The pane carried a hard 50% width cap, which is the right rule in CALCULATIONS mode where the ops grid sits alongside and wants its half \u2014 but during intake the left-hand side is a fixed 620px field panel, so the cap stranded everything right of the drawing as dead grey, and on a wide or zoomed-out window that was most of the screen. With the pane free to spread, a landscape print stops being limited by width and becomes limited by height, so it also fills down to the bottom edge rather than leaving a band under it. Nothing changed in CALCULATIONS mode."},
   {rev:138, date:"2026-08-02", note:"Drawings now sit at the TOP of the viewing pane instead of floating in the middle of it. A landscape print fitted to the pane width is shorter than the pane is tall, and the fit was centring it vertically, so every wide drawing opened behind a band of empty grey and the title block sat lower than it needed to. FIT, page changes, rotations and tone passes all land against the top edge now. Zoom and pan are untouched \u2014 the drawing still moves anywhere you drag it; this only changes where it starts."},
   {rev:137, date:"2026-08-01", note:"COST CLASS column added to Machine Rates &amp; Leadtime \u2014 a dropdown on every work centre reading MACHINING or SUBCONTRACT. It settles what the Leadtime Premium is allowed to multiply: a SUBCONTRACT work centre passes through whole, while a MACHINING row passes through only the explicit Sub $/Pc and Sub Cost/Batch dollars typed on it. Existing rows are classed automatically \u2014 anything starting \u201cSub\u201d becomes SUBCONTRACT, everything else MACHINING \u2014 so nothing needs setting up before quoting, but every row can be corrected. Outside processes that are not named \u201cSub\u201d \u2014 Paint, Bead Blast, Vergason coating and the like \u2014 are worth a look, since the seeding cannot guess those. The Admin table editor gained dropdown columns to support this."},
   {rev:136, date:"2026-08-01", note:"Leadtime Premium rebuilt on Rich\u2019s own formulas. The premium is no longer a markup on the whole price \u2014 it follows the workbook: new price = material + subcontract + FACTOR \u00d7 all other costs. Only the third bucket moves, because overtime does not make the bar arrive sooner or the heat treater run faster; material dollars and the per-row subcontract dollars pass straight through. The Admin table\u2019s right column is now a FACTOR, seeded with his figures \u2014 10% reduction \u00d7 1.4, 20% \u00d7 1.66, 30% \u00d7 1.9, 40% \u00d7 2.2, 50% \u00d7 2.6 \u2014 and below the lowest row there is no premium at all. The rev-135 placeholder table, which held fractions, is detected and replaced automatically rather than left to misprice quietly. Hovering the Leadtime Premium label now shows the whole sum: which dollars passed through, which were multiplied, and by what."},
@@ -1562,9 +1564,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 138;
+const APP_REV = 139;
 const BUILD_DATE = "2026-08-02";
-const BUILD_TIME = "09:20";           /* increments every build — check both machines match */
+const BUILD_TIME = "13:30";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */

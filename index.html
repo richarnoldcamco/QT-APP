@@ -425,20 +425,23 @@
      height on the right. Moving preserves ids, values and listeners; everything is put
      back in its original cell when the intake finishes. */
   .intake-panel{
-    flex:0 0 620px; width:620px; margin:0 10px 8px 0;
+    flex:0 0 1240px; width:1240px; margin:0 10px 8px 0;
     display:grid; grid-template-columns:1fr 1fr; gap:2px 14px;
     align-content:start; font-family:var(--ui);
   }
-  .ip-row{display:flex; align-items:center; gap:6px; min-width:0; padding:1px 0}
+  .ip-row{display:flex; align-items:center; gap:10px; min-width:0; padding:3px 0}
   .ip-lab{
-    flex:0 0 132px; text-align:right; font-size:10.5px; font-weight:700;
+    flex:0 0 264px; text-align:right; font-size:21px; font-weight:700;
     letter-spacing:.01em; color:var(--cp-ink); line-height:1.15;
   }
   .ip-val{flex:1 1 auto; min-width:0; position:relative; display:flex; align-items:center; gap:4px}
   .ip-val input, .ip-val select{
-    width:100%; min-width:0; font-size:11px; padding:2px 4px;
+    width:100%; min-width:0; font-size:22px; padding:4px 8px;
     border:1px solid var(--cp-line); border-radius:3px; background:var(--yellow);
   }
+  /* the job-type dropdown carries an inline font-size:9px from the header table,
+     so overriding it needs the !important */
+  body.intake-panel-on .ip-val select#jobType{font-size:18px !important}
   .ip-val input.guide-cur, .ip-val select.guide-cur{outline:2px solid var(--cp-signal); outline-offset:1px}
   .ip-val .ac-menu{top:100%; left:0}
   .intake-panel .ip-row.wide{grid-column:1 / -1}
@@ -460,6 +463,7 @@
      what made the pane balloon in rev 65. max-width caps it on very wide prints. */
   .drawwrap{flex:0 1 auto; min-width:0; width:auto; max-width:50%; margin:0 8px 8px 0; font-family:var(--ui)}
   body.intake-panel-on .drawwrap{flex:1 1 0; max-width:none}
+  body.intake-panel-on .dz-viewport{margin-left:auto; margin-right:0}
   body.draw-max .drawwrap{max-width:none}
   .drawwrap h3{font-size:12px; margin:0 0 4px; text-transform:uppercase; letter-spacing:.03em}
   .drawzone{
@@ -1431,6 +1435,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:140, date:"2026-08-02", note:"Intake field text doubled \u2014 labels 10.5px to 21px, the boxes 11px to 22px, with the rows opened up to match \u2014 and the drawing pushed over to the right edge of its pane so any slack sits between the fields and the print rather than off the right of the screen. The panel had to widen from 620 to 1240 to hold two columns of text at that size, which is width the drawing no longer has: on a 2570px window the print drops from about 1180 to 880 wide and stops reaching the bottom edge. If that trade is the wrong way round, the fix is to stack the fields in ONE column \u2014 same big text, half the width, and the drawing keeps its full size."},
   {rev:139, date:"2026-08-02", note:"The drawing now takes every pixel left over during intake instead of stopping at half the sheet. The pane carried a hard 50% width cap, which is the right rule in CALCULATIONS mode where the ops grid sits alongside and wants its half \u2014 but during intake the left-hand side is a fixed 620px field panel, so the cap stranded everything right of the drawing as dead grey, and on a wide or zoomed-out window that was most of the screen. With the pane free to spread, a landscape print stops being limited by width and becomes limited by height, so it also fills down to the bottom edge rather than leaving a band under it. Nothing changed in CALCULATIONS mode."},
   {rev:138, date:"2026-08-02", note:"Drawings now sit at the TOP of the viewing pane instead of floating in the middle of it. A landscape print fitted to the pane width is shorter than the pane is tall, and the fit was centring it vertically, so every wide drawing opened behind a band of empty grey and the title block sat lower than it needed to. FIT, page changes, rotations and tone passes all land against the top edge now. Zoom and pan are untouched \u2014 the drawing still moves anywhere you drag it; this only changes where it starts."},
   {rev:137, date:"2026-08-01", note:"COST CLASS column added to Machine Rates &amp; Leadtime \u2014 a dropdown on every work centre reading MACHINING or SUBCONTRACT. It settles what the Leadtime Premium is allowed to multiply: a SUBCONTRACT work centre passes through whole, while a MACHINING row passes through only the explicit Sub $/Pc and Sub Cost/Batch dollars typed on it. Existing rows are classed automatically \u2014 anything starting \u201cSub\u201d becomes SUBCONTRACT, everything else MACHINING \u2014 so nothing needs setting up before quoting, but every row can be corrected. Outside processes that are not named \u201cSub\u201d \u2014 Paint, Bead Blast, Vergason coating and the like \u2014 are worth a look, since the seeding cannot guess those. The Admin table editor gained dropdown columns to support this."},
@@ -1564,9 +1569,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 139;
+const APP_REV = 140;
 const BUILD_DATE = "2026-08-02";
-const BUILD_TIME = "13:30";           /* increments every build — check both machines match */
+const BUILD_TIME = "13:55";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */

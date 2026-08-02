@@ -990,7 +990,7 @@
     </tr>
 
     <tr>
-      <td class="c-yellow" style="white-space:nowrap"><input id="annualUsage" type="number" value="1000" style="width:52%"><select id="jobType" title="ONE-TIME: batch and min order = annual qty. REPEAT: batch and min order come from the Admin → Order Qty table." style="width:46%;font-size:9px"><option>ONE-TIME JOB</option><option>REPEAT JOB</option></select></td>
+      <td class="c-yellow" style="white-space:nowrap"><input id="annualUsage" type="number" value="1000" style="width:52%"><select id="jobType" title="ONE-TIME: batch and min order = annual qty. REPEAT: batch and min order come from the Admin → Order Qty table." style="width:46%;font-size:9px"><option value="">— PICK —</option><option>ONE-TIME JOB</option><option>REPEAT JOB</option></select></td>
       <td class="lbl-l">Annual Usage</td>
       <td class="lbl-r">36" Bar or Slugged</td>
       <td class="c-yellow"><select id="barForm">
@@ -1333,6 +1333,30 @@ function ensureBuyers(){
   }
   if(changed){ TABLES.buyers.sort((a,b)=>a.localeCompare(b)); saveTables(); }
 }
+/* Buyer e-mail addresses, keyed on the UPPERCASED name so lookups survive the
+   way the same person gets typed differently from one RFQ to the next. Kept
+   alongside TABLES.buyers rather than folded into it, so the existing list
+   plumbing and the buyer autocomplete carry on working on plain strings. */
+function ensureBuyerEmails(){
+  if(!TABLES.buyerEmails || typeof TABLES.buyerEmails!=='object') TABLES.buyerEmails={};
+}
+function buyerEmail(name){
+  ensureBuyerEmails();
+  return TABLES.buyerEmails[String(name||'').trim().toUpperCase()] || '';
+}
+function setBuyerEmail(name, email){
+  ensureBuyerEmails();
+  const k=String(name||'').trim().toUpperCase();
+  if(!k) return;
+  const e=String(email||'').trim();
+  if(e) TABLES.buyerEmails[k]=e; else delete TABLES.buyerEmails[k];
+  saveTables();
+  scheduleGhPush();
+}
+function isBuyerKnown(v){
+  return (TABLES.buyers||[]).some(x=>String(x).toUpperCase()===String(v||'').trim().toUpperCase());
+}
+window.__buyerEmail=buyerEmail;
 function addBuyerIfNew(v){
   v=String(v||'').trim();
   if(!v) return false;
@@ -1432,10 +1456,66 @@ attachAutocomplete('customer','ac-customer', ()=>TABLES.customers);
 })();
 attachAutocomplete('partNo','ac-partNo', ()=>TABLES.parts);
 attachAutocomplete('buyer','ac-buyer', ()=>TABLES.buyers||[]);
-$('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
+$('buyer').addEventListener('change', ()=>{
+  const v=String($('buyer').value||'').trim();
+  if(!v) return;
+  if(isBuyerKnown(v)) return;          /* already on the list: nothing to ask */
+  openNewBuyer(v);
+});
+/* A name that is not on the list is a new buyer, and a new buyer needs an e-mail
+   address before the quote can be sent anywhere. Asking at the moment of typing
+   beats discovering it is missing at send time. */
+function openNewBuyer(name){
+  if($('nbOv')) return;
+  const ov=document.createElement('div');
+  ov.className='ov'; ov.id='nbOv'; ov.style.display='flex';
+  ov.innerHTML=`<div class="modal" style="width:560px; max-width:94vw">
+    <h3 style="margin:0 0 6px">New buyer</h3>
+    <div class="note" style="margin-bottom:12px"><b>${esc(name)}</b> is not on the buyer list yet.
+      Add the e-mail address and this buyer is remembered for every future quote.</div>
+    <div style="display:flex; gap:8px; align-items:center">
+      <div style="flex:0 0 120px; text-align:right; font-weight:700">E-MAIL</div>
+      <input id="nbEmail" type="email" placeholder="name@company.com" style="flex:1 1 auto; padding:6px 8px">
+    </div>
+    <div class="note" id="nbErr" style="color:#a11; margin:8px 0 0 128px" hidden></div>
+    <div class="btns" style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px">
+      <button class="btn" id="nbCancel">Cancel</button>
+      <button class="btn" id="nbSkip">ADD WITHOUT E-MAIL</button>
+      <button class="btn primary" id="nbOk">\u2713 ADD BUYER</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  const box=$('nbEmail'), err=$('nbErr');
+  setTimeout(()=>box.focus(), 30);
+  const shut=()=>ov.remove();
+  const commitBuyer=(email)=>{
+    addBuyerIfNew(name);
+    setBuyerEmail(name, email);
+    shut();
+    /* autosaveNow, never scheduleAutosave: the debounce window lets a GitHub
+       pull-on-focus put the old header back over this one. */
+    if(typeof autosaveNow==='function') autosaveNow();
+  };
+  $('nbOk').addEventListener('click', ()=>{
+    const e=String(box.value||'').trim();
+    if(!e || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){
+      err.textContent = e ? 'That does not look like an e-mail address.' : 'Enter an e-mail address, or use ADD WITHOUT E-MAIL.';
+      err.hidden=false; box.focus(); return;
+    }
+    commitBuyer(e);
+  });
+  $('nbSkip').addEventListener('click', ()=>commitBuyer(''));
+  $('nbCancel').addEventListener('click', ()=>{
+    shut();
+    const b=$('buyer');
+    if(b){ b.value=''; b.dispatchEvent(new Event('input',{bubbles:true})); b.focus(); }
+  });
+  box.addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); $('nbOk').click(); } });
+}
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:142, date:"2026-08-02", note:"JOB TYPE is now a real question. It used to sit on ONE-TIME JOB as a default and the guided walk stepped straight past it, so a repeat job could be quoted with one-time batch sizes and nothing ever asked. It opens on \u2014 PICK \u2014, it is a stop on the walk (24 steps now, not 23), and until it is answered BATCH SIZE and MIN ORDER QTY stay empty rather than being filled from a guess. Second: typing a buyer who is not on the list opens a box asking for their e-mail address. It used to add them silently with no way to reach them. The e-mail is remembered against the name for every future quote, and there is an ADD WITHOUT E-MAIL button for when it is not to hand. Buyers and their e-mails are both editable in Admin \u2192 People &amp; Lists, and renaming a buyer carries their address across."},
   {rev:141, date:"2026-08-02", note:"Intake fields up another 20% \u2014 labels 25px, boxes 26px \u2014 and the clipped labels fixed. The label column is right-aligned, so text too long for its box spilled off the LEFT, out of the sheet and off the edge of the window: that is why BAR STOCK, CASTING, OR read as AR STOCK. The column grew from 264 to 360px, more than the 20% the text did, since matching the text would have kept the same overflow. It also wraps rather than spilling now, so no field size can push a label off screen again. The panel is 1520px and may shrink rather than force the sheet wider than the window. The drawing gives up the width: on a 2570px screen it is down to roughly 600px, about half what it had at rev 139. Stacking the fields in ONE column would give that back."},
   {rev:140, date:"2026-08-02", note:"Intake field text doubled \u2014 labels 10.5px to 21px, the boxes 11px to 22px, with the rows opened up to match \u2014 and the drawing pushed over to the right edge of its pane so any slack sits between the fields and the print rather than off the right of the screen. The panel had to widen from 620 to 1240 to hold two columns of text at that size, which is width the drawing no longer has: on a 2570px window the print drops from about 1180 to 880 wide and stops reaching the bottom edge. If that trade is the wrong way round, the fix is to stack the fields in ONE column \u2014 same big text, half the width, and the drawing keeps its full size."},
   {rev:139, date:"2026-08-02", note:"The drawing now takes every pixel left over during intake instead of stopping at half the sheet. The pane carried a hard 50% width cap, which is the right rule in CALCULATIONS mode where the ops grid sits alongside and wants its half \u2014 but during intake the left-hand side is a fixed 620px field panel, so the cap stranded everything right of the drawing as dead grey, and on a wide or zoomed-out window that was most of the screen. With the pane free to spread, a landscape print stops being limited by width and becomes limited by height, so it also fills down to the bottom edge rather than leaving a band under it. Nothing changed in CALCULATIONS mode."},
@@ -1571,9 +1651,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 141;
+const APP_REV = 142;
 const BUILD_DATE = "2026-08-02";
-const BUILD_TIME = "14:20";           /* increments every build — check both machines match */
+const BUILD_TIME = "15:05";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -1856,7 +1936,8 @@ function orderQtyLookup(usage){
 function applyJobQty(){
   const a=parseInt(($('annualUsage')&&$('annualUsage').value)||'',10);
   if(!(a>0)) return;
-  const jt=($('jobType')&&$('jobType').value)||'ONE-TIME JOB';
+  const jt=($('jobType')&&$('jobType').value)||'';
+  if(!jt) return;                    /* nothing picked yet: do not guess a batch size */
   let q = (jt==='REPEAT JOB') ? orderQtyLookup(a) : a;
   if(!(q>0)) q=a;   /* empty table → fall back to the annual qty */
   if($('batchSize'))   $('batchSize').value=q;
@@ -4154,6 +4235,7 @@ if(_sn) _sn.addEventListener('click', async ()=>{
 ['annualUsage','jobType'].forEach(id=>{
   const el=$(id);
   if(el) el.addEventListener('input', ()=>{ applyJobQty(); renderAll(); });
+  if(el && el.tagName==='SELECT') el.addEventListener('change', ()=>{ applyJobQty(); renderAll(); });
 });
 { const _nc=$('newChatBtn'); if(_nc) _nc.addEventListener('click', showHandoffPopup); }
 $('newQuote').addEventListener('click', ()=>{ startNewQuote(); quoteFinalized=false; updateFinalizeBtn(); if(window.__matAutoReset) window.__matAutoReset(false); switchView('quote'); updateOddBtn(); setTimeout(startGuide, 100); });
@@ -4805,12 +4887,13 @@ const ADMIN_SECTIONS = {
   },
   lists: {
     title:'People & Lists', src:'Workbook · "Quoting Person" / "Salesman" sheets',
-    desc:'Quoting staff, salesmen, and buyers shown in the Quote screen dropdowns. Typing a new buyer on a quote adds them to the list automatically.',
+    desc:'Quoting staff, salesmen, and buyers shown in the Quote screen dropdowns. Typing a name that is not on the buyer list pops a box on the quote asking for their e-mail address, and both are stored here.',
     render(){
       if(!Array.isArray(TABLES.buyers)) TABLES.buyers=[];
       const q = TABLES.quoters.map(n=>({name:n}));
       const s = TABLES.salesmen.map(n=>({name:n}));
-      const b = TABLES.buyers.map(n=>({name:n}));
+      ensureBuyerEmails();
+      const b = TABLES.buyers.map(n=>({name:n, email:buyerEmail(n)}));
       const html = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px">
         <div><div class="rail-head" style="padding-left:2px">Quoting People</div>
           ${editableTable(q,[{key:'name',label:'Name',type:'txt'}],{deletable:true})}
@@ -4819,14 +4902,14 @@ const ADMIN_SECTIONS = {
           ${editableTable(s,[{key:'name',label:'Name',type:'txt'}],{deletable:true})}
           <div class="adm-actions"><button class="add" data-add="s">+ Add salesman</button></div></div>
         <div><div class="rail-head" style="padding-left:2px">Buyers</div>
-          ${editableTable(b,[{key:'name',label:'Name',type:'txt'}],{deletable:true})}
+          ${editableTable(b,[{key:'name',label:'Name',type:'txt'},{key:'email',label:'E-mail',type:'txt'}],{deletable:true})}
           <div class="adm-actions"><button class="add" data-add="b">+ Add buyer</button></div>
           <div class="note" style="margin-top:6px">Typing a new name in the quote's Buyer field adds it here automatically.</div></div></div>`;
       return {custom:html, wire(container){
         const wraps = container.querySelectorAll('.tbl-wrap');
         wireList(wraps[0], q, TABLES.quoters);
         wireList(wraps[1], s, TABLES.salesmen);
-        wireList(wraps[2], b, TABLES.buyers);
+        wireBuyerList(wraps[2], b);
         container.querySelector('[data-add="q"]').addEventListener('click',()=>{ TABLES.quoters.push('New Person'); renderAdmin(); commit(); });
         container.querySelector('[data-add="s"]').addEventListener('click',()=>{ TABLES.salesmen.push('New Salesman'); renderAdmin(); commit(); });
         container.querySelector('[data-add="b"]').addEventListener('click',()=>{ TABLES.buyers.push('New Buyer'); renderAdmin(); commit(); });
@@ -4866,6 +4949,41 @@ function wireHandoffCopy(){
     catch(e){ ta.select(); try{ document.execCommand('copy'); }catch(_){} }
     const m=document.getElementById('copyHandoffMsg');
     if(m){ m.textContent='\u2713 Copied \u2014 paste into a new Claude chat.'; setTimeout(()=>{ if(m) m.textContent=''; },4000); }
+  });
+}
+/* The buyers table carries two columns, so it cannot use wireList -- that one
+   writes whatever cell was edited into .name regardless of which column it was.
+   Renaming a buyer moves their e-mail across with them rather than orphaning it. */
+function wireBuyerList(wrap, objs){
+  ensureBuyerEmails();
+  wrap.querySelectorAll('input[data-k]').forEach(el=>{
+    el.addEventListener('input', e=>{
+      const i=+e.target.dataset.i, k=e.target.dataset.k, v=e.target.value;
+      if(k==='name'){
+        const old=objs[i].name;
+        objs[i].name=v; TABLES.buyers[i]=v;
+        const oldKey=String(old||'').trim().toUpperCase();
+        if(oldKey && TABLES.buyerEmails[oldKey]!=null){
+          const kept=TABLES.buyerEmails[oldKey];
+          delete TABLES.buyerEmails[oldKey];
+          const newKey=String(v||'').trim().toUpperCase();
+          if(newKey) TABLES.buyerEmails[newKey]=kept;
+        }
+      }else{
+        objs[i].email=v;
+        setBuyerEmail(objs[i].name, v);
+      }
+      commit();
+    });
+  });
+  wrap.querySelectorAll('button[data-del]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const i=+btn.dataset.del;
+      const key=String(objs[i].name||'').trim().toUpperCase();
+      if(key) delete TABLES.buyerEmails[key];
+      objs.splice(i,1); TABLES.buyers.splice(i,1);
+      renderAdmin(); commit();
+    });
   });
 }
 function wireList(wrap, objs, backingArr){
@@ -5143,7 +5261,7 @@ $('matQuoteFile').addEventListener('change', async e=>{
 window.__openMaterialVerify=openMaterialVerify;
 
 /* ===== GUIDED INTAKE: New Quote walks every yellow mandatory field before the grid unlocks ===== */
-const GUIDE_ORDER=['customer','partNo','annualUsage','buyer',
+const GUIDE_ORDER=['customer','partNo','annualUsage','jobType','buyer',
                    'material','priceLevel','barForm','barOverride','faiReq','difficulty',
                    'barDia','partLength','extraLength','chuckExtra','stockForm','faiDims',
                    'scrapPct','quotedBy','salesman','faiQty','nreSep','barLen'];

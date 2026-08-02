@@ -1430,6 +1430,7 @@ $('buyer').addEventListener('change', ()=>addBuyerIfNew($('buyer').value));
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:138, date:"2026-08-02", note:"Drawings now sit at the TOP of the viewing pane instead of floating in the middle of it. A landscape print fitted to the pane width is shorter than the pane is tall, and the fit was centring it vertically, so every wide drawing opened behind a band of empty grey and the title block sat lower than it needed to. FIT, page changes, rotations and tone passes all land against the top edge now. Zoom and pan are untouched \u2014 the drawing still moves anywhere you drag it; this only changes where it starts."},
   {rev:137, date:"2026-08-01", note:"COST CLASS column added to Machine Rates &amp; Leadtime \u2014 a dropdown on every work centre reading MACHINING or SUBCONTRACT. It settles what the Leadtime Premium is allowed to multiply: a SUBCONTRACT work centre passes through whole, while a MACHINING row passes through only the explicit Sub $/Pc and Sub Cost/Batch dollars typed on it. Existing rows are classed automatically \u2014 anything starting \u201cSub\u201d becomes SUBCONTRACT, everything else MACHINING \u2014 so nothing needs setting up before quoting, but every row can be corrected. Outside processes that are not named \u201cSub\u201d \u2014 Paint, Bead Blast, Vergason coating and the like \u2014 are worth a look, since the seeding cannot guess those. The Admin table editor gained dropdown columns to support this."},
   {rev:136, date:"2026-08-01", note:"Leadtime Premium rebuilt on Rich\u2019s own formulas. The premium is no longer a markup on the whole price \u2014 it follows the workbook: new price = material + subcontract + FACTOR \u00d7 all other costs. Only the third bucket moves, because overtime does not make the bar arrive sooner or the heat treater run faster; material dollars and the per-row subcontract dollars pass straight through. The Admin table\u2019s right column is now a FACTOR, seeded with his figures \u2014 10% reduction \u00d7 1.4, 20% \u00d7 1.66, 30% \u00d7 1.9, 40% \u00d7 2.2, 50% \u00d7 2.6 \u2014 and below the lowest row there is no premium at all. The rev-135 placeholder table, which held fractions, is detected and replaced automatically rather than left to misprice quietly. Hovering the Leadtime Premium label now shows the whole sum: which dollars passed through, which were multiplied, and by what."},
   {rev:135, date:"2026-08-01", note:"Leadtime Premium is live. A REQUESTED LEADTIME box \u2014 yellow, bottom right of the ops grid on the Leadtime Premium row \u2014 takes the calendar days the customer is asking for. The quote works out how hard that squeezes the schedule as a PERCENT REDUCTION off our own estimate: (estimate \u2212 requested) \u00f7 estimate. That percentage is looked up in a new Admin table, \u2018Leadtime Premium\u2019, which returns a markup as a fraction of price \u2014 same shape as the Annual Volume and Repeat-Parts tables, add and delete rows, synced to GitHub. Because it works in percent rather than days, the same squeeze costs the same on a 20-day job and a 200-day job. Leaving the box blank, or asking for more days than the estimate, gives no premium. The label reads back the reduction it found (\u2018Leadtime Premium \u2014 25% faster\u2019) so the number is never a mystery. Starting figures are placeholders \u2014 set the real ones in Admin. Also fixed: the premium was missing from the compute result entirely, so the mini-totals strip had been showing a blank for it."},
@@ -1561,9 +1562,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 137;
-const BUILD_DATE = "2026-08-01";
-const BUILD_TIME = "23:55";           /* increments every build — check both machines match */
+const APP_REV = 138;
+const BUILD_DATE = "2026-08-02";
+const BUILD_TIME = "09:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -3071,7 +3072,11 @@ document.addEventListener('paste', e=>{
     const vw=vp.clientWidth||660, vh=vp.clientHeight||520;
     if(vw<10||vh<10){ s=1; tx=ty=0; applyView(); return; }
     s=Math.min(vw/w, vh/hgt);
-    tx=(vw - w*s)/2; ty=(vh - hgt*s)/2;
+    /* Horizontally centred, vertically TOP justified. A landscape print fitted to
+       the pane width is shorter than the pane, and centring it used to push the
+       whole drawing down behind an empty band. Zoom and pan still move it freely
+       from here; this only sets where FIT puts it. */
+    tx=(vw - w*s)/2; ty=0;
     applyView();
   }
   function zoomAt(cx, cy, f){

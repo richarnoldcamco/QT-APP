@@ -368,6 +368,13 @@
   }
   .btn.topbtn.ghost{background:linear-gradient(180deg,#31465f,#22334a); color:#e6ecf4; border:1px solid #182739; border-top-color:#4c6786}
   .btn.topbtn.ghost:hover{filter:brightness(1.15)}
+  /* RFQ e-mail attached: colour carries this, not wording */
+  .btn.topbtn.hasrfq{
+    background:linear-gradient(180deg,#34a95a 0%,#23883f 50%,#186a2f 100%);
+    border:1px solid #0f4a20; border-top-color:#7fd79a; color:#fff;
+    box-shadow:0 0 0 2px rgba(52,169,90,.35);
+  }
+  .btn.topbtn.hasrfq:hover{filter:brightness(1.12)}
   /* EMAIL: its own colour so it reads as the send action, not another dark chip */
   /* glossy blue pill modelled on the reference button */
   .btn.topbtn.mailbtn{
@@ -1525,6 +1532,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:144, date:"2026-08-07", note:"You can now see at a glance that a buyer\u2019s RFQ e-mail is attached. The button did already change its wording, but it sat among seven other dark blue chips in the top bar, so nothing about it caught the eye and the state was easy to miss. It now turns GREEN with a tick and reads BUYER EMAIL ATTACHED, and hovering it says which page the e-mail is on. Unattached it stays dark and reads UPLOAD BUYER RFQ EMAIL as before. Clicking still opens the e-mail."},
   {rev:143, date:"2026-08-02", note:"Typing a buyer who is not on the list now asks whether to keep them. Rev 142 always added them permanently, which is wrong for a one-off contact at a customer you quote once: the list would fill up with names nobody needs. The box offers ADD TO BUYER LIST, which remembers the name and e-mail for every future quote, or USE ON THIS QUOTE ONLY, which leaves the permanent list alone \u2014 the name still saves with this quote either way, because it is a header field like any other. The e-mail is optional now and only a malformed address stops you. Answering \u201cthis quote only\u201d is remembered until the next new quote, so the same name is never queried twice."},
   {rev:142, date:"2026-08-02", note:"JOB TYPE is now a real question. It used to sit on ONE-TIME JOB as a default and the guided walk stepped straight past it, so a repeat job could be quoted with one-time batch sizes and nothing ever asked. It opens on \u2014 PICK \u2014, it is a stop on the walk (24 steps now, not 23), and until it is answered BATCH SIZE and MIN ORDER QTY stay empty rather than being filled from a guess. Second: typing a buyer who is not on the list opens a box asking for their e-mail address. It used to add them silently with no way to reach them. The e-mail is remembered against the name for every future quote, and there is an ADD WITHOUT E-MAIL button for when it is not to hand. Buyers and their e-mails are both editable in Admin \u2192 People &amp; Lists, and renaming a buyer carries their address across."},
   {rev:141, date:"2026-08-02", note:"Intake fields up another 20% \u2014 labels 25px, boxes 26px \u2014 and the clipped labels fixed. The label column is right-aligned, so text too long for its box spilled off the LEFT, out of the sheet and off the edge of the window: that is why BAR STOCK, CASTING, OR read as AR STOCK. The column grew from 264 to 360px, more than the 20% the text did, since matching the text would have kept the same overflow. It also wraps rather than spilling now, so no field size can push a label off screen again. The panel is 1520px and may shrink rather than force the sheet wider than the window. The drawing gives up the width: on a 2570px screen it is down to roughly 600px, about half what it had at rev 139. Stacking the fields in ONE column would give that back."},
@@ -1662,9 +1670,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 143;
-const BUILD_DATE = "2026-08-02";
-const BUILD_TIME = "16:10";           /* increments every build — check both machines match */
+const APP_REV = 144;
+const BUILD_DATE = "2026-08-07";
+const BUILD_TIME = "19:40";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -5772,9 +5780,13 @@ $('drawMax') && $('drawMax').addEventListener('click', ()=>{
 function rfqPageIndex(){ return docPages.findIndex(p=>p && /^RFQ\b/i.test(p.name||'')); }
 function updateRfqBtn(){
   const b=$('rfqBtn'); if(!b) return;
-  const has = rfqPageIndex()>=0;
-  b.innerHTML = has ? '👁 VIEW BUYERS EMAIL' : '📎 UPLOAD BUYER RFQ EMAIL';
-  b.title = has ? "jump to the buyer's RFQ email page" : "paste or upload a screenshot of the buyer's RFQ email — AI can fill the header from it";
+  const idx = rfqPageIndex();
+  const has = idx>=0;
+  b.innerHTML = has ? '✓ BUYER EMAIL ATTACHED' : '📎 UPLOAD BUYER RFQ EMAIL';
+  b.classList.toggle('hasrfq', has);
+  b.title = has
+    ? "The buyer's RFQ e-mail is attached to this quote as page " + (idx+1) + ". Click to open it."
+    : "paste or upload a screenshot of the buyer's RFQ email — AI can fill the header from it";
 }
 window.__updateRfqBtn=updateRfqBtn;
 $('rfqBtn').addEventListener('click', async ()=>{

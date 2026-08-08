@@ -1571,6 +1571,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:148, date:"2026-08-07", note:"NEW QUOTE now opens by asking what is being quoted \u2014 COMPONENT or ASSEMBLY \u2014 before anything else. It is the first thing that happens because it decides what the rest of the quote is: a component carries on into the usual print-then-header walk untouched, while an assembly goes straight to the BILL OF MATERIAL with three lines ready to fill in. There is no Cancel and Escape does nothing; the quote exists by then and an unanswered scope is the very thing rev 147 set out to stop. Picking ASSEMBLY hides the intake panel while the bill is open so it has the full width, and the header is a tab away on the CALCULATIONS button whenever you want it."},
   {rev:147, date:"2026-08-07", note:"COMPONENT or ASSEMBLY is now something you pick, not a button that had already decided. Rev 146 put a toggle in the VIEW bar sitting on COMPONENT, which meant an assembly could be quoted as a single part without anyone ever being asked. It is a header field now \u2014 COMPONENT OR ASSEMBLY? \u2014 opening on \u2014 PICK \u2014, in the tab run and a stop on the guided walk, right after JOB TYPE. Choosing ASSEMBLY reveals the BILL OF MATERIAL tab and starts a first line; it does not drag the view across mid-intake, so tabbing through the header carries on uninterrupted. The walk is 25 steps now."},
   {rev:146, date:"2026-08-07", note:"Bill of material, part one. A COMPONENT / ASSEMBLY button sits in the VIEW bar; switch it to ASSEMBLY and a BILL OF MATERIAL tab appears beside Calculations and Drawing. Each line takes a part number, name, qty per unit, MAKE or BUY, a part price and a quote number, and works out the price per assembly and a total parts cost at the foot. BUY lines tint so bought-in parts read differently from ones we make. It is deliberately its own table rather than more columns on the ops grid, which is 36 columns summing to exactly 1487px with every one load-bearing. The bill saves and reloads with the quote. NOT YET WIRED INTO THE PRICE \u2014 the total is shown but does not move the quote, and the QUOTE # column is typed by hand. Part two links a MAKE line to a real child quote so its price flows back on its own, and rolls the total into the assembly price."},
   {rev:145, date:"2026-08-07", note:"The attached RFQ e-mail now shows as a tiny picture of itself inside the button \u2014 40 by 26 pixels of the actual message, cropped from the top-left corner so the header lines are what you see rather than a squashed grey smear. A thumbnail of the real thing says \u201cthis quote has THAT e-mail on it\u201d in a way no wording can. The button keeps its green, and reads BUYER EMAIL beside the picture. Until the image has been pulled back from GitHub there is nothing to draw, so it falls back to the tick and the full wording, then swaps to the picture the moment the pixels arrive."},
@@ -1712,9 +1713,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 147;
+const APP_REV = 148;
 const BUILD_DATE = "2026-08-07";
-const BUILD_TIME = "22:15";           /* increments every build — check both machines match */
+const BUILD_TIME = "22:50";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2790,6 +2791,8 @@ function setOpsMode(m){
   if(os) os.hidden = m==='bom';
   const bw=$('bomWrap');
   if(bw){ bw.hidden = m!=='bom'; if(m==='bom') renderBom(); }
+  const ip=$('intakePanel');
+  if(ip) ip.hidden = (m==='bom');       /* the bill takes the full width while open */
   const mbb=$('modeBom');
   if(mbb) mbb.classList.toggle('on', m==='bom');
   const ub=$('dzUndoBake');
@@ -4328,6 +4331,50 @@ const FIELD_DEFAULTS = {
   salesman:'NONE'
 };
 
+/* Asked the moment a new quote is started, because it changes what the rest of
+   the quote is: a component runs the normal 25-step walk, an assembly needs a
+   bill of material built first. There is no Cancel -- the quote already exists
+   by the time this opens, and leaving it unanswered is the state rev 147 set out
+   to remove. Escape and the backdrop are deliberately inert. */
+function askQuoteScope(){
+  const prev=$('qsOv'); if(prev) prev.remove();
+  const ov=document.createElement('div');
+  ov.className='ov'; ov.id='qsOv'; ov.style.display='flex';
+  ov.innerHTML=`<div class="modal" style="width:640px; max-width:94vw; text-align:center">
+    <h3 style="margin:0 0 6px">What are we quoting?</h3>
+    <div class="note" style="margin-bottom:20px">This decides how the quote is built, so it is asked first.</div>
+    <div style="display:flex; gap:16px; justify-content:center">
+      <button class="btn" id="qsComp" type="button"
+        style="flex:1 1 0; padding:20px 14px; font-size:16px; font-weight:800; line-height:1.5">
+        \u2b1b COMPONENT<div class="note" style="font-weight:400; margin-top:8px">One part, made from bar stock,
+        a casting or a purchased component. Quote it the usual way.</div></button>
+      <button class="btn primary" id="qsAsm" type="button"
+        style="flex:1 1 0; padding:20px 14px; font-size:16px; font-weight:800; line-height:1.5">
+        \u{1F9E9} ASSEMBLY<div class="note" style="font-weight:400; margin-top:8px; color:inherit; opacity:.85">
+        Built from several parts. A BILL OF MATERIAL opens so the parts can be listed and priced.</div></button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  const pick=(v)=>{
+    quoteScope=v;
+    const sel=$('quoteScope'); if(sel) sel.value=v;
+    if(v==='ASSEMBLY'){
+      /* three lines to start typing into rather than one, since a bill of one
+         part is not an assembly */
+      if(bomRows.length<3) while(bomRows.length<3) bomRows.push(blankBomRow());
+    }
+    if(window.__updateScopeBtn) window.__updateScopeBtn();
+    if(window.__renderBom) window.__renderBom();
+    ov.remove();
+    if(v==='ASSEMBLY') setOpsMode('bom');
+    autosaveNow();
+  };
+  $('qsComp').addEventListener('click', ()=>pick('COMPONENT'));
+  $('qsAsm').addEventListener('click', ()=>pick('ASSEMBLY'));
+  setTimeout(()=>{ const b=$('qsComp'); if(b) b.focus(); }, 30);
+}
+window.__askQuoteScope=askQuoteScope;
+
 function startNewQuote(){
   autosaveNow();                       /* flush any pending edits to the old quote first */
   suspendAutosave=true;
@@ -4356,6 +4403,7 @@ function startNewQuote(){
   renderSaved();
   if(window.__fitPage) setTimeout(window.__fitPage, 0);
   suspendAutosave=false;
+  askQuoteScope();                      /* first question on every new quote */
 }
 /* Finalized status. A quote is IN PROGRESS from creation until you press Finalize;
    the flag is per-quote, saved with it, and freely toggled — finalizing does NOT lock

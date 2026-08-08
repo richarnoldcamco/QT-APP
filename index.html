@@ -314,6 +314,12 @@
   .bomgrid tr.buyrow td.mb{background:#fdf0d8}
   .bomgrid tfoot td{background:var(--cp-panel); font-weight:800; font-size:13px; padding:6px 4px}
   .bomgrid tfoot td.tot{text-align:right; background:#dfe9f5}
+  /* black, not the maroon the rest of the headings use: the bill sits beside the
+     header fields rather than on its own screen, so it has to announce itself */
+  .bom-title{
+    margin:0 0 10px; font-size:30px; font-weight:900; letter-spacing:.02em;
+    color:#111; text-transform:uppercase; line-height:1.1; font-family:var(--ui);
+  }
   .bomtools{display:flex; gap:8px; align-items:center; margin:0 0 8px}
   .modebtn.scopebtn.asm{background:#2f6f3f; color:#fff; border-color:#1d4a29}
   /* drawing maximized: pin right, hide the ops grid, use full window height */
@@ -1199,6 +1205,7 @@
     </div>
    </div>
   <div class="bomwrap" id="bomWrap" hidden>
+    <h2 class="bom-title">BILL OF MATERIAL</h2>
     <div class="bomtools">
       <button class="btn mini" id="bomAdd" type="button">+ ADD PART</button>
       <span class="note" id="bomNote">Each line is one part in the assembly. MAKE parts get quoted here; BUY parts carry a purchase price.</span>
@@ -1639,6 +1646,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:167, date:"2026-08-08", note:"The bill of material has a heading: BILL OF MATERIAL, 30px, black and heavy above the ADD PART button. Since rev 166 put the header fields alongside it rather than on their own screen, the table was starting cold with nothing saying what it was \u2014 the only clue was a tab in the view bar several inches away. Black rather than the maroon used elsewhere, so it reads as the title of what is under it instead of another section heading."},
   {rev:166, date:"2026-08-08", note:"An assembly quote no longer asks about bar stock. MATERIAL, MILL OR DISTRIBUTOR PRICE, 36\" BAR OR SLUGGED, OVER-RIDE OF BARSTOCK NEEDED, BAR DIA, PART LENGTH, EXTRA LENGTH NEEDED/PC, BAR REMNANT REQUIRED, BAR STOCK CASTING OR COMPONENT and PREFERRED BAR LENGTH are all gone from the intake panel on an ASSEMBLY, and the guided walk steps straight past them \u2014 an assembly is built from its parts, it does not come off a bar, so those questions had no answer worth giving. The step count drops from 25 to 15 to match. The remaining fields are also half the size, because on an assembly the bill of material sits alongside them and needs the room. A COMPONENT quote is untouched: same fields, same sizes, same 25 steps."},
   {rev:165, date:"2026-08-08", note:"Opening an assembly really does land on the bill now. Rev 164 set the view the moment the quote was opened, but restoring a quote schedules the intake walk on a 60ms timer and every one of its three entry points forced DRAWING view \u2014 so the bill appeared and was replaced by the print a heartbeat later, which read as the setting being ignored. The gates themselves now send an assembly to its bill and a component to the print, so there is nothing left to race. The print gate still holds the header fields shut either way, and UPLOAD ASSY DRAWING is a click away."},
   {rev:164, date:"2026-08-08", note:"OPEN and DELETE have moved from the far right of PAST QUOTES to sit directly after PART #, where the eye already is once it has found the quote it wants \u2014 on a full-width table they were a long way from it. And opening an ASSEMBLY now lands on its BILL OF MATERIAL rather than the calculation grid: the bill is what an assembly quote mostly is, so arriving anywhere else meant a click before anything useful was on screen. A component opens on the calculations exactly as before."},
@@ -1799,9 +1807,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 166;
+const APP_REV = 167;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "15:40";           /* increments every build — check both machines match */
+const BUILD_TIME = "16:00";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */

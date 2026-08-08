@@ -1589,6 +1589,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:156, date:"2026-08-08", note:"The QTY column on PAST QUOTES is now ANNUAL QTY. It had been showing BATCH SIZE \u2014 how many go out on one order \u2014 where what is worth scanning a list of quotes for is what the year is worth. Sorting and filtering on that column follow the annual figure too. TOTAL $ has been renamed BATCH $ in the same pass: it is priced on the batch, not on the year, so sitting beside an annual quantity the old heading read as though the arithmetic had gone wrong. Nothing about how anything is priced has changed \u2014 only which number the list shows and what the headings call them."},
   {rev:155, date:"2026-08-08", note:"The bill can be filled in without leaving the keyboard. UP and DOWN move between rows in the same column, and DOWN from the last row adds a part and lands in it \u2014 the same as + ADD PART but without reaching for the mouse. LEFT and RIGHT step between cells, but only from the very start or end of what is in the box, so they still move the caret through text that is being typed. Arrows are deliberately left alone on the LEVEL and MAKE / BUY dropdowns, where up and down already pick the value. All the cells are white now: yellow means \u2018this must be answered\u2019 everywhere else in the quote, and nothing on the bill is mandatory, so yellow was making a promise the bill does not keep."},
   {rev:154, date:"2026-08-08", note:"The button on the assembly box reads CREATE BOM instead of START THE BILL. BOM is what the thing is called on the shop floor and on the customer\u2019s own spreadsheet, and it is what the tab it opens has always been called, so the button now uses the same word as everything it leads to."},
   {rev:153, date:"2026-08-08", note:"QTY PER UNIT is centred in its column. And the assembly row has lost its MAKE / BUY dropdown and its PART PRICE box \u2014 both now blank and white \u2014 because neither means anything there: row 1 is not made or bought as a line, and it has no price of its own. Its cost IS the total of the lines beneath it, so a price typed on row 1 would have been counted on top of the parts that make it up. The total now skips row 1 for the same reason, and that row\u2019s PRICE PER ASSEMBLY is blank rather than a misleading $0.00."},
@@ -1738,9 +1739,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 155;
+const APP_REV = 156;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "02:00";           /* increments every build — check both machines match */
+const BUILD_TIME = "02:30";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -4268,7 +4269,7 @@ function renderSaved(){
     part: q=>String((q.fields||{}).partNo||'').toUpperCase(),
     cust: q=>String((q.fields||{}).customer||'').toUpperCase(),
     date: q=>q.updated||0,
-    qty:  q=>parseFloat((q.fields||{}).batchSize)||0,
+    qty:  q=>parseFloat((q.fields||{}).annualUsage)||0,
     pc:   q=>q.perPc||0,
     tot:  q=>(q.perPc||0)*(parseFloat((q.fields||{}).batchSize)||0),
     mat:  q=>String((q.fields||{}).material||'').toUpperCase(),
@@ -4282,20 +4283,21 @@ function renderSaved(){
   wrap.innerHTML = `<table class="qtable">
     <thead><tr>
       ${th('no','Quote #')}${th('part','Part #')}${th('cust','Customer')}${th('date','Date Quoted')}
-      ${th('qty','Qty',1)}${th('pc','Price/Pc',1)}${th('tot','Total $',1)}${th('mat','Material')}<th></th>
+      ${th('qty','Annual Qty',1)}${th('pc','Price/Pc',1)}${th('tot','Batch $',1)}${th('mat','Material')}<th></th>
     </tr></thead>
     <tbody>` + rows.map(q=>{
       const f=q.fields||{};
       const when=fmtWhen(q.updated);
       const isActive=q.no==activeQuoteNo;
-      const qty=parseFloat(f.batchSize)||0;
+      const annQty=parseFloat(f.annualUsage)||0;
+      const qty=parseFloat(f.batchSize)||0;      /* still what BATCH $ is worked out on */
       return `<tr class="${isActive?'active':''}">
         <td class="qno">${q.drawing?'<span class="clip" title="has drawing">📎</span>':''}#${q.no}${q.importedFrom && f.importApproved!=='1' ? ' <span class="st-imp">NEEDS REVIEW</span>'
           : (f.finalized==='1'?' <span class="st-fin">FINALIZED</span>':' <span class="st-prog">IN PROGRESS</span>')}${isActive?' <span class="ednow">editing</span>':''}</td>
         <td class="partno">${esc(f.partNo)||'—'}</td>
         <td>${esc(f.customer)||'—'}</td>
         <td class="dt">${when}</td>
-        <td class="num">${qty||'—'}</td>
+        <td class="num">${annQty||'—'}</td>
         <td class="num money">${money(q.perPc)}</td>
         <td class="num money">${qty? money((q.perPc||0)*qty) : '—'}</td>
         <td>${esc(f.material)||'—'}</td>

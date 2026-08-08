@@ -295,7 +295,7 @@
   .bomgrid tr.lvl4 td.lvlc, .bomgrid tr.lvl5 td.lvlc{background:#eef3f9}
   .bomgrid input, .bomgrid select{
     width:100%; min-width:0; box-sizing:border-box; font-size:12px; padding:3px 4px;
-    border:1px solid transparent; border-radius:2px; background:var(--yellow); font-family:var(--ui);
+    border:1px solid transparent; border-radius:2px; background:#fff; font-family:var(--ui);
   }
   .bomgrid input:focus, .bomgrid select:focus{border-color:var(--cp-signal); outline:none}
   .bomgrid td.calc{background:#eef3f9; text-align:right; font-weight:700; padding-right:6px}
@@ -1589,6 +1589,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:155, date:"2026-08-08", note:"The bill can be filled in without leaving the keyboard. UP and DOWN move between rows in the same column, and DOWN from the last row adds a part and lands in it \u2014 the same as + ADD PART but without reaching for the mouse. LEFT and RIGHT step between cells, but only from the very start or end of what is in the box, so they still move the caret through text that is being typed. Arrows are deliberately left alone on the LEVEL and MAKE / BUY dropdowns, where up and down already pick the value. All the cells are white now: yellow means \u2018this must be answered\u2019 everywhere else in the quote, and nothing on the bill is mandatory, so yellow was making a promise the bill does not keep."},
   {rev:154, date:"2026-08-08", note:"The button on the assembly box reads CREATE BOM instead of START THE BILL. BOM is what the thing is called on the shop floor and on the customer\u2019s own spreadsheet, and it is what the tab it opens has always been called, so the button now uses the same word as everything it leads to."},
   {rev:153, date:"2026-08-08", note:"QTY PER UNIT is centred in its column. And the assembly row has lost its MAKE / BUY dropdown and its PART PRICE box \u2014 both now blank and white \u2014 because neither means anything there: row 1 is not made or bought as a line, and it has no price of its own. Its cost IS the total of the lines beneath it, so a price typed on row 1 would have been counted on top of the parts that make it up. The total now skips row 1 for the same reason, and that row\u2019s PRICE PER ASSEMBLY is blank rather than a misleading $0.00."},
   {rev:152, date:"2026-08-08", note:"Two tidies on the bill of material. The PART NUMBER and PART NAME headings are left justified, sitting over the text they label instead of floating in the middle of a wide column while the entries ran along the left edge. And the assembly\u2019s own two fields on row 1 are now white and slightly bolder against the yellow of every other line, so the thing being quoted reads as the header of the list rather than the first item on it."},
@@ -1737,9 +1738,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 154;
+const APP_REV = 155;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "01:25";           /* increments every build — check both machines match */
+const BUILD_TIME = "02:00";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2776,6 +2777,37 @@ function renderBom(){
     </tr></tfoot>
   </table>`;
   host.querySelectorAll('[data-bk]').forEach(el=>{
+    el.addEventListener('keydown', e=>{
+      const i=+e.target.dataset.bi, k=e.target.dataset.bk;
+      /* On a dropdown, up and down already pick the value \u2014 taking those over
+         would cost more than it gave, so arrows are left alone on LEVEL and
+         MAKE / BUY. Tab still walks past them. */
+      if(e.target.tagName==='SELECT') return;
+      const atStart = e.target.selectionStart===0 && e.target.selectionEnd===0;
+      const atEnd   = e.target.selectionStart===e.target.value.length
+                   && e.target.selectionEnd===e.target.value.length;
+      if(e.key==='ArrowDown'){
+        e.preventDefault();
+        if(i >= bomRows.length-1){
+          /* off the bottom of the last row is how a new part gets added \u2014 the
+             same as + ADD PART, without leaving the keyboard */
+          const row=blankBomRow();
+          row.lvl=Math.max(2, parseInt(bomRows[i].lvl,10)||1);
+          bomRows.push(row);
+          renderBom();
+          bomFocus(i+1,k);
+          if(typeof autosaveNow==='function') autosaveNow();
+        }else{
+          bomMoveRow(i,k,1);
+        }
+        return;
+      }
+      if(e.key==='ArrowUp'){ e.preventDefault(); bomMoveRow(i,k,-1); return; }
+      /* left and right only jump cells from the edge of the text, so they still
+         move the caret through what is being typed */
+      if(e.key==='ArrowLeft'  && atStart){ e.preventDefault(); bomMoveCol(i,k,-1); return; }
+      if(e.key==='ArrowRight' && atEnd)  { e.preventDefault(); bomMoveCol(i,k, 1); return; }
+    });
     const ev = el.tagName==='SELECT' ? 'change' : 'input';
     el.addEventListener(ev, e=>{
       const i=+e.target.dataset.bi, k=e.target.dataset.bk;
@@ -2835,6 +2867,33 @@ const BOM_LEVELS=[1,2,3,4,5];
    is the only level 1 there can ever be; everything below it is a part inside it.
    A level also cannot leap: a 4 directly under a 2 describes a parent that is not
    there. Both are fixed here rather than trusted to whoever is typing. */
+/* Column order for arrow navigation. Row 1 has no MAKE/BUY or PART PRICE, so a
+   move that lands on a missing cell carries on to the next one rather than
+   stopping dead. */
+const BOM_KEYS=['lvl','partNo','name','qty','mb','price','quoteNo','notes'];
+function bomFocus(i,k){
+  const host=$('bomBody'); if(!host) return false;
+  const el=host.querySelector(`[data-bi="${i}"][data-bk="${k}"]`);
+  if(!el || el.disabled) return false;
+  el.focus();
+  if(el.tagName!=='SELECT'){
+    try{ const n=el.value.length; el.setSelectionRange(n,n); }catch(e){}
+  }
+  return true;
+}
+function bomMoveRow(i,k,d){
+  const ni=i+d;
+  if(ni<0 || ni>=bomRows.length) return false;
+  if(bomFocus(ni,k)) return true;
+  for(const kk of BOM_KEYS) if(bomFocus(ni,kk)) return true;
+  return false;
+}
+function bomMoveCol(i,k,d){
+  for(let n=BOM_KEYS.indexOf(k)+d; n>=0 && n<BOM_KEYS.length; n+=d){
+    if(bomFocus(i,BOM_KEYS[n])) return true;
+  }
+  return false;
+}
 function normalizeBom(){
   if(!bomRows.length) return;
   bomRows[0].lvl = 1;

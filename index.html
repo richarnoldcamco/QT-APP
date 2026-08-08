@@ -321,6 +321,8 @@
   .bomgrid input:focus, .bomgrid select:focus{border-color:var(--cp-signal); outline:none}
   .bomgrid td.calc{background:#eef3f9; text-align:right; font-weight:700; padding-right:6px}
   .bomgrid tr.buyrow td.mb{background:#fdf0d8}
+  .bomgrid tr.asmrow td.mb{background:#e4efe6}
+  .bomgrid tr.asmrow input[data-bk="partNo"]{font-weight:700}
   .bomgrid tfoot td{background:var(--cp-panel); font-weight:800; font-size:13px; padding:6px 4px}
   .bomgrid tfoot td.tot{text-align:right; background:#dfe9f5}
   /* black, not the maroon the rest of the headings use: the bill sits beside the
@@ -526,7 +528,7 @@
   body.intake-panel-on .ip-val select#jobType{font-size:22px !important}
   /* On an assembly the bill sits alongside, so the header fields give up half
      their size to make room for it. */
-  body.asm-intake .intake-panel{flex:0 1 760px; width:760px}
+  body.asm-intake .intake-panel{flex:0 0 420px; width:420px; grid-template-columns:1fr}
   body.asm-intake .ip-lab{flex:0 0 180px; font-size:13px}
   body.asm-intake .ip-row{gap:6px; padding:2px 0}
   body.asm-intake .ip-val input, body.asm-intake .ip-val select{font-size:13px; padding:2px 5px}
@@ -1217,7 +1219,7 @@
     <h2 class="bom-title">BILL OF MATERIAL</h2>
     <div class="bomtools">
       <button class="btn mini" id="bomAdd" type="button">+ ADD PART</button>
-      <span class="note" id="bomNote">Each line is one part in the assembly. MAKE parts get quoted here; BUY parts carry a purchase price.</span>
+      <span class="note" id="bomNote">Each line is one part. MAKE is quoted here, BUY carries a purchase price, ASSY is a sub-assembly built from the lines indented beneath it.</span>
     </div>
     <div id="bomBody"></div>
   </div>
@@ -1655,6 +1657,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:170, date:"2026-08-08", note:"On an assembly the header fields are now one column down the left at 420px instead of two at 760px, and the bill of material takes everything left over \u2014 about 500px more than it had. The panel also stops disappearing when the bill opens: on an assembly the two are meant to sit side by side, which is the point of having shrunk the fields in the first place. MAKE / BUY has gained a third choice, ASSY, for a sub-assembly: made here like a MAKE part, but built from the lines indented beneath it rather than from bar stock of its own. ASSY rows tint green and carry their part number in bold, so the shape of the bill reads off the page. Per-row drawings are next \u2014 see the note in the handoff about why they cannot simply be pasted into the row."},
   {rev:169, date:"2026-08-08", note:"Parts can be dragged. Every part row has a \u2261 grip at its left end; take hold of it and drop the line where it belongs, with a coloured bar showing where it will land. The grip is what drags, not the row \u2014 a draggable row full of text boxes steals click-and-drag inside them, so selecting half a part number would start moving the line instead. The arrows stay: surer for one step, while dragging wins across a thirteen-line bill. The assembly on row 1 cannot be dragged and nothing can be dropped above it \u2014 a drop aimed at row 1 lands just below it, the first place a part is allowed to be. Levels are brought back into line after the move, as with the arrows."},
   {rev:168, date:"2026-08-08", note:"Every part row now carries both arrows. Rev 158 left out the ones that could not move \u2014 no up arrow on row 2, no down arrow on the last line \u2014 on the reasoning that a dead arrow is worse than none. That was wrong: leaving them out shifted the whole set of buttons sideways from row to row, so the one you were reaching for was never twice in the same place. They are all there and all aligned now, greyed out where the move cannot happen, and hovering says why. The assembly on row 1 still has neither, since it does not move at all."},
   {rev:167, date:"2026-08-08", note:"The bill of material has a heading: BILL OF MATERIAL, 30px, black and heavy above the ADD PART button. Since rev 166 put the header fields alongside it rather than on their own screen, the table was starting cold with nothing saying what it was \u2014 the only clue was a tab in the view bar several inches away. Black rather than the maroon used elsewhere, so it reads as the title of what is under it instead of another section heading."},
@@ -1818,9 +1821,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 169;
+const APP_REV = 170;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "17:00";           /* increments every build — check both machines match */
+const BUILD_TIME = "17:45";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2809,9 +2812,8 @@ function renderBom(){
   const cell=(i,k,r,type)=>{
     if(i===0 && (k==='mb' || k==='price')) return '<td class="assyblank"></td>';
     if(type==='mb'){
-      return `<td class="mb"><select data-bi="${i}" data-bk="mb">
-        <option${r.mb==='MAKE'?' selected':''}>MAKE</option>
-        <option${r.mb==='BUY'?' selected':''}>BUY</option></select></td>`;
+      return `<td class="mb"><select data-bi="${i}" data-bk="mb">${
+        BOM_MB.map(o=>`<option${r.mb===o?' selected':''}>${o}</option>`).join('')}</select></td>`;
     }
     if(type==='lvl'){
       const cur=parseInt(r.lvl,10)||1;
@@ -2836,7 +2838,7 @@ function renderBom(){
       <th>Quote #</th><th>Notes</th>
     </tr></thead>
     <tbody>${bomRows.map((r,i)=>`
-      <tr class="lvl${parseInt(r.lvl,10)||1}${r.mb==='BUY'?' buyrow':''}" data-brow="${i}">
+      <tr class="lvl${parseInt(r.lvl,10)||1}${r.mb==='BUY'?' buyrow':''}${r.mb==='ASSY'?' asmrow':''}" data-brow="${i}">
         <td class="idc rowb">${
           i===0 ? '' : `<span class="grip" draggable="true" data-bgrip="${i}" title="drag to move this part">≡</span>`}${
           i===0 ? '' : `<button class="mini" data-bup="${i}" type="button"${i<2?' disabled title="the assembly stays on row 1"':' title="move this part up"'}>▲</button>`}${
@@ -3015,6 +3017,9 @@ function blankBomRow(){
   return {lvl:1, partNo:'', name:'', qty:1, mb:'MAKE', price:0, quoteNo:'', notes:''};
 }
 const BOM_LEVELS=[1,2,3,4,5];
+/* ASSY is a sub-assembly: made here like a MAKE part, but built from the lines
+   indented beneath it rather than from bar stock of its own. */
+const BOM_MB=['MAKE','BUY','ASSY'];
 /* The shape of a bill is not free-form. Row 1 IS the assembly being quoted, so it
    is the only level 1 there can ever be; everything below it is a part inside it.
    A level also cannot leap: a 4 directly under a 2 describes a parent that is not
@@ -3090,7 +3095,9 @@ function setOpsMode(m){
     }
   }
   const ip=$('intakePanel');
-  if(ip) ip.hidden = (m==='bom');       /* the bill takes the full width while open */
+  /* on an assembly the fields and the bill share the screen, so the panel stays;
+     a component never reaches bill view at all */
+  if(ip) ip.hidden = (m==='bom' && quoteScope!=='ASSEMBLY');
   const mbb=$('modeBom');
   if(mbb) mbb.classList.toggle('on', m==='bom');
   const ub=$('dzUndoBake');

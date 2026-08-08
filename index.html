@@ -283,6 +283,8 @@
      over it rather than floating in the middle of a wide empty column. Columns
      3 and 4: ID, Level, Part Number, Part Name. */
   .bomgrid th:nth-child(3), .bomgrid th:nth-child(4){text-align:left; padding-left:8px}
+  .bomgrid input[data-bk="qty"]{text-align:center}
+  .bomgrid td.assyblank{background:#fff}
   /* Row 1 is the assembly itself, not a part in it. White and a shade heavier so
      it reads as the thing being quoted rather than another line on the list. */
   .bomgrid tbody tr:first-child input[data-bk="partNo"],
@@ -1587,6 +1589,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:153, date:"2026-08-08", note:"QTY PER UNIT is centred in its column. And the assembly row has lost its MAKE / BUY dropdown and its PART PRICE box \u2014 both now blank and white \u2014 because neither means anything there: row 1 is not made or bought as a line, and it has no price of its own. Its cost IS the total of the lines beneath it, so a price typed on row 1 would have been counted on top of the parts that make it up. The total now skips row 1 for the same reason, and that row\u2019s PRICE PER ASSEMBLY is blank rather than a misleading $0.00."},
   {rev:152, date:"2026-08-08", note:"Two tidies on the bill of material. The PART NUMBER and PART NAME headings are left justified, sitting over the text they label instead of floating in the middle of a wide column while the entries ran along the left edge. And the assembly\u2019s own two fields on row 1 are now white and slightly bolder against the yellow of every other line, so the thing being quoted reads as the header of the list rather than the first item on it."},
   {rev:151, date:"2026-08-08", note:"Choosing ASSEMBLY now asks for the assembly\u2019s part number and name before the bill opens. Those two answers are the same thing in two places \u2014 the PART NUMBER on the quote header, and line 1 of the bill, the level 1 everything else sits under \u2014 so they are asked once and written to both, which stops them drifting apart. The part number is required; the quote hangs off it. Two more lines are laid in at level 2 ready to type. BACK returns to COMPONENT or ASSEMBLY rather than stranding an assembly with no number on it."},
   {rev:150, date:"2026-08-07", note:"The bill now holds its shape, and parts can go in the middle. Every line carries a + that inserts a part directly beneath it, so a component found late goes where it belongs instead of on the end. LEVEL 1 IS NOW THE ASSEMBLY ITSELF AND NOTHING ELSE: row 1 is fixed at level 1 and its dropdown is locked, no other row is offered level 1 at all, and row 1 cannot be deleted \u2014 it is the thing being quoted. Levels also cannot leap a generation; a 4 sitting directly under a 2 claims a parent that is not on the bill, so the dropdown only offers down to one deeper than the line above. Bills typed before this rev are corrected on load rather than left in a shape the rules now forbid."},
@@ -1733,9 +1736,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 152;
+const APP_REV = 153;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "00:45";           /* increments every build — check both machines match */
+const BUILD_TIME = "01:05";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2722,6 +2725,7 @@ function renderBom(){
   const foc=(ae && ae.dataset && ae.dataset.bk!=null)
       ? {i:ae.dataset.bi, k:ae.dataset.bk, val:ae.value} : null;
   const cell=(i,k,r,type)=>{
+    if(i===0 && (k==='mb' || k==='price')) return '<td class="assyblank"></td>';
     if(type==='mb'){
       return `<td class="mb"><select data-bi="${i}" data-bk="mb">
         <option${r.mb==='MAKE'?' selected':''}>MAKE</option>
@@ -2758,7 +2762,7 @@ function renderBom(){
         ${cell(i,'qty',r)}
         ${cell(i,'mb',r,'mb')}
         ${cell(i,'price',r)}
-        <td class="calc">${money(bomExt(r))}</td>
+        <td class="${i===0?'assyblank':'calc'}">${i===0?'':money(bomExt(r))}</td>
         ${cell(i,'quoteNo',r)}
         ${cell(i,'notes',r)}
         <td class="idc rowb"><button class="mini" data-bins="${i}" type="button" title="insert a part directly below this line">+</button>${
@@ -2851,7 +2855,9 @@ function bomLevelChoices(i){
   return out.length ? out : [2];
 }
 function bomExt(r){ return (parseFloat(r.qty)||0) * (parseFloat(r.price)||0); }
-function bomTotal(){ return bomRows.reduce((s,r)=>s+bomExt(r), 0); }
+/* Row 0 is the assembly itself, so it is skipped: the total IS its cost, and
+   adding it to itself would double anything typed there. */
+function bomTotal(){ return bomRows.reduce((s,r,i)=> i===0 ? s : s+bomExt(r), 0); }
 window.__bomTotal=bomTotal;
 function setOpsMode(m){
   opsMode=m;

@@ -202,12 +202,22 @@
   .hushed{visibility:hidden}
   /* intake lockout covers the calculation grid only — .drawwrap is a sibling of
      .ops-scroll and deliberately stays clear, because the header is filled off the print */
-  body.guiding .ops-modebar, body.guiding .ops-scroll, body.guiding .mini-totals, body.guiding .summary-strip{
+  body.guiding .ops-scroll, body.guiding .mini-totals, body.guiding .summary-strip{
     pointer-events:none; opacity:.35; filter:saturate(.6);
   }
-  /* intake step 1 — UPLOAD DRAWING is the one live control in the mode bar */
+  /* the bill of material is exempt from the intake lockout: it needs no print and
+     no header, and on an assembly it is often the first thing to be filled in */
+  body.guiding .ops-modebar > *:not(#modeBom){
+    pointer-events:none; opacity:.35; filter:saturate(.6);
+  }
+  /* intake step 1 — UPLOAD DRAWING and the bill are the live controls here */
   body.await-print .ops-modebar{pointer-events:auto; opacity:1; filter:none}
-  body.await-print .ops-modebar > *:not(#modeDraw){pointer-events:none; opacity:.35}
+  body.await-print .ops-modebar > *:not(#modeDraw):not(#modeBom){pointer-events:none; opacity:.35}
+  /* and it is coloured, so it reads as something to press rather than another
+     greyed-out tab in a bar full of them */
+  #modeBom{background:#1d6b33; color:#fff; border-color:#12501f; font-weight:800}
+  #modeBom:hover{filter:brightness(1.12)}
+  #modeBom.on{background:#0f4a20}
   @keyframes qsSpin{to{transform:rotate(360deg)}}
   .guide-banner{
     margin:8px 8px 0; padding:9px 14px; border-radius:8px;
@@ -1593,6 +1603,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:162, date:"2026-08-08", note:"On an assembly the BILL OF MATERIAL button is now live and green from the moment the quote starts. It was there before but dead: the intake lockout shuts every control in the VIEW bar except UPLOAD DRAWING until a print is on the quote, and dimmed the whole bar for the rest of the header walk after that \u2014 so on an assembly the one screen you might want first was the one you could not reach. A bill needs no print and no header, so it is exempt from both. The bar is dimmed child by child now rather than as a whole, because a parent\u2019s opacity cannot be undone from inside it. Green as well as live, so it reads as something to press instead of another grey tab among grey tabs."},
   {rev:161, date:"2026-08-08", note:"PAST QUOTES now uses the whole window. The panel was capped at 1120px, set back when the table had eight columns; adding TYPE in rev 160 pushed the DELETE button off the end of it while a thousand pixels sat empty to the right. The cap is gone, so the table grows with the window, and MATERIAL stops wrapping \u2014 6061-T6 ALUMINUM had been breaking across two lines and making that row taller than the rest for no reason."},
   {rev:160, date:"2026-08-08", note:"PAST QUOTES has a TYPE column, between PART # and CUSTOMER, saying whether each quote is a COMPONENT or an ASSEMBLY \u2014 assemblies in green with the puzzle piece, so a bill-of-material quote is picked out of a long list at a glance. It sorts and filters like every other column. Quotes written before rev 147 show a dash rather than a guess: nothing was recorded then, and inferring one from whether a bill happens to exist would be putting words in their mouth. Also fixed in passing: the filter dropdown on the ANNUAL QTY column was still listing BATCH sizes, left behind when the column changed over in rev 156, so filtering it could not match what the column showed."},
   {rev:159, date:"2026-08-08", note:"The row buttons \u2014 \u25b2 \u25bc + \u2715 \u2014 have moved from the far right of the bill to the far left, ahead of the ID. On a twelve-line bill they sat past the NOTES column, a long way from the part being moved, and on a narrow window they were off the edge entirely. They are beside the part number now. Everything that keys off column position moved with them: the footer total spans one column further along, and the left-justified PART NUMBER and PART NAME headings shifted a column, so nothing has come adrift."},
@@ -1748,9 +1759,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 161;
+const APP_REV = 162;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "11:35";           /* increments every build — check both machines match */
+const BUILD_TIME = "12:05";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */

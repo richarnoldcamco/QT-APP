@@ -266,6 +266,26 @@
   /* width:100% matters — without it this row is content-sized, so .drawwrap sized itself
      to the full drawing bitmap and ran off the right edge instead of fitting the window. */
   .ops-flex{display:flex; align-items:flex-start; gap:10px; width:100%}
+  .bomwrap{flex:1 1 auto; min-width:0; margin:0 8px 8px 0; font-family:var(--ui)}
+  .bomgrid{border-collapse:collapse; width:100%; background:#fff}
+  .bomgrid th{
+    background:var(--cp-panel); color:var(--cp-ink); font-size:11px; font-weight:800;
+    letter-spacing:.02em; text-align:center; padding:5px 4px; border:1px solid var(--cp-line);
+    line-height:1.15;
+  }
+  .bomgrid td{border:1px solid var(--cp-line); padding:1px 2px; font-size:12px; vertical-align:middle}
+  .bomgrid td.idc{text-align:center; font-weight:700; background:var(--cp-panel); width:34px}
+  .bomgrid input, .bomgrid select{
+    width:100%; min-width:0; box-sizing:border-box; font-size:12px; padding:3px 4px;
+    border:1px solid transparent; border-radius:2px; background:var(--yellow); font-family:var(--ui);
+  }
+  .bomgrid input:focus, .bomgrid select:focus{border-color:var(--cp-signal); outline:none}
+  .bomgrid td.calc{background:#eef3f9; text-align:right; font-weight:700; padding-right:6px}
+  .bomgrid tr.buyrow td.mb{background:#fdf0d8}
+  .bomgrid tfoot td{background:var(--cp-panel); font-weight:800; font-size:13px; padding:6px 4px}
+  .bomgrid tfoot td.tot{text-align:right; background:#dfe9f5}
+  .bomtools{display:flex; gap:8px; align-items:center; margin:0 0 8px}
+  .modebtn.scopebtn.asm{background:#2f6f3f; color:#fff; border-color:#1d4a29}
   /* drawing maximized: pin right, hide the ops grid, use full window height */
   body.draw-max .ops-scroll,
   body.draw-max .mini-totals,
@@ -1093,6 +1113,9 @@
     <button class="modebtn" id="modeDraw" type="button">📐 Drawing</button>
     <span style="flex:0 0 10px"></span>
     <button class="modebtn oddbtn" id="oddBtn" type="button" title="mark unusual features on this part — each adds a % to cycle time">🚩 Odd Features</button>
+    <span style="flex:0 0 18px"></span>
+    <button class="modebtn scopebtn" id="scopeBtn" type="button" title="COMPONENT: one part. ASSEMBLY: this part is built from a bill of material.">⬛ COMPONENT</button>
+    <button class="modebtn" id="modeBom" type="button" hidden>🧩 Bill of Material</button>
   </div>
   <div class="ops-flex">
    <div class="ops-scroll">
@@ -1121,6 +1144,13 @@
       </table>
     </div>
    </div>
+  <div class="bomwrap" id="bomWrap" hidden>
+    <div class="bomtools">
+      <button class="btn mini" id="bomAdd" type="button">+ ADD PART</button>
+      <span class="note" id="bomNote">Each line is one part in the assembly. MAKE parts get quoted here; BUY parts carry a purchase price.</span>
+    </div>
+    <div id="bomBody"></div>
+  </div>
   <div class="drawwrap" hidden>
     <h3>Drawing <span class="note" style="text-transform:none;font-weight:400">— click the zone, then Ctrl+V to paste · or drag &amp; drop · saved with this quote</span></h3>
     <div class="drawzone" id="drawZone" tabindex="0">
@@ -1541,6 +1571,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:146, date:"2026-08-07", note:"Bill of material, part one. A COMPONENT / ASSEMBLY button sits in the VIEW bar; switch it to ASSEMBLY and a BILL OF MATERIAL tab appears beside Calculations and Drawing. Each line takes a part number, name, qty per unit, MAKE or BUY, a part price and a quote number, and works out the price per assembly and a total parts cost at the foot. BUY lines tint so bought-in parts read differently from ones we make. It is deliberately its own table rather than more columns on the ops grid, which is 36 columns summing to exactly 1487px with every one load-bearing. The bill saves and reloads with the quote. NOT YET WIRED INTO THE PRICE \u2014 the total is shown but does not move the quote, and the QUOTE # column is typed by hand. Part two links a MAKE line to a real child quote so its price flows back on its own, and rolls the total into the assembly price."},
   {rev:145, date:"2026-08-07", note:"The attached RFQ e-mail now shows as a tiny picture of itself inside the button \u2014 40 by 26 pixels of the actual message, cropped from the top-left corner so the header lines are what you see rather than a squashed grey smear. A thumbnail of the real thing says \u201cthis quote has THAT e-mail on it\u201d in a way no wording can. The button keeps its green, and reads BUYER EMAIL beside the picture. Until the image has been pulled back from GitHub there is nothing to draw, so it falls back to the tick and the full wording, then swaps to the picture the moment the pixels arrive."},
   {rev:144, date:"2026-08-07", note:"You can now see at a glance that a buyer\u2019s RFQ e-mail is attached. The button did already change its wording, but it sat among seven other dark blue chips in the top bar, so nothing about it caught the eye and the state was easy to miss. It now turns GREEN with a tick and reads BUYER EMAIL ATTACHED, and hovering it says which page the e-mail is on. Unattached it stays dark and reads UPLOAD BUYER RFQ EMAIL as before. Clicking still opens the e-mail."},
   {rev:143, date:"2026-08-02", note:"Typing a buyer who is not on the list now asks whether to keep them. Rev 142 always added them permanently, which is wrong for a one-off contact at a customer you quote once: the list would fill up with names nobody needs. The box offers ADD TO BUYER LIST, which remembers the name and e-mail for every future quote, or USE ON THIS QUOTE ONLY, which leaves the permanent list alone \u2014 the name still saves with this quote either way, because it is a header field like any other. The e-mail is optional now and only a malformed address stops you. Answering \u201cthis quote only\u201d is remembered until the next new quote, so the same name is never queried twice."},
@@ -1680,9 +1711,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 145;
+const APP_REV = 146;
 const BUILD_DATE = "2026-08-07";
-const BUILD_TIME = "20:05";           /* increments every build — check both machines match */
+const BUILD_TIME = "21:30";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2493,6 +2524,8 @@ function snapshot(){
   HDR_FIELDS.forEach(id=>{ if($(id)) fields[id]=$(id).value; });
   fields.matOvr=matOverride;
   fields.reqLead=reqLeadVal;
+  fields.quoteScope=quoteScope;
+  fields.bomRows=JSON.stringify(bomRows);
   fields.matOvrVal=matOverrideVal;
   fields.oddSel=JSON.stringify(oddSel);
   fields.intakePending=intakePending?'1':'';
@@ -2522,6 +2555,10 @@ function restore(s){
   setTimeout(()=>window.__paintDifficulty&&window.__paintDifficulty(),0);
   matOverrideVal=parseFloat(s.fields&&s.fields.matOvrVal)||0;
   reqLeadVal=(s.fields&&s.fields.reqLead)||'';
+  quoteScope=(s.fields&&s.fields.quoteScope)==='ASSEMBLY' ? 'ASSEMBLY' : 'COMPONENT';
+  try{ bomRows = JSON.parse((s.fields&&s.fields.bomRows)||'[]') || []; }catch(e){ bomRows=[]; }
+  if(!Array.isArray(bomRows)) bomRows=[];
+  updateScopeBtn(); renderBom();
   suspendAutosave=true;
   Object.entries(s.fields).forEach(([id,v])=>{ if($(id)) $(id).value=v; });
   opRows = s.ops && s.ops.length ? s.ops : (blankOps(),opRows);
@@ -2651,13 +2688,106 @@ function drwSave(c){
 }
 const drawingPath = no => `drawings/Q${no}.jpg`;
 
+/* ===== BILL OF MATERIAL =====
+   A separate table from the ops grid on purpose: the ops grid is 36 columns
+   summing to exactly 1487px and every one of them is load-bearing. */
+function renderBom(){
+  const host=$('bomBody'); if(!host) return;
+  const ae=document.activeElement;
+  const foc=(ae && ae.dataset && ae.dataset.bk!=null)
+      ? {i:ae.dataset.bi, k:ae.dataset.bk, val:ae.value} : null;
+  const cell=(i,k,r,type)=>{
+    if(type==='mb'){
+      return `<td class="mb"><select data-bi="${i}" data-bk="mb">
+        <option${r.mb==='MAKE'?' selected':''}>MAKE</option>
+        <option${r.mb==='BUY'?' selected':''}>BUY</option></select></td>`;
+    }
+    const num = (k==='qty'||k==='price');
+    return `<td><input data-bi="${i}" data-bk="${k}" value="${esc(r[k]==null?'':String(r[k]))}"${num?' inputmode="decimal"':''}></td>`;
+  };
+  host.innerHTML = `<table class="bomgrid">
+    <colgroup><col style="width:34px"><col style="width:150px"><col><col style="width:64px">
+      <col style="width:78px"><col style="width:96px"><col style="width:104px">
+      <col style="width:78px"><col style="width:210px"><col style="width:30px"></colgroup>
+    <thead><tr>
+      <th>ID</th><th>Part Number</th><th>Part Name</th><th>Qty per<br>Unit</th>
+      <th>Make /<br>Buy</th><th>Part Price</th><th>Price per<br>Assembly</th>
+      <th>Quote #</th><th>Notes</th><th></th>
+    </tr></thead>
+    <tbody>${bomRows.map((r,i)=>`
+      <tr class="${r.mb==='BUY'?'buyrow':''}">
+        <td class="idc">${i+1}</td>
+        ${cell(i,'partNo',r)}
+        ${cell(i,'name',r)}
+        ${cell(i,'qty',r)}
+        ${cell(i,'mb',r,'mb')}
+        ${cell(i,'price',r)}
+        <td class="calc">${money(bomExt(r))}</td>
+        ${cell(i,'quoteNo',r)}
+        ${cell(i,'notes',r)}
+        <td class="idc"><button class="mini delb" data-bdel="${i}" type="button" title="remove this part">✕</button></td>
+      </tr>`).join('')}</tbody>
+    <tfoot><tr>
+      <td colspan="6" style="text-align:right">TOTAL PARTS COST PER ASSEMBLY</td>
+      <td class="tot">${money(bomTotal())}</td>
+      <td colspan="3"></td>
+    </tr></tfoot>
+  </table>`;
+  host.querySelectorAll('[data-bk]').forEach(el=>{
+    const ev = el.tagName==='SELECT' ? 'change' : 'input';
+    el.addEventListener(ev, e=>{
+      const i=+e.target.dataset.bi, k=e.target.dataset.bk;
+      bomRows[i][k]=e.target.value;
+      renderBom(); scheduleAutosave();
+    });
+  });
+  host.querySelectorAll('button[data-bdel]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      bomRows.splice(+b.dataset.bdel,1);
+      renderBom();
+      /* a row vanishing is a dialog-grade change: autosaveNow, not the debounce,
+         or a GitHub pull-on-focus can put the deleted line back */
+      if(typeof autosaveNow==='function') autosaveNow();
+    });
+  });
+  if(foc){
+    const el=host.querySelector(`[data-bi="${foc.i}"][data-bk="${foc.k}"]`);
+    if(el){ el.value=foc.val; el.focus();
+      try{ el.setSelectionRange(foc.val.length, foc.val.length); }catch(err){} }
+  }
+}
+window.__renderBom=renderBom;
+function updateScopeBtn(){
+  const b=$('scopeBtn'); if(!b) return;
+  const asm = quoteScope==='ASSEMBLY';
+  b.innerHTML = asm ? '🧩 ASSEMBLY' : '⬛ COMPONENT';
+  b.classList.toggle('asm', asm);
+  const mb=$('modeBom'); if(mb) mb.hidden=!asm;
+  if(!asm && opsMode==='bom') setOpsMode('calc');
+}
+window.__updateScopeBtn=updateScopeBtn;
+
 /* ===== Calculations ⇄ Drawing view toggle (same grid region) ===== */
 let opsMode='calc';
+let quoteScope='COMPONENT';          /* COMPONENT | ASSEMBLY */
+let bomRows=[];                      /* bill of material lines, ASSEMBLY only */
+function blankBomRow(){
+  return {partNo:'', name:'', qty:1, mb:'MAKE', price:0, quoteNo:'', notes:''};
+}
+function bomExt(r){ return (parseFloat(r.qty)||0) * (parseFloat(r.price)||0); }
+function bomTotal(){ return bomRows.reduce((s,r)=>s+bomExt(r), 0); }
+window.__bomTotal=bomTotal;
 function setOpsMode(m){
   opsMode=m;
   $('opSheet').classList.toggle('show-drawing', m==='draw');
   const dw=document.querySelector('.drawwrap');
   if(dw) dw.hidden = m!=='draw';
+  const os=document.querySelector('.ops-scroll');
+  if(os) os.hidden = m==='bom';
+  const bw=$('bomWrap');
+  if(bw){ bw.hidden = m!=='bom'; if(m==='bom') renderBom(); }
+  const mbb=$('modeBom');
+  if(mbb) mbb.classList.toggle('on', m==='bom');
   const ub=$('dzUndoBake');
   if(ub) ub.addEventListener('click', undoBake);
   const hb=$('dzHistory');
@@ -4204,6 +4334,9 @@ function startNewQuote(){
   applySettingsDefaults();
   blankOps();
   matOverride='No'; matOverrideVal=0; reqLeadVal=''; buyerAskedOnce.clear();
+  quoteScope='COMPONENT'; bomRows=[];
+  if(window.__updateScopeBtn) window.__updateScopeBtn();
+  if(window.__renderBom) window.__renderBom();
   oddSel=[];
   matVerified=false;
   drawPages=[]; curPage=0; docPages=[]; curDoc=0; renderDrawing(); setOpsMode('calc');
@@ -5806,6 +5939,19 @@ function updateRfqBtn(){
     : "paste or upload a screenshot of the buyer's RFQ email — AI can fill the header from it";
 }
 window.__updateRfqBtn=updateRfqBtn;
+$('scopeBtn').addEventListener('click', ()=>{
+  quoteScope = (quoteScope==='ASSEMBLY') ? 'COMPONENT' : 'ASSEMBLY';
+  if(quoteScope==='ASSEMBLY' && !bomRows.length) bomRows.push(blankBomRow());
+  updateScopeBtn();
+  if(quoteScope==='ASSEMBLY') setOpsMode('bom');
+  autosaveNow();
+});
+$('modeBom').addEventListener('click', ()=>setOpsMode('bom'));
+$('bomAdd').addEventListener('click', ()=>{
+  bomRows.push(blankBomRow());
+  renderBom();
+  autosaveNow();
+});
 $('rfqBtn').addEventListener('click', async ()=>{
   const idx=rfqPageIndex();
   if(idx>=0){                                          /* already attached: open its own viewer */

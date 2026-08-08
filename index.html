@@ -289,6 +289,7 @@
   .bomgrid td.lvlc select:disabled{background:var(--cp-panel); opacity:1; color:var(--cp-ink)}
   .bomgrid td.rowb{white-space:nowrap; text-align:center}
   .bomgrid td.rowb .mini{padding:1px 4px; margin:0 1px; font-weight:800; line-height:1.1}
+  .bomgrid td.rowb .mini:disabled{opacity:.28; cursor:default}
   /* PART NUMBER and PART NAME hold left-aligned text, so their headings sit left
      over it rather than floating in the middle of a wide empty column. Columns
      3 and 4: ID, Level, Part Number, Part Name. */
@@ -1646,6 +1647,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:168, date:"2026-08-08", note:"Every part row now carries both arrows. Rev 158 left out the ones that could not move \u2014 no up arrow on row 2, no down arrow on the last line \u2014 on the reasoning that a dead arrow is worse than none. That was wrong: leaving them out shifted the whole set of buttons sideways from row to row, so the one you were reaching for was never twice in the same place. They are all there and all aligned now, greyed out where the move cannot happen, and hovering says why. The assembly on row 1 still has neither, since it does not move at all."},
   {rev:167, date:"2026-08-08", note:"The bill of material has a heading: BILL OF MATERIAL, 30px, black and heavy above the ADD PART button. Since rev 166 put the header fields alongside it rather than on their own screen, the table was starting cold with nothing saying what it was \u2014 the only clue was a tab in the view bar several inches away. Black rather than the maroon used elsewhere, so it reads as the title of what is under it instead of another section heading."},
   {rev:166, date:"2026-08-08", note:"An assembly quote no longer asks about bar stock. MATERIAL, MILL OR DISTRIBUTOR PRICE, 36\" BAR OR SLUGGED, OVER-RIDE OF BARSTOCK NEEDED, BAR DIA, PART LENGTH, EXTRA LENGTH NEEDED/PC, BAR REMNANT REQUIRED, BAR STOCK CASTING OR COMPONENT and PREFERRED BAR LENGTH are all gone from the intake panel on an ASSEMBLY, and the guided walk steps straight past them \u2014 an assembly is built from its parts, it does not come off a bar, so those questions had no answer worth giving. The step count drops from 25 to 15 to match. The remaining fields are also half the size, because on an assembly the bill of material sits alongside them and needs the room. A COMPONENT quote is untouched: same fields, same sizes, same 25 steps."},
   {rev:165, date:"2026-08-08", note:"Opening an assembly really does land on the bill now. Rev 164 set the view the moment the quote was opened, but restoring a quote schedules the intake walk on a 60ms timer and every one of its three entry points forced DRAWING view \u2014 so the bill appeared and was replaced by the print a heartbeat later, which read as the setting being ignored. The gates themselves now send an assembly to its bill and a component to the print, so there is nothing left to race. The print gate still holds the header fields shut either way, and UPLOAD ASSY DRAWING is a click away."},
@@ -1807,9 +1809,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 167;
+const APP_REV = 168;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "16:00";           /* increments every build — check both machines match */
+const BUILD_TIME = "16:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2827,8 +2829,8 @@ function renderBom(){
     <tbody>${bomRows.map((r,i)=>`
       <tr class="lvl${parseInt(r.lvl,10)||1}${r.mb==='BUY'?' buyrow':''}">
         <td class="idc rowb">${
-          (i>1) ? `<button class="mini" data-bup="${i}" type="button" title="move this part up">▲</button>` : ''}${
-          (i>0 && i<bomRows.length-1) ? `<button class="mini" data-bdn="${i}" type="button" title="move this part down">▼</button>` : ''}<button class="mini" data-bins="${i}" type="button" title="insert a part directly below this line">+</button>${
+          i===0 ? '' : `<button class="mini" data-bup="${i}" type="button"${i<2?' disabled title="the assembly stays on row 1"':' title="move this part up"'}>▲</button>`}${
+          i===0 ? '' : `<button class="mini" data-bdn="${i}" type="button"${i>=bomRows.length-1?' disabled title="already the last part"':' title="move this part down"'}>▼</button>`}<button class="mini" data-bins="${i}" type="button" title="insert a part directly below this line">+</button>${
           i===0 ? '' : `<button class="mini delb" data-bdel="${i}" type="button" title="remove this part">✕</button>`}</td>
         <td class="idc">${i+1}</td>
         ${cell(i,'lvl',r,'lvl')}

@@ -279,6 +279,16 @@
   .bomgrid td.lvlc select:disabled{background:var(--cp-panel); opacity:1; color:var(--cp-ink)}
   .bomgrid td.rowb{white-space:nowrap; text-align:center}
   .bomgrid td.rowb .mini{padding:1px 5px; margin:0 1px; font-weight:800}
+  /* PART NUMBER and PART NAME hold left-aligned text, so their headings sit left
+     over it rather than floating in the middle of a wide empty column. Columns
+     3 and 4: ID, Level, Part Number, Part Name. */
+  .bomgrid th:nth-child(3), .bomgrid th:nth-child(4){text-align:left; padding-left:8px}
+  /* Row 1 is the assembly itself, not a part in it. White and a shade heavier so
+     it reads as the thing being quoted rather than another line on the list. */
+  .bomgrid tbody tr:first-child input[data-bk="partNo"],
+  .bomgrid tbody tr:first-child input[data-bk="name"]{
+    background:#fff; font-weight:600; border-color:var(--cp-line);
+  }
   .bomgrid tr.lvl2 td.lvlc, .bomgrid tr.lvl3 td.lvlc,
   .bomgrid tr.lvl4 td.lvlc, .bomgrid tr.lvl5 td.lvlc{background:#eef3f9}
   .bomgrid input, .bomgrid select{
@@ -1577,6 +1587,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:152, date:"2026-08-08", note:"Two tidies on the bill of material. The PART NUMBER and PART NAME headings are left justified, sitting over the text they label instead of floating in the middle of a wide column while the entries ran along the left edge. And the assembly\u2019s own two fields on row 1 are now white and slightly bolder against the yellow of every other line, so the thing being quoted reads as the header of the list rather than the first item on it."},
   {rev:151, date:"2026-08-08", note:"Choosing ASSEMBLY now asks for the assembly\u2019s part number and name before the bill opens. Those two answers are the same thing in two places \u2014 the PART NUMBER on the quote header, and line 1 of the bill, the level 1 everything else sits under \u2014 so they are asked once and written to both, which stops them drifting apart. The part number is required; the quote hangs off it. Two more lines are laid in at level 2 ready to type. BACK returns to COMPONENT or ASSEMBLY rather than stranding an assembly with no number on it."},
   {rev:150, date:"2026-08-07", note:"The bill now holds its shape, and parts can go in the middle. Every line carries a + that inserts a part directly beneath it, so a component found late goes where it belongs instead of on the end. LEVEL 1 IS NOW THE ASSEMBLY ITSELF AND NOTHING ELSE: row 1 is fixed at level 1 and its dropdown is locked, no other row is offered level 1 at all, and row 1 cannot be deleted \u2014 it is the thing being quoted. Levels also cannot leap a generation; a 4 sitting directly under a 2 claims a parent that is not on the bill, so the dropdown only offers down to one deeper than the line above. Bills typed before this rev are corrected on load rather than left in a shape the rules now forbid."},
   {rev:149, date:"2026-08-07", note:"Three fixes to the bill of material. A LEVEL column, 1 to 5, sits after the ID, and the part number steps right by one notch for each level, so a sub-assembly and the parts inside it read as a shape down the column rather than something to work out from a number. PART NUMBER is twice as wide \u2014 150 to 300px \u2014 taken out of PART NAME, which was swallowing all the spare width for text that is usually two words. And on an assembly quote the drawing button now says UPLOAD ASSY DRAWING, and reads ASSY DRAWING once one is on, since the print for an assembly is a different document from a part print. A component quote is unchanged."},
@@ -1722,9 +1733,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 151;
+const APP_REV = 152;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "00:20";           /* increments every build — check both machines match */
+const BUILD_TIME = "00:45";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */

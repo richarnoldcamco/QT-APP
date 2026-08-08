@@ -1618,6 +1618,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:165, date:"2026-08-08", note:"Opening an assembly really does land on the bill now. Rev 164 set the view the moment the quote was opened, but restoring a quote schedules the intake walk on a 60ms timer and every one of its three entry points forced DRAWING view \u2014 so the bill appeared and was replaced by the print a heartbeat later, which read as the setting being ignored. The gates themselves now send an assembly to its bill and a component to the print, so there is nothing left to race. The print gate still holds the header fields shut either way, and UPLOAD ASSY DRAWING is a click away."},
   {rev:164, date:"2026-08-08", note:"OPEN and DELETE have moved from the far right of PAST QUOTES to sit directly after PART #, where the eye already is once it has found the quote it wants \u2014 on a full-width table they were a long way from it. And opening an ASSEMBLY now lands on its BILL OF MATERIAL rather than the calculation grid: the bill is what an assembly quote mostly is, so arriving anywhere else meant a click before anything useful was on screen. A component opens on the calculations exactly as before."},
   {rev:163, date:"2026-08-08", note:"Every other row on the tables now carries a faint grey band. PAST QUOTES, the BILL OF MATERIAL, the Admin reference tables and the quantity-break table all read straight across far more easily for it, and PAST QUOTES needed it most after rev 161 let it run the full width of the screen. Anything that already says something by its colour keeps saying it: the row being edited stays pink, calculated cells stay blue, the assembly row\u2019s blanks stay white and BUY lines keep their amber. The ops grid is left alone \u2014 its black locked rows and blue calculated cells already break it up. The shade is one variable, so it can be nudged in a single place if it reads too strong on your monitor."},
   {rev:162, date:"2026-08-08", note:"On an assembly the BILL OF MATERIAL button is now live and green from the moment the quote starts. It was there before but dead: the intake lockout shuts every control in the VIEW bar except UPLOAD DRAWING until a print is on the quote, and dimmed the whole bar for the rest of the header walk after that \u2014 so on an assembly the one screen you might want first was the one you could not reach. A bill needs no print and no header, so it is exempt from both. The bar is dimmed child by child now rather than as a whole, because a parent\u2019s opacity cannot be undone from inside it. Green as well as live, so it reads as something to press instead of another grey tab among grey tabs."},
@@ -1776,9 +1777,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 164;
+const APP_REV = 165;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "13:00";           /* increments every build — check both machines match */
+const BUILD_TIME = "13:40";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -5781,7 +5782,9 @@ function startPrintGate(){
   printGate=true; guideIdx=-1;
   document.body.classList.add('guiding','await-print');
   intakeBanner().textContent='📐 New quote — step 1 of '+(GUIDE_ORDER.length+1)+': upload the print. The header fields stay locked until a drawing is on this quote.';
-  try{ setOpsMode('draw'); }catch(e){}
+  /* an assembly starts on its bill: that is the work, and the print gate still
+     holds the header fields shut either way */
+  try{ setOpsMode(quoteScope==='ASSEMBLY' ? 'bom' : 'draw'); }catch(e){}
   buildIntakePanel();   /* step 1 is where the upload zone most needs the height */
   const md=$('modeDraw'); if(md) md.focus();
 }
@@ -5795,8 +5798,9 @@ function printArrived(){
   clearPrintGate();
   guideIdx=0;
   /* stay in DRAWING view through the header walk; the panel is already up from the
-     print gate, and buildIntakePanel() is a no-op if it exists */
-  try{ setOpsMode('draw'); }catch(e){}
+     print gate, and buildIntakePanel() is a no-op if it exists. An assembly stays
+     on its bill instead — the header is filled off the bill as much as the print. */
+  try{ setOpsMode(quoteScope==='ASSEMBLY' ? 'bom' : 'draw'); }catch(e){}
   buildIntakePanel();
   guideFocus();
 }
@@ -5909,7 +5913,7 @@ function endGuide(){
 }
 function resumeGuide(){
   if(!printOnFile()){ startPrintGate(); return; }   /* hard gate: print first */
-  try{ setOpsMode('draw'); }catch(e){}
+  try{ setOpsMode(quoteScope==='ASSEMBLY' ? 'bom' : 'draw'); }catch(e){}
   buildIntakePanel();
   /* pick up at the first field still at its untouched startup value */
   let idx=GUIDE_ORDER.findIndex(id=>{

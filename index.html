@@ -742,6 +742,7 @@
   .qm-cust{font-weight:700; color:var(--cp-ink); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .qm-cn{color:var(--cp-dim); font-size:11px; white-space:nowrap}
   .qm-cv{font-weight:800; color:var(--cp-signal); font-variant-numeric:tabular-nums; white-space:nowrap}
+  :root{--zebra:#f6f4f0}
   .qtable{width:100%; border-collapse:collapse; font-family:var(--ui); font-size:12.5px; background:#fff}
   .qtable th{
     text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em;
@@ -761,6 +762,20 @@
   .qtable td.acts{white-space:nowrap; text-align:right; padding-right:12px}
   .qtable tr:hover td{background:#faf8f5}
   .qtable tr.active td{background:#f7e9e9}
+
+  /* ===== alternating rows =====
+     A wide table is hard to read straight across; a faint band every other line
+     keeps the eye on one quote. Cell backgrounds win over row backgrounds, so
+     anything that already carries meaning by colour is left out by name rather
+     than by luck: the editing row above, calculated cells, the assembly row's
+     blanks and the BUY tint. The ops grid is excluded entirely \u2014 its black
+     locked rows and blue calc cells already do this job. */
+  .qtable tbody tr:nth-child(even){background:var(--zebra)}
+  .adm tbody tr:nth-child(even) td{background:var(--zebra)}
+  .qb-table tbody tr:nth-child(even) td{background:var(--zebra)}
+  .bomgrid tbody tr:nth-child(even) td:not(.calc):not(.assyblank):not(.mb){background:var(--zebra)}
+  .bomgrid tbody tr:nth-child(even) td:not(.calc):not(.assyblank):not(.mb) input,
+  .bomgrid tbody tr:nth-child(even) td:not(.calc):not(.assyblank):not(.mb) select{background:transparent}
   .qtable .ednow{font-size:9.5px; font-weight:800; color:var(--cp-signal); text-transform:uppercase; letter-spacing:.05em}
   .qtable .st-prog{color:#a4640a; font-size:9.5px; font-weight:800; letter-spacing:.05em; white-space:nowrap}
   .qtable .st-fin{color:#1a6b1a; font-size:9.5px; font-weight:800; letter-spacing:.05em; white-space:nowrap}
@@ -1603,6 +1618,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:163, date:"2026-08-08", note:"Every other row on the tables now carries a faint grey band. PAST QUOTES, the BILL OF MATERIAL, the Admin reference tables and the quantity-break table all read straight across far more easily for it, and PAST QUOTES needed it most after rev 161 let it run the full width of the screen. Anything that already says something by its colour keeps saying it: the row being edited stays pink, calculated cells stay blue, the assembly row\u2019s blanks stay white and BUY lines keep their amber. The ops grid is left alone \u2014 its black locked rows and blue calculated cells already break it up. The shade is one variable, so it can be nudged in a single place if it reads too strong on your monitor."},
   {rev:162, date:"2026-08-08", note:"On an assembly the BILL OF MATERIAL button is now live and green from the moment the quote starts. It was there before but dead: the intake lockout shuts every control in the VIEW bar except UPLOAD DRAWING until a print is on the quote, and dimmed the whole bar for the rest of the header walk after that \u2014 so on an assembly the one screen you might want first was the one you could not reach. A bill needs no print and no header, so it is exempt from both. The bar is dimmed child by child now rather than as a whole, because a parent\u2019s opacity cannot be undone from inside it. Green as well as live, so it reads as something to press instead of another grey tab among grey tabs."},
   {rev:161, date:"2026-08-08", note:"PAST QUOTES now uses the whole window. The panel was capped at 1120px, set back when the table had eight columns; adding TYPE in rev 160 pushed the DELETE button off the end of it while a thousand pixels sat empty to the right. The cap is gone, so the table grows with the window, and MATERIAL stops wrapping \u2014 6061-T6 ALUMINUM had been breaking across two lines and making that row taller than the rest for no reason."},
   {rev:160, date:"2026-08-08", note:"PAST QUOTES has a TYPE column, between PART # and CUSTOMER, saying whether each quote is a COMPONENT or an ASSEMBLY \u2014 assemblies in green with the puzzle piece, so a bill-of-material quote is picked out of a long list at a glance. It sorts and filters like every other column. Quotes written before rev 147 show a dash rather than a guess: nothing was recorded then, and inferring one from whether a bill happens to exist would be putting words in their mouth. Also fixed in passing: the filter dropdown on the ANNUAL QTY column was still listing BATCH sizes, left behind when the column changed over in rev 156, so filtering it could not match what the column showed."},
@@ -1759,9 +1775,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 162;
+const APP_REV = 163;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "12:05";           /* increments every build — check both machines match */
+const BUILD_TIME = "12:30";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */

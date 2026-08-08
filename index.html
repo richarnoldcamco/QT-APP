@@ -681,7 +681,7 @@
   main#view-quotes{zoom:1.2; padding:18px 22px; font-family:var(--ui)}
   /* 980px cut the OPEN/DELETE buttons off once part numbers stopped wrapping (rev 118).
    1120px is just enough to seat both buttons — full width was too much. */
-.quotes-shell{max-width:1120px}
+.quotes-shell{max-width:none}
   .qr-card{background:var(--cp-panel); border:1px solid var(--cp-line); border-radius:var(--r); box-shadow:var(--cp-shadow-lg); overflow:hidden}
   .qr-head{padding:16px 18px 13px; border-bottom:1px solid var(--cp-line)}
   .qr-head h2{margin:0; font-size:17px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--cp-signal)}
@@ -746,6 +746,8 @@
   .qtable td.qno{font-weight:400; font-size:9px; white-space:nowrap; color:var(--cp-dim)}
   /* part numbers never wrap — the column takes whatever width the longest one needs */
   .qtable td.partno{white-space:nowrap; min-width:140px}
+  .qtable td:last-child, .qtable td.acts{white-space:nowrap}
+  .qtable td.mat, .qtable th.mat{white-space:nowrap}
   .qtable td.acts{white-space:nowrap; text-align:right; padding-right:12px}
   .qtable tr:hover td{background:#faf8f5}
   .qtable tr.active td{background:#f7e9e9}
@@ -1591,6 +1593,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:161, date:"2026-08-08", note:"PAST QUOTES now uses the whole window. The panel was capped at 1120px, set back when the table had eight columns; adding TYPE in rev 160 pushed the DELETE button off the end of it while a thousand pixels sat empty to the right. The cap is gone, so the table grows with the window, and MATERIAL stops wrapping \u2014 6061-T6 ALUMINUM had been breaking across two lines and making that row taller than the rest for no reason."},
   {rev:160, date:"2026-08-08", note:"PAST QUOTES has a TYPE column, between PART # and CUSTOMER, saying whether each quote is a COMPONENT or an ASSEMBLY \u2014 assemblies in green with the puzzle piece, so a bill-of-material quote is picked out of a long list at a glance. It sorts and filters like every other column. Quotes written before rev 147 show a dash rather than a guess: nothing was recorded then, and inferring one from whether a bill happens to exist would be putting words in their mouth. Also fixed in passing: the filter dropdown on the ANNUAL QTY column was still listing BATCH sizes, left behind when the column changed over in rev 156, so filtering it could not match what the column showed."},
   {rev:159, date:"2026-08-08", note:"The row buttons \u2014 \u25b2 \u25bc + \u2715 \u2014 have moved from the far right of the bill to the far left, ahead of the ID. On a twelve-line bill they sat past the NOTES column, a long way from the part being moved, and on a narrow window they were off the edge entirely. They are beside the part number now. Everything that keys off column position moved with them: the footer total spans one column further along, and the left-justified PART NUMBER and PART NAME headings shifted a column, so nothing has come adrift."},
   {rev:158, date:"2026-08-08", note:"Parts can be moved up and down the bill. Each line carries \u25b2 and \u25bc beside the + and the \u2715, so an order typed wrong is dragged straight rather than deleted and retyped. The assembly on row 1 does not move and nothing may pass above it, so the up arrow is absent on rows 1 and 2 and the down arrow on row 1 and on the last line \u2014 an arrow that does nothing is worse than no arrow at all. A part that lands under a shallower parent has its level brought back into line, since a level that skips a generation describes a parent that is not on the bill. The moved line keeps the focus, so several moves in a row need no re-aiming."},
@@ -1745,9 +1748,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 160;
+const APP_REV = 161;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "11:15";           /* increments every build — check both machines match */
+const BUILD_TIME = "11:35";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -4343,7 +4346,7 @@ function renderSaved(){
         <td class="num">${annQty||'—'}</td>
         <td class="num money">${money(q.perPc)}</td>
         <td class="num money">${qty? money((q.perPc||0)*qty) : '—'}</td>
-        <td>${esc(f.material)||'—'}</td>
+        <td class="mat">${esc(f.material)||'—'}</td>
         <td class="acts"><button data-no="${q.no}" class="load">Open</button><button data-no="${q.no}" class="del">Delete</button></td>
       </tr>`;
     }).join('') + `</tbody></table>`;

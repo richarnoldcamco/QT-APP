@@ -1101,7 +1101,9 @@
     <tr>
       <td class="lbl-r">Customer Quote # <span class="note">(optional)</span></td>
       <td class="c-yellow val-c"><input id="custQuoteNo" type="text" placeholder="their RFQ / quote no."></td>
-      <td></td><td></td><td></td><td></td><td></td><td></td>
+      <td class="lbl-r">Component or Assembly?</td>
+      <td class="c-yellow val-c"><select id="quoteScope" title="COMPONENT: one part. ASSEMBLY: this part is built from a bill of material."><option value="">— PICK —</option><option>COMPONENT</option><option>ASSEMBLY</option></select></td>
+      <td></td><td></td><td></td><td></td>
     </tr>
   </table>
 
@@ -1113,8 +1115,6 @@
     <button class="modebtn" id="modeDraw" type="button">📐 Drawing</button>
     <span style="flex:0 0 10px"></span>
     <button class="modebtn oddbtn" id="oddBtn" type="button" title="mark unusual features on this part — each adds a % to cycle time">🚩 Odd Features</button>
-    <span style="flex:0 0 18px"></span>
-    <button class="modebtn scopebtn" id="scopeBtn" type="button" title="COMPONENT: one part. ASSEMBLY: this part is built from a bill of material.">⬛ COMPONENT</button>
     <button class="modebtn" id="modeBom" type="button" hidden>🧩 Bill of Material</button>
   </div>
   <div class="ops-flex">
@@ -1571,6 +1571,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:147, date:"2026-08-07", note:"COMPONENT or ASSEMBLY is now something you pick, not a button that had already decided. Rev 146 put a toggle in the VIEW bar sitting on COMPONENT, which meant an assembly could be quoted as a single part without anyone ever being asked. It is a header field now \u2014 COMPONENT OR ASSEMBLY? \u2014 opening on \u2014 PICK \u2014, in the tab run and a stop on the guided walk, right after JOB TYPE. Choosing ASSEMBLY reveals the BILL OF MATERIAL tab and starts a first line; it does not drag the view across mid-intake, so tabbing through the header carries on uninterrupted. The walk is 25 steps now."},
   {rev:146, date:"2026-08-07", note:"Bill of material, part one. A COMPONENT / ASSEMBLY button sits in the VIEW bar; switch it to ASSEMBLY and a BILL OF MATERIAL tab appears beside Calculations and Drawing. Each line takes a part number, name, qty per unit, MAKE or BUY, a part price and a quote number, and works out the price per assembly and a total parts cost at the foot. BUY lines tint so bought-in parts read differently from ones we make. It is deliberately its own table rather than more columns on the ops grid, which is 36 columns summing to exactly 1487px with every one load-bearing. The bill saves and reloads with the quote. NOT YET WIRED INTO THE PRICE \u2014 the total is shown but does not move the quote, and the QUOTE # column is typed by hand. Part two links a MAKE line to a real child quote so its price flows back on its own, and rolls the total into the assembly price."},
   {rev:145, date:"2026-08-07", note:"The attached RFQ e-mail now shows as a tiny picture of itself inside the button \u2014 40 by 26 pixels of the actual message, cropped from the top-left corner so the header lines are what you see rather than a squashed grey smear. A thumbnail of the real thing says \u201cthis quote has THAT e-mail on it\u201d in a way no wording can. The button keeps its green, and reads BUYER EMAIL beside the picture. Until the image has been pulled back from GitHub there is nothing to draw, so it falls back to the tick and the full wording, then swaps to the picture the moment the pixels arrive."},
   {rev:144, date:"2026-08-07", note:"You can now see at a glance that a buyer\u2019s RFQ e-mail is attached. The button did already change its wording, but it sat among seven other dark blue chips in the top bar, so nothing about it caught the eye and the state was easy to miss. It now turns GREEN with a tick and reads BUYER EMAIL ATTACHED, and hovering it says which page the e-mail is on. Unattached it stays dark and reads UPLOAD BUYER RFQ EMAIL as before. Clicking still opens the e-mail."},
@@ -1711,9 +1712,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 146;
+const APP_REV = 147;
 const BUILD_DATE = "2026-08-07";
-const BUILD_TIME = "21:30";           /* increments every build — check both machines match */
+const BUILD_TIME = "22:15";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2555,7 +2556,9 @@ function restore(s){
   setTimeout(()=>window.__paintDifficulty&&window.__paintDifficulty(),0);
   matOverrideVal=parseFloat(s.fields&&s.fields.matOvrVal)||0;
   reqLeadVal=(s.fields&&s.fields.reqLead)||'';
-  quoteScope=(s.fields&&s.fields.quoteScope)==='ASSEMBLY' ? 'ASSEMBLY' : 'COMPONENT';
+  quoteScope=(s.fields&&s.fields.quoteScope)||'';
+  if(quoteScope!=='ASSEMBLY' && quoteScope!=='COMPONENT') quoteScope='';
+  if($('quoteScope')) $('quoteScope').value=quoteScope;
   try{ bomRows = JSON.parse((s.fields&&s.fields.bomRows)||'[]') || []; }catch(e){ bomRows=[]; }
   if(!Array.isArray(bomRows)) bomRows=[];
   updateScopeBtn(); renderBom();
@@ -2757,11 +2760,12 @@ function renderBom(){
   }
 }
 window.__renderBom=renderBom;
+/* The dropdown is the single source of truth; quoteScope just mirrors it so the
+   rest of the code and the saved quote do not each have to read the DOM. */
 function updateScopeBtn(){
-  const b=$('scopeBtn'); if(!b) return;
+  const sel=$('quoteScope');
+  if(sel && sel.value!==quoteScope) sel.value=quoteScope;
   const asm = quoteScope==='ASSEMBLY';
-  b.innerHTML = asm ? '🧩 ASSEMBLY' : '⬛ COMPONENT';
-  b.classList.toggle('asm', asm);
   const mb=$('modeBom'); if(mb) mb.hidden=!asm;
   if(!asm && opsMode==='bom') setOpsMode('calc');
 }
@@ -2769,7 +2773,7 @@ window.__updateScopeBtn=updateScopeBtn;
 
 /* ===== Calculations ⇄ Drawing view toggle (same grid region) ===== */
 let opsMode='calc';
-let quoteScope='COMPONENT';          /* COMPONENT | ASSEMBLY */
+let quoteScope='';                   /* '' until picked | COMPONENT | ASSEMBLY */
 let bomRows=[];                      /* bill of material lines, ASSEMBLY only */
 function blankBomRow(){
   return {partNo:'', name:'', qty:1, mb:'MAKE', price:0, quoteNo:'', notes:''};
@@ -4334,7 +4338,8 @@ function startNewQuote(){
   applySettingsDefaults();
   blankOps();
   matOverride='No'; matOverrideVal=0; reqLeadVal=''; buyerAskedOnce.clear();
-  quoteScope='COMPONENT'; bomRows=[];
+  quoteScope=''; bomRows=[];
+  if($('quoteScope')) $('quoteScope').value='';
   if(window.__updateScopeBtn) window.__updateScopeBtn();
   if(window.__renderBom) window.__renderBom();
   oddSel=[];
@@ -5348,7 +5353,7 @@ document.querySelectorAll('.vtab').forEach(t=>t.addEventListener('click',()=>swi
 
 /* ---- tab order: follows the sheet columns top-to-bottom, then next column (per user's flow) ---- */
 const TAB_ORDER = [
-  /* zone A: down */    'customer','partNo','annualUsage','jobType','buyer',
+  /* zone A: down */    'customer','partNo','annualUsage','jobType','quoteScope','buyer',
   /* zone B: down */    'material','priceLevel','barForm','barOverride','faiReq','difficulty',
   /* zone C: down */    'barDia','partLength','extraLength','chuckExtra','stockForm','faiDims',
   /* zone D: down */    'scrapPct','quotedBy','salesman','faiQty','nreSep',
@@ -5423,7 +5428,7 @@ $('matQuoteFile').addEventListener('change', async e=>{
 window.__openMaterialVerify=openMaterialVerify;
 
 /* ===== GUIDED INTAKE: New Quote walks every yellow mandatory field before the grid unlocks ===== */
-const GUIDE_ORDER=['customer','partNo','annualUsage','jobType','buyer',
+const GUIDE_ORDER=['customer','partNo','annualUsage','jobType','quoteScope','buyer',
                    'material','priceLevel','barForm','barOverride','faiReq','difficulty',
                    'barDia','partLength','extraLength','chuckExtra','stockForm','faiDims',
                    'scrapPct','quotedBy','salesman','faiQty','nreSep','barLen'];
@@ -5939,11 +5944,12 @@ function updateRfqBtn(){
     : "paste or upload a screenshot of the buyer's RFQ email — AI can fill the header from it";
 }
 window.__updateRfqBtn=updateRfqBtn;
-$('scopeBtn').addEventListener('click', ()=>{
-  quoteScope = (quoteScope==='ASSEMBLY') ? 'COMPONENT' : 'ASSEMBLY';
+$('quoteScope').addEventListener('change', ()=>{
+  quoteScope = $('quoteScope').value || '';
   if(quoteScope==='ASSEMBLY' && !bomRows.length) bomRows.push(blankBomRow());
-  updateScopeBtn();
-  if(quoteScope==='ASSEMBLY') setOpsMode('bom');
+  updateScopeBtn(); renderBom();
+  /* the walk is mid-flight during intake, so do NOT yank the view across to the
+     bill here -- the tab appears and waits to be clicked */
   autosaveNow();
 });
 $('modeBom').addEventListener('click', ()=>setOpsMode('bom'));

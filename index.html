@@ -282,7 +282,7 @@
   /* PART NUMBER and PART NAME hold left-aligned text, so their headings sit left
      over it rather than floating in the middle of a wide empty column. Columns
      3 and 4: ID, Level, Part Number, Part Name. */
-  .bomgrid th:nth-child(3), .bomgrid th:nth-child(4){text-align:left; padding-left:8px}
+  .bomgrid th:nth-child(4), .bomgrid th:nth-child(5){text-align:left; padding-left:8px}
   .bomgrid input[data-bk="qty"]{text-align:center}
   .bomgrid td.assyblank{background:#fff}
   /* Row 1 is the assembly itself, not a part in it. White and a shade heavier so
@@ -1589,6 +1589,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:159, date:"2026-08-08", note:"The row buttons \u2014 \u25b2 \u25bc + \u2715 \u2014 have moved from the far right of the bill to the far left, ahead of the ID. On a twelve-line bill they sat past the NOTES column, a long way from the part being moved, and on a narrow window they were off the edge entirely. They are beside the part number now. Everything that keys off column position moved with them: the footer total spans one column further along, and the left-justified PART NUMBER and PART NAME headings shifted a column, so nothing has come adrift."},
   {rev:158, date:"2026-08-08", note:"Parts can be moved up and down the bill. Each line carries \u25b2 and \u25bc beside the + and the \u2715, so an order typed wrong is dragged straight rather than deleted and retyped. The assembly on row 1 does not move and nothing may pass above it, so the up arrow is absent on rows 1 and 2 and the down arrow on row 1 and on the last line \u2014 an arrow that does nothing is worse than no arrow at all. A part that lands under a shallower parent has its level brought back into line, since a level that skips a generation describes a parent that is not on the bill. The moved line keeps the focus, so several moves in a row need no re-aiming."},
   {rev:157, date:"2026-08-08", note:"Opening the BILL OF MATERIAL puts the cursor straight into the first PART NUMBER, so it can be typed without reaching for the mouse first \u2014 and with the arrow keys from rev 155 the whole bill can be filled in from there. It fires on entering the view only, not on every redraw, because the table is rebuilt on each keystroke and focusing from there would drag the cursor back to row 1 in the middle of a word."},
   {rev:156, date:"2026-08-08", note:"The QTY column on PAST QUOTES is now ANNUAL QTY. It had been showing BATCH SIZE \u2014 how many go out on one order \u2014 where what is worth scanning a list of quotes for is what the year is worth. Sorting and filtering on that column follow the annual figure too. TOTAL $ has been renamed BATCH $ in the same pass: it is priced on the batch, not on the year, so sitting beside an annual quantity the old heading read as though the arithmetic had gone wrong. Nothing about how anything is priced has changed \u2014 only which number the list shows and what the headings call them."},
@@ -1741,9 +1742,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 158;
+const APP_REV = 159;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "03:30";           /* increments every build — check both machines match */
+const BUILD_TIME = "09:30";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2750,16 +2751,20 @@ function renderBom(){
     return `<td${pad}><input data-bi="${i}" data-bk="${k}" value="${esc(r[k]==null?'':String(r[k]))}"${num?' inputmode="decimal"':''}></td>`;
   };
   host.innerHTML = `<table class="bomgrid">
-    <colgroup><col style="width:34px"><col style="width:62px"><col style="width:300px"><col>
+    <colgroup><col style="width:112px"><col style="width:34px"><col style="width:62px"><col style="width:300px"><col>
       <col style="width:64px"><col style="width:78px"><col style="width:96px"><col style="width:104px">
-      <col style="width:78px"><col style="width:210px"><col style="width:112px"></colgroup>
+      <col style="width:78px"><col style="width:210px"></colgroup>
     <thead><tr>
-      <th>ID</th><th>Level</th><th>Part Number</th><th>Part Name</th><th>Qty per<br>Unit</th>
+      <th></th><th>ID</th><th>Level</th><th>Part Number</th><th>Part Name</th><th>Qty per<br>Unit</th>
       <th>Make /<br>Buy</th><th>Part Price</th><th>Price per<br>Assembly</th>
-      <th>Quote #</th><th>Notes</th><th></th>
+      <th>Quote #</th><th>Notes</th>
     </tr></thead>
     <tbody>${bomRows.map((r,i)=>`
       <tr class="lvl${parseInt(r.lvl,10)||1}${r.mb==='BUY'?' buyrow':''}">
+        <td class="idc rowb">${
+          (i>1) ? `<button class="mini" data-bup="${i}" type="button" title="move this part up">▲</button>` : ''}${
+          (i>0 && i<bomRows.length-1) ? `<button class="mini" data-bdn="${i}" type="button" title="move this part down">▼</button>` : ''}<button class="mini" data-bins="${i}" type="button" title="insert a part directly below this line">+</button>${
+          i===0 ? '' : `<button class="mini delb" data-bdel="${i}" type="button" title="remove this part">✕</button>`}</td>
         <td class="idc">${i+1}</td>
         ${cell(i,'lvl',r,'lvl')}
         ${cell(i,'partNo',r)}
@@ -2770,15 +2775,11 @@ function renderBom(){
         <td class="${i===0?'assyblank':'calc'}">${i===0?'':money(bomExt(r))}</td>
         ${cell(i,'quoteNo',r)}
         ${cell(i,'notes',r)}
-        <td class="idc rowb">${
-          (i>1) ? `<button class="mini" data-bup="${i}" type="button" title="move this part up">▲</button>` : ''}${
-          (i>0 && i<bomRows.length-1) ? `<button class="mini" data-bdn="${i}" type="button" title="move this part down">▼</button>` : ''}<button class="mini" data-bins="${i}" type="button" title="insert a part directly below this line">+</button>${
-          i===0 ? '' : `<button class="mini delb" data-bdel="${i}" type="button" title="remove this part">✕</button>`}</td>
       </tr>`).join('')}</tbody>
     <tfoot><tr>
-      <td colspan="7" style="text-align:right">TOTAL PARTS COST PER ASSEMBLY</td>
+      <td colspan="8" style="text-align:right">TOTAL PARTS COST PER ASSEMBLY</td>
       <td class="tot">${money(bomTotal())}</td>
-      <td colspan="3"></td>
+      <td colspan="2"></td>
     </tr></tfoot>
   </table>`;
   host.querySelectorAll('[data-bk]').forEach(el=>{

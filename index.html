@@ -290,6 +290,14 @@
   .bomgrid td.rowb{white-space:nowrap; text-align:center}
   .bomgrid td.rowb .mini{padding:1px 4px; margin:0 1px; font-weight:800; line-height:1.1}
   .bomgrid td.rowb .mini:disabled{opacity:.28; cursor:default}
+  .bomgrid td.rowb .grip{
+    display:inline-block; cursor:grab; padding:0 4px; margin-right:2px;
+    color:var(--cp-dim); font-size:15px; line-height:1; user-select:none; vertical-align:middle;
+  }
+  .bomgrid td.rowb .grip:active{cursor:grabbing}
+  .bomgrid tbody tr.dragging{opacity:.45}
+  .bomgrid tbody tr.drop-above td{box-shadow:inset 0 3px 0 -1px var(--cp-signal)}
+  .bomgrid tbody tr.drop-below td{box-shadow:inset 0 -3px 0 -1px var(--cp-signal)}
   /* PART NUMBER and PART NAME hold left-aligned text, so their headings sit left
      over it rather than floating in the middle of a wide empty column. Columns
      3 and 4: ID, Level, Part Number, Part Name. */
@@ -1647,6 +1655,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:169, date:"2026-08-08", note:"Parts can be dragged. Every part row has a \u2261 grip at its left end; take hold of it and drop the line where it belongs, with a coloured bar showing where it will land. The grip is what drags, not the row \u2014 a draggable row full of text boxes steals click-and-drag inside them, so selecting half a part number would start moving the line instead. The arrows stay: surer for one step, while dragging wins across a thirteen-line bill. The assembly on row 1 cannot be dragged and nothing can be dropped above it \u2014 a drop aimed at row 1 lands just below it, the first place a part is allowed to be. Levels are brought back into line after the move, as with the arrows."},
   {rev:168, date:"2026-08-08", note:"Every part row now carries both arrows. Rev 158 left out the ones that could not move \u2014 no up arrow on row 2, no down arrow on the last line \u2014 on the reasoning that a dead arrow is worse than none. That was wrong: leaving them out shifted the whole set of buttons sideways from row to row, so the one you were reaching for was never twice in the same place. They are all there and all aligned now, greyed out where the move cannot happen, and hovering says why. The assembly on row 1 still has neither, since it does not move at all."},
   {rev:167, date:"2026-08-08", note:"The bill of material has a heading: BILL OF MATERIAL, 30px, black and heavy above the ADD PART button. Since rev 166 put the header fields alongside it rather than on their own screen, the table was starting cold with nothing saying what it was \u2014 the only clue was a tab in the view bar several inches away. Black rather than the maroon used elsewhere, so it reads as the title of what is under it instead of another section heading."},
   {rev:166, date:"2026-08-08", note:"An assembly quote no longer asks about bar stock. MATERIAL, MILL OR DISTRIBUTOR PRICE, 36\" BAR OR SLUGGED, OVER-RIDE OF BARSTOCK NEEDED, BAR DIA, PART LENGTH, EXTRA LENGTH NEEDED/PC, BAR REMNANT REQUIRED, BAR STOCK CASTING OR COMPONENT and PREFERRED BAR LENGTH are all gone from the intake panel on an ASSEMBLY, and the guided walk steps straight past them \u2014 an assembly is built from its parts, it does not come off a bar, so those questions had no answer worth giving. The step count drops from 25 to 15 to match. The remaining fields are also half the size, because on an assembly the bill of material sits alongside them and needs the room. A COMPONENT quote is untouched: same fields, same sizes, same 25 steps."},
@@ -1809,9 +1818,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 168;
+const APP_REV = 169;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "16:20";           /* increments every build — check both machines match */
+const BUILD_TIME = "17:00";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2827,8 +2836,9 @@ function renderBom(){
       <th>Quote #</th><th>Notes</th>
     </tr></thead>
     <tbody>${bomRows.map((r,i)=>`
-      <tr class="lvl${parseInt(r.lvl,10)||1}${r.mb==='BUY'?' buyrow':''}">
+      <tr class="lvl${parseInt(r.lvl,10)||1}${r.mb==='BUY'?' buyrow':''}" data-brow="${i}">
         <td class="idc rowb">${
+          i===0 ? '' : `<span class="grip" draggable="true" data-bgrip="${i}" title="drag to move this part">≡</span>`}${
           i===0 ? '' : `<button class="mini" data-bup="${i}" type="button"${i<2?' disabled title="the assembly stays on row 1"':' title="move this part up"'}>▲</button>`}${
           i===0 ? '' : `<button class="mini" data-bdn="${i}" type="button"${i>=bomRows.length-1?' disabled title="already the last part"':' title="move this part down"'}>▼</button>`}<button class="mini" data-bins="${i}" type="button" title="insert a part directly below this line">+</button>${
           i===0 ? '' : `<button class="mini delb" data-bdel="${i}" type="button" title="remove this part">✕</button>`}</td>
@@ -2888,6 +2898,54 @@ function renderBom(){
       renderBom(); scheduleAutosave();
     });
   });
+  /* drag and drop, alongside the arrows rather than instead of them: the arrows
+     are surer for one step, dragging is quicker across a long bill. */
+  host.querySelectorAll('[data-bgrip]').forEach(g=>{
+    g.addEventListener('dragstart', e=>{
+      bomDragFrom = +g.dataset.bgrip;
+      try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', String(bomDragFrom)); }catch(err){}
+      const tr=g.closest('tr'); if(tr) tr.classList.add('dragging');
+    });
+    g.addEventListener('dragend', ()=>{
+      bomDragFrom = -1;
+      host.querySelectorAll('tr').forEach(t=>t.classList.remove('dragging','drop-above','drop-below'));
+    });
+  });
+  host.querySelectorAll('tr[data-brow]').forEach(tr=>{
+    const idx = +tr.dataset.brow;
+    tr.addEventListener('dragover', e=>{
+      if(bomDragFrom<1) return;
+      e.preventDefault();
+      try{ e.dataTransfer.dropEffect='move'; }catch(err){}
+      const box=tr.getBoundingClientRect();
+      const below=(e.clientY - box.top) > box.height/2;
+      host.querySelectorAll('tr').forEach(t=>t.classList.remove('drop-above','drop-below'));
+      /* nothing may land above the assembly, so a drop on row 1 becomes a drop
+         below it -- the first place a part is allowed to be */
+      if(idx===0) tr.classList.add('drop-below');
+      else tr.classList.add(below?'drop-below':'drop-above');
+    });
+    tr.addEventListener('drop', e=>{
+      if(bomDragFrom<1) return;
+      e.preventDefault();
+      const box=tr.getBoundingClientRect();
+      const below=(idx===0) ? true : ((e.clientY - box.top) > box.height/2);
+      let to = idx + (below?1:0);
+      if(to<1) to=1;
+      const from=bomDragFrom;
+      if(to>from) to--;                       /* the row leaves its own slot first */
+      if(to===from || from<1){ bomDragFrom=-1; renderBom(); return; }
+      const moved=bomRows.splice(from,1)[0];
+      bomRows.splice(to,0,moved);
+      bomDragFrom=-1;
+      normalizeBom();
+      renderBom();
+      const el=host.querySelector(`[data-bi="${to}"][data-bk="partNo"]`);
+      if(el) el.focus();
+      if(typeof autosaveNow==='function') autosaveNow();
+    });
+  });
+
   const swap=(a,b2)=>{ const t=bomRows[a]; bomRows[a]=bomRows[b2]; bomRows[b2]=t; };
   const moveRow=(i,d)=>{
     const j=i+d;
@@ -2952,6 +3010,7 @@ window.__updateScopeBtn=updateScopeBtn;
 let opsMode='calc';
 let quoteScope='';                   /* '' until picked | COMPONENT | ASSEMBLY */
 let bomRows=[];                      /* bill of material lines, ASSEMBLY only */
+let bomDragFrom=-1;                  /* row being dragged, -1 when nothing is */
 function blankBomRow(){
   return {lvl:1, partNo:'', name:'', qty:1, mb:'MAKE', price:0, quoteNo:'', notes:''};
 }

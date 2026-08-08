@@ -278,7 +278,7 @@
   .bomgrid td.lvlc select{text-align:center; font-weight:800}
   .bomgrid td.lvlc select:disabled{background:var(--cp-panel); opacity:1; color:var(--cp-ink)}
   .bomgrid td.rowb{white-space:nowrap; text-align:center}
-  .bomgrid td.rowb .mini{padding:1px 5px; margin:0 1px; font-weight:800}
+  .bomgrid td.rowb .mini{padding:1px 4px; margin:0 1px; font-weight:800; line-height:1.1}
   /* PART NUMBER and PART NAME hold left-aligned text, so their headings sit left
      over it rather than floating in the middle of a wide empty column. Columns
      3 and 4: ID, Level, Part Number, Part Name. */
@@ -1589,6 +1589,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:158, date:"2026-08-08", note:"Parts can be moved up and down the bill. Each line carries \u25b2 and \u25bc beside the + and the \u2715, so an order typed wrong is dragged straight rather than deleted and retyped. The assembly on row 1 does not move and nothing may pass above it, so the up arrow is absent on rows 1 and 2 and the down arrow on row 1 and on the last line \u2014 an arrow that does nothing is worse than no arrow at all. A part that lands under a shallower parent has its level brought back into line, since a level that skips a generation describes a parent that is not on the bill. The moved line keeps the focus, so several moves in a row need no re-aiming."},
   {rev:157, date:"2026-08-08", note:"Opening the BILL OF MATERIAL puts the cursor straight into the first PART NUMBER, so it can be typed without reaching for the mouse first \u2014 and with the arrow keys from rev 155 the whole bill can be filled in from there. It fires on entering the view only, not on every redraw, because the table is rebuilt on each keystroke and focusing from there would drag the cursor back to row 1 in the middle of a word."},
   {rev:156, date:"2026-08-08", note:"The QTY column on PAST QUOTES is now ANNUAL QTY. It had been showing BATCH SIZE \u2014 how many go out on one order \u2014 where what is worth scanning a list of quotes for is what the year is worth. Sorting and filtering on that column follow the annual figure too. TOTAL $ has been renamed BATCH $ in the same pass: it is priced on the batch, not on the year, so sitting beside an annual quantity the old heading read as though the arithmetic had gone wrong. Nothing about how anything is priced has changed \u2014 only which number the list shows and what the headings call them."},
   {rev:155, date:"2026-08-08", note:"The bill can be filled in without leaving the keyboard. UP and DOWN move between rows in the same column, and DOWN from the last row adds a part and lands in it \u2014 the same as + ADD PART but without reaching for the mouse. LEFT and RIGHT step between cells, but only from the very start or end of what is in the box, so they still move the caret through text that is being typed. Arrows are deliberately left alone on the LEVEL and MAKE / BUY dropdowns, where up and down already pick the value. All the cells are white now: yellow means \u2018this must be answered\u2019 everywhere else in the quote, and nothing on the bill is mandatory, so yellow was making a promise the bill does not keep."},
@@ -1740,9 +1741,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 157;
+const APP_REV = 158;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "03:00";           /* increments every build — check both machines match */
+const BUILD_TIME = "03:30";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2751,7 +2752,7 @@ function renderBom(){
   host.innerHTML = `<table class="bomgrid">
     <colgroup><col style="width:34px"><col style="width:62px"><col style="width:300px"><col>
       <col style="width:64px"><col style="width:78px"><col style="width:96px"><col style="width:104px">
-      <col style="width:78px"><col style="width:210px"><col style="width:58px"></colgroup>
+      <col style="width:78px"><col style="width:210px"><col style="width:112px"></colgroup>
     <thead><tr>
       <th>ID</th><th>Level</th><th>Part Number</th><th>Part Name</th><th>Qty per<br>Unit</th>
       <th>Make /<br>Buy</th><th>Part Price</th><th>Price per<br>Assembly</th>
@@ -2769,7 +2770,9 @@ function renderBom(){
         <td class="${i===0?'assyblank':'calc'}">${i===0?'':money(bomExt(r))}</td>
         ${cell(i,'quoteNo',r)}
         ${cell(i,'notes',r)}
-        <td class="idc rowb"><button class="mini" data-bins="${i}" type="button" title="insert a part directly below this line">+</button>${
+        <td class="idc rowb">${
+          (i>1) ? `<button class="mini" data-bup="${i}" type="button" title="move this part up">▲</button>` : ''}${
+          (i>0 && i<bomRows.length-1) ? `<button class="mini" data-bdn="${i}" type="button" title="move this part down">▼</button>` : ''}<button class="mini" data-bins="${i}" type="button" title="insert a part directly below this line">+</button>${
           i===0 ? '' : `<button class="mini delb" data-bdel="${i}" type="button" title="remove this part">✕</button>`}</td>
       </tr>`).join('')}</tbody>
     <tfoot><tr>
@@ -2816,6 +2819,25 @@ function renderBom(){
       bomRows[i][k]=e.target.value;
       renderBom(); scheduleAutosave();
     });
+  });
+  const swap=(a,b2)=>{ const t=bomRows[a]; bomRows[a]=bomRows[b2]; bomRows[b2]=t; };
+  const moveRow=(i,d)=>{
+    const j=i+d;
+    if(i<1 || j<1 || j>=bomRows.length) return;   /* row 1 is the assembly: fixed */
+    swap(i,j);
+    /* a part that lands under a shallower parent cannot keep a level that now
+       skips a generation, so the rules are re-applied rather than left broken */
+    normalizeBom();
+    renderBom();
+    const el=$('bomBody') && $('bomBody').querySelector(`[data-bi="${j}"][data-bk="partNo"]`);
+    if(el) el.focus();
+    if(typeof autosaveNow==='function') autosaveNow();
+  };
+  host.querySelectorAll('button[data-bup]').forEach(b=>{
+    b.addEventListener('click', ()=>moveRow(+b.dataset.bup,-1));
+  });
+  host.querySelectorAll('button[data-bdn]').forEach(b=>{
+    b.addEventListener('click', ()=>moveRow(+b.dataset.bdn, 1));
   });
   host.querySelectorAll('button[data-bins]').forEach(b=>{
     b.addEventListener('click', ()=>{

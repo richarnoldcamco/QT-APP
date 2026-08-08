@@ -1589,6 +1589,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:154, date:"2026-08-08", note:"The button on the assembly box reads CREATE BOM instead of START THE BILL. BOM is what the thing is called on the shop floor and on the customer\u2019s own spreadsheet, and it is what the tab it opens has always been called, so the button now uses the same word as everything it leads to."},
   {rev:153, date:"2026-08-08", note:"QTY PER UNIT is centred in its column. And the assembly row has lost its MAKE / BUY dropdown and its PART PRICE box \u2014 both now blank and white \u2014 because neither means anything there: row 1 is not made or bought as a line, and it has no price of its own. Its cost IS the total of the lines beneath it, so a price typed on row 1 would have been counted on top of the parts that make it up. The total now skips row 1 for the same reason, and that row\u2019s PRICE PER ASSEMBLY is blank rather than a misleading $0.00."},
   {rev:152, date:"2026-08-08", note:"Two tidies on the bill of material. The PART NUMBER and PART NAME headings are left justified, sitting over the text they label instead of floating in the middle of a wide column while the entries ran along the left edge. And the assembly\u2019s own two fields on row 1 are now white and slightly bolder against the yellow of every other line, so the thing being quoted reads as the header of the list rather than the first item on it."},
   {rev:151, date:"2026-08-08", note:"Choosing ASSEMBLY now asks for the assembly\u2019s part number and name before the bill opens. Those two answers are the same thing in two places \u2014 the PART NUMBER on the quote header, and line 1 of the bill, the level 1 everything else sits under \u2014 so they are asked once and written to both, which stops them drifting apart. The part number is required; the quote hangs off it. Two more lines are laid in at level 2 ready to type. BACK returns to COMPONENT or ASSEMBLY rather than stranding an assembly with no number on it."},
@@ -1736,9 +1737,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 153;
+const APP_REV = 154;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "01:05";           /* increments every build — check both machines match */
+const BUILD_TIME = "01:25";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -4473,7 +4474,7 @@ function askAssyIdentity(){
     <div class="note" id="aiErr" style="color:#a11; margin:10px 0 0 160px" hidden></div>
     <div class="btns" style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px">
       <button class="btn" id="aiBack">\u2190 Back</button>
-      <button class="btn primary" id="aiOk">\u2713 START THE BILL</button>
+      <button class="btn primary" id="aiOk">\u2713 CREATE BOM</button>
     </div>
   </div>`;
   document.body.appendChild(ov);

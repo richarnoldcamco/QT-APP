@@ -295,6 +295,12 @@
     color:var(--cp-dim); font-size:15px; line-height:1; user-select:none; vertical-align:middle;
   }
   .bomgrid td.rowb .grip:active{cursor:grabbing}
+  .bomgrid td.dwgc{text-align:center; white-space:nowrap; padding:1px}
+  .bomgrid .bomthumb{
+    height:26px; width:34px; object-fit:cover; object-position:top left; cursor:pointer;
+    border:1px solid var(--cp-line); border-radius:2px; background:#fff; vertical-align:middle;
+  }
+  .bomgrid .dwgwait{display:inline-block; width:34px; color:var(--cp-dim); font-weight:800}
   .bomgrid tbody tr.dragging{opacity:.45}
   .bomgrid tbody tr.drop-above td{box-shadow:inset 0 3px 0 -1px var(--cp-signal)}
   .bomgrid tbody tr.drop-below td{box-shadow:inset 0 -3px 0 -1px var(--cp-signal)}
@@ -1657,6 +1663,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:171, date:"2026-08-08", note:"Every line on the bill can carry its own drawing. A DWG column sits after PART NAME: \u2b06 attaches a print for that part, a thumbnail of it takes the button\u2019s place, clicking the thumbnail opens it full size and \u2715 removes it. The image does NOT go on the quote \u2014 it is shrunk to 1600px, saved as its own file under drawings/ and the row keeps only a short reference, the same arrangement the quote\u2019s own pages have used since the beginning. Putting pictures on the rows would have pushed megabytes into quote-data.json, which carries every quote there is, and filled the browser\u2019s storage in a few assemblies. On another machine the thumbnail shows a \u2026 while the file comes down from GitHub, then appears on its own. Removing a drawing marks it for deletion remotely too, so nothing is orphaned in the repo."},
   {rev:170, date:"2026-08-08", note:"On an assembly the header fields are now one column down the left at 420px instead of two at 760px, and the bill of material takes everything left over \u2014 about 500px more than it had. The panel also stops disappearing when the bill opens: on an assembly the two are meant to sit side by side, which is the point of having shrunk the fields in the first place. MAKE / BUY has gained a third choice, ASSY, for a sub-assembly: made here like a MAKE part, but built from the lines indented beneath it rather than from bar stock of its own. ASSY rows tint green and carry their part number in bold, so the shape of the bill reads off the page. Per-row drawings are next \u2014 see the note in the handoff about why they cannot simply be pasted into the row."},
   {rev:169, date:"2026-08-08", note:"Parts can be dragged. Every part row has a \u2261 grip at its left end; take hold of it and drop the line where it belongs, with a coloured bar showing where it will land. The grip is what drags, not the row \u2014 a draggable row full of text boxes steals click-and-drag inside them, so selecting half a part number would start moving the line instead. The arrows stay: surer for one step, while dragging wins across a thirteen-line bill. The assembly on row 1 cannot be dragged and nothing can be dropped above it \u2014 a drop aimed at row 1 lands just below it, the first place a part is allowed to be. Levels are brought back into line after the move, as with the arrows."},
   {rev:168, date:"2026-08-08", note:"Every part row now carries both arrows. Rev 158 left out the ones that could not move \u2014 no up arrow on row 2, no down arrow on the last line \u2014 on the reasoning that a dead arrow is worse than none. That was wrong: leaving them out shifted the whole set of buttons sideways from row to row, so the one you were reaching for was never twice in the same place. They are all there and all aligned now, greyed out where the move cannot happen, and hovering says why. The assembly on row 1 still has neither, since it does not move at all."},
@@ -1821,9 +1828,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 170;
+const APP_REV = 171;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "17:45";           /* increments every build — check both machines match */
+const BUILD_TIME = "18:40";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2815,6 +2822,15 @@ function renderBom(){
       return `<td class="mb"><select data-bi="${i}" data-bk="mb">${
         BOM_MB.map(o=>`<option${r.mb===o?' selected':''}>${o}</option>`).join('')}</select></td>`;
     }
+    if(type==='dwg'){
+      const ref=r.dref||'';
+      if(!ref) return `<td class="dwgc"><button class="mini" data-bdwg="${i}" type="button" title="attach a drawing for this part">⬆</button></td>`;
+      const px=bomDrwData(ref);
+      return `<td class="dwgc">${px
+        ? `<img class="bomthumb" src="${px}" data-bdview="${i}" title="click to open this drawing full size">`
+        : `<span class="dwgwait" data-bdview="${i}" title="downloading…">…</span>`
+      }<button class="mini" data-bdrm="${i}" type="button" title="remove this drawing">✕</button></td>`;
+    }
     if(type==='lvl'){
       const cur=parseInt(r.lvl,10)||1;
       const opts=bomLevelChoices(i);
@@ -2830,10 +2846,10 @@ function renderBom(){
   };
   host.innerHTML = `<table class="bomgrid">
     <colgroup><col style="width:112px"><col style="width:34px"><col style="width:62px"><col style="width:300px"><col>
-      <col style="width:64px"><col style="width:78px"><col style="width:96px"><col style="width:104px">
+      <col style="width:66px"><col style="width:64px"><col style="width:78px"><col style="width:96px"><col style="width:104px">
       <col style="width:78px"><col style="width:210px"></colgroup>
     <thead><tr>
-      <th></th><th>ID</th><th>Level</th><th>Part Number</th><th>Part Name</th><th>Qty per<br>Unit</th>
+      <th></th><th>ID</th><th>Level</th><th>Part Number</th><th>Part Name</th><th>Dwg</th><th>Qty per<br>Unit</th>
       <th>Make /<br>Buy</th><th>Part Price</th><th>Price per<br>Assembly</th>
       <th>Quote #</th><th>Notes</th>
     </tr></thead>
@@ -2848,6 +2864,7 @@ function renderBom(){
         ${cell(i,'lvl',r,'lvl')}
         ${cell(i,'partNo',r)}
         ${cell(i,'name',r)}
+        ${cell(i,'dwg',r,'dwg')}
         ${cell(i,'qty',r)}
         ${cell(i,'mb',r,'mb')}
         ${cell(i,'price',r)}
@@ -2856,7 +2873,7 @@ function renderBom(){
         ${cell(i,'notes',r)}
       </tr>`).join('')}</tbody>
     <tfoot><tr>
-      <td colspan="8" style="text-align:right">TOTAL PARTS COST PER ASSEMBLY</td>
+      <td colspan="9" style="text-align:right">TOTAL PARTS COST PER ASSEMBLY</td>
       <td class="tot">${money(bomTotal())}</td>
       <td colspan="2"></td>
     </tr></tfoot>
@@ -2902,6 +2919,32 @@ function renderBom(){
   });
   /* drag and drop, alongside the arrows rather than instead of them: the arrows
      are surer for one step, dragging is quicker across a long bill. */
+  host.querySelectorAll('button[data-bdwg]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const i=+b.dataset.bdwg;
+      let inp=$('bomFilePick');
+      if(!inp){
+        inp=document.createElement('input');
+        inp.type='file'; inp.accept='image/*'; inp.id='bomFilePick'; inp.hidden=true;
+        document.body.appendChild(inp);
+      }
+      inp.value='';
+      inp.onchange=()=>{ const f=inp.files && inp.files[0]; if(f) bomAttachDrawing(i,f); };
+      inp.click();
+    });
+  });
+  host.querySelectorAll('button[data-bdrm]').forEach(b=>{
+    b.addEventListener('click', ()=>bomRemoveDrawing(+b.dataset.bdrm));
+  });
+  host.querySelectorAll('[data-bdview]').forEach(el=>{
+    el.addEventListener('click', ()=>bomViewDrawing(+el.dataset.bdview));
+  });
+  /* pixels not on this machine yet: pull them, then redraw */
+  bomRows.forEach((r,i)=>{
+    if(r.dref && !bomDrwData(r.dref) && typeof ghFetchDrawingRef==='function' && ghEnabled()){
+      ghFetchDrawingRef(r.dref).then(d=>{ if(d) renderBom(); }).catch(()=>{});
+    }
+  });
   host.querySelectorAll('[data-bgrip]').forEach(g=>{
     g.addEventListener('dragstart', e=>{
       bomDragFrom = +g.dataset.bgrip;
@@ -3050,6 +3093,80 @@ function bomMoveCol(i,k,d){
     if(bomFocus(i,BOM_KEYS[n])) return true;
   }
   return false;
+}
+/* ---- per-row drawings -------------------------------------------------
+   A print for one part in the bill. Same storage as the quote's own pages:
+   the row carries a ref, drwCache holds the bytes, and ghPush flushes them
+   to drawings/ as their own file. Putting the image on the row itself would
+   push megabytes into quote-data.json, which holds every quote there is. */
+function bomDrwData(ref){
+  if(!ref) return '';
+  try{ const e=drwCache()[ref]; return (e && !e.del && e.data) ? e.data : ''; }catch(err){ return ''; }
+}
+function bomShrink(file, maxPx, quality){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onerror=()=>rej(new Error('could not read that file'));
+    fr.onload=()=>{
+      const img=new Image();
+      img.onerror=()=>rej(new Error('that does not look like an image'));
+      img.onload=()=>{
+        let w=img.naturalWidth||img.width, hh=img.naturalHeight||img.height;
+        const s=Math.min(1, maxPx/Math.max(w,hh));
+        w=Math.max(1,Math.round(w*s)); hh=Math.max(1,Math.round(hh*s));
+        const cv=document.createElement('canvas'); cv.width=w; cv.height=hh;
+        cv.getContext('2d').drawImage(img,0,0,w,hh);
+        res(cv.toDataURL('image/jpeg', quality));
+      };
+      img.src=fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+async function bomAttachDrawing(i, file){
+  if(!bomRows[i]) return;
+  let dataURL;
+  try{ dataURL = await bomShrink(file, 1600, 0.72); }
+  catch(e){ alert(e.message); return; }
+  const ref = (typeof newPageRef==='function') ? newPageRef()
+            : 'drawings/Q'+activeQuoteNo+'-'+Date.now().toString(36)+'.jpg';
+  const cache=drwCache();
+  cache[ref]={data:dataURL, ts:Date.now(), dirty:true};
+  drwSave(cache);
+  bomRows[i].dref=ref;
+  renderBom();
+  autosaveNow();
+  scheduleGhPush();
+}
+function bomRemoveDrawing(i){
+  const ref=bomRows[i] && bomRows[i].dref;
+  if(!ref) return;
+  const cache=drwCache();
+  cache[ref]={del:true, ts:Date.now(), dirty:true};   /* pending remote delete */
+  drwSave(cache);
+  delete bomRows[i].dref;
+  renderBom();
+  autosaveNow();
+  scheduleGhPush();
+}
+function bomViewDrawing(i){
+  const ref=bomRows[i] && bomRows[i].dref; if(!ref) return;
+  const px=bomDrwData(ref);
+  if(!px){ if(typeof ghFetchDrawingRef==='function' && ghEnabled()) ghFetchDrawingRef(ref).then(()=>renderBom()); return; }
+  const prev=$('bdvOv'); if(prev) prev.remove();
+  const ov=document.createElement('div');
+  ov.className='ov'; ov.id='bdvOv'; ov.style.display='flex';
+  const r=bomRows[i];
+  ov.innerHTML=`<div class="modal" style="width:92vw; max-width:1500px">
+    <h3 style="margin:0 0 10px">${esc(r.partNo||'Part')} ${r.name?'\u2014 '+esc(r.name):''}</h3>
+    <img src="${px}" style="width:100%; height:auto; display:block; border:1px solid var(--cp-line); background:#fff">
+    <div class="btns" style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px">
+      <button class="btn" id="bdvClose">Close</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  $('bdvClose').addEventListener('click', ()=>ov.remove());
+  ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
 }
 function normalizeBom(){
   if(!bomRows.length) return;

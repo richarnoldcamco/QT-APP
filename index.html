@@ -275,6 +275,9 @@
   }
   .bomgrid td{border:1px solid var(--cp-line); padding:1px 2px; font-size:12px; vertical-align:middle}
   .bomgrid td.idc{text-align:center; font-weight:700; background:var(--cp-panel); width:34px}
+  .bomgrid td.lvlc select{text-align:center; font-weight:800}
+  .bomgrid tr.lvl2 td.lvlc, .bomgrid tr.lvl3 td.lvlc,
+  .bomgrid tr.lvl4 td.lvlc, .bomgrid tr.lvl5 td.lvlc{background:#eef3f9}
   .bomgrid input, .bomgrid select{
     width:100%; min-width:0; box-sizing:border-box; font-size:12px; padding:3px 4px;
     border:1px solid transparent; border-radius:2px; background:var(--yellow); font-family:var(--ui);
@@ -1571,6 +1574,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:149, date:"2026-08-07", note:"Three fixes to the bill of material. A LEVEL column, 1 to 5, sits after the ID, and the part number steps right by one notch for each level, so a sub-assembly and the parts inside it read as a shape down the column rather than something to work out from a number. PART NUMBER is twice as wide \u2014 150 to 300px \u2014 taken out of PART NAME, which was swallowing all the spare width for text that is usually two words. And on an assembly quote the drawing button now says UPLOAD ASSY DRAWING, and reads ASSY DRAWING once one is on, since the print for an assembly is a different document from a part print. A component quote is unchanged."},
   {rev:148, date:"2026-08-07", note:"NEW QUOTE now opens by asking what is being quoted \u2014 COMPONENT or ASSEMBLY \u2014 before anything else. It is the first thing that happens because it decides what the rest of the quote is: a component carries on into the usual print-then-header walk untouched, while an assembly goes straight to the BILL OF MATERIAL with three lines ready to fill in. There is no Cancel and Escape does nothing; the quote exists by then and an unanswered scope is the very thing rev 147 set out to stop. Picking ASSEMBLY hides the intake panel while the bill is open so it has the full width, and the header is a tab away on the CALCULATIONS button whenever you want it."},
   {rev:147, date:"2026-08-07", note:"COMPONENT or ASSEMBLY is now something you pick, not a button that had already decided. Rev 146 put a toggle in the VIEW bar sitting on COMPONENT, which meant an assembly could be quoted as a single part without anyone ever being asked. It is a header field now \u2014 COMPONENT OR ASSEMBLY? \u2014 opening on \u2014 PICK \u2014, in the tab run and a stop on the guided walk, right after JOB TYPE. Choosing ASSEMBLY reveals the BILL OF MATERIAL tab and starts a first line; it does not drag the view across mid-intake, so tabbing through the header carries on uninterrupted. The walk is 25 steps now."},
   {rev:146, date:"2026-08-07", note:"Bill of material, part one. A COMPONENT / ASSEMBLY button sits in the VIEW bar; switch it to ASSEMBLY and a BILL OF MATERIAL tab appears beside Calculations and Drawing. Each line takes a part number, name, qty per unit, MAKE or BUY, a part price and a quote number, and works out the price per assembly and a total parts cost at the foot. BUY lines tint so bought-in parts read differently from ones we make. It is deliberately its own table rather than more columns on the ops grid, which is 36 columns summing to exactly 1487px with every one load-bearing. The bill saves and reloads with the quote. NOT YET WIRED INTO THE PRICE \u2014 the total is shown but does not move the quote, and the QUOTE # column is typed by hand. Part two links a MAKE line to a real child quote so its price flows back on its own, and rolls the total into the assembly price."},
@@ -1713,9 +1717,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 148;
+const APP_REV = 149;
 const BUILD_DATE = "2026-08-07";
-const BUILD_TIME = "22:50";           /* increments every build — check both machines match */
+const BUILD_TIME = "23:25";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2706,21 +2710,30 @@ function renderBom(){
         <option${r.mb==='MAKE'?' selected':''}>MAKE</option>
         <option${r.mb==='BUY'?' selected':''}>BUY</option></select></td>`;
     }
+    if(type==='lvl'){
+      const cur=parseInt(r.lvl,10)||1;
+      return `<td class="lvlc"><select data-bi="${i}" data-bk="lvl">${
+        BOM_LEVELS.map(n=>`<option value="${n}"${n===cur?' selected':''}>${n}</option>`).join('')}</select></td>`;
+    }
+    /* the part number steps right with its level, so the shape of the assembly
+       reads off the column instead of having to be worked out from a number */
+    const pad = (k==='partNo') ? ` style="padding-left:${((parseInt(r.lvl,10)||1)-1)*16+2}px"` : '';
     const num = (k==='qty'||k==='price');
-    return `<td><input data-bi="${i}" data-bk="${k}" value="${esc(r[k]==null?'':String(r[k]))}"${num?' inputmode="decimal"':''}></td>`;
+    return `<td${pad}><input data-bi="${i}" data-bk="${k}" value="${esc(r[k]==null?'':String(r[k]))}"${num?' inputmode="decimal"':''}></td>`;
   };
   host.innerHTML = `<table class="bomgrid">
-    <colgroup><col style="width:34px"><col style="width:150px"><col><col style="width:64px">
-      <col style="width:78px"><col style="width:96px"><col style="width:104px">
+    <colgroup><col style="width:34px"><col style="width:62px"><col style="width:300px"><col>
+      <col style="width:64px"><col style="width:78px"><col style="width:96px"><col style="width:104px">
       <col style="width:78px"><col style="width:210px"><col style="width:30px"></colgroup>
     <thead><tr>
-      <th>ID</th><th>Part Number</th><th>Part Name</th><th>Qty per<br>Unit</th>
+      <th>ID</th><th>Level</th><th>Part Number</th><th>Part Name</th><th>Qty per<br>Unit</th>
       <th>Make /<br>Buy</th><th>Part Price</th><th>Price per<br>Assembly</th>
       <th>Quote #</th><th>Notes</th><th></th>
     </tr></thead>
     <tbody>${bomRows.map((r,i)=>`
-      <tr class="${r.mb==='BUY'?'buyrow':''}">
+      <tr class="lvl${parseInt(r.lvl,10)||1}${r.mb==='BUY'?' buyrow':''}">
         <td class="idc">${i+1}</td>
+        ${cell(i,'lvl',r,'lvl')}
         ${cell(i,'partNo',r)}
         ${cell(i,'name',r)}
         ${cell(i,'qty',r)}
@@ -2732,7 +2745,7 @@ function renderBom(){
         <td class="idc"><button class="mini delb" data-bdel="${i}" type="button" title="remove this part">✕</button></td>
       </tr>`).join('')}</tbody>
     <tfoot><tr>
-      <td colspan="6" style="text-align:right">TOTAL PARTS COST PER ASSEMBLY</td>
+      <td colspan="7" style="text-align:right">TOTAL PARTS COST PER ASSEMBLY</td>
       <td class="tot">${money(bomTotal())}</td>
       <td colspan="3"></td>
     </tr></tfoot>
@@ -2768,6 +2781,7 @@ function updateScopeBtn(){
   if(sel && sel.value!==quoteScope) sel.value=quoteScope;
   const asm = quoteScope==='ASSEMBLY';
   const mb=$('modeBom'); if(mb) mb.hidden=!asm;
+  if(typeof updateDrawModeBtn==='function') updateDrawModeBtn();
   if(!asm && opsMode==='bom') setOpsMode('calc');
 }
 window.__updateScopeBtn=updateScopeBtn;
@@ -2777,8 +2791,9 @@ let opsMode='calc';
 let quoteScope='';                   /* '' until picked | COMPONENT | ASSEMBLY */
 let bomRows=[];                      /* bill of material lines, ASSEMBLY only */
 function blankBomRow(){
-  return {partNo:'', name:'', qty:1, mb:'MAKE', price:0, quoteNo:'', notes:''};
+  return {lvl:1, partNo:'', name:'', qty:1, mb:'MAKE', price:0, quoteNo:'', notes:''};
 }
+const BOM_LEVELS=[1,2,3,4,5];
 function bomExt(r){ return (parseFloat(r.qty)||0) * (parseFloat(r.price)||0); }
 function bomTotal(){ return bomRows.reduce((s,r)=>s+bomExt(r), 0); }
 window.__bomTotal=bomTotal;
@@ -2837,7 +2852,10 @@ function updateUndoBtn(){
 }
 function updateDrawModeBtn(){
   const b=$('modeDraw'); if(!b) return;
-  b.innerHTML = drawPages.length ? '📐 Drawing' : '⬆ Upload Drawing';
+  const asm = (typeof quoteScope!=='undefined' && quoteScope==='ASSEMBLY');
+  b.innerHTML = drawPages.length
+    ? (asm ? '📐 Assy Drawing' : '📐 Drawing')
+    : (asm ? '⬆ Upload Assy Drawing' : '⬆ Upload Drawing');
 }
 /* cap each thumbnail page to the height actually available below the pane's top edge.
    getBoundingClientRect() returns post-zoom pixels, so divide by sheetZoom to get the

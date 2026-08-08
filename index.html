@@ -285,6 +285,8 @@
   .bomgrid th:nth-child(4), .bomgrid th:nth-child(5){text-align:left; padding-left:8px}
   .bomgrid input[data-bk="qty"]{text-align:center}
   .bomgrid td.assyblank{background:#fff}
+  .qtable .scope-asm{font-weight:800; color:#1d6b33; white-space:nowrap}
+  .qtable .scope-cmp{color:#5a5348; white-space:nowrap}
   /* Row 1 is the assembly itself, not a part in it. White and a shade heavier so
      it reads as the thing being quoted rather than another line on the list. */
   .bomgrid tbody tr:first-child input[data-bk="partNo"],
@@ -1589,6 +1591,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:160, date:"2026-08-08", note:"PAST QUOTES has a TYPE column, between PART # and CUSTOMER, saying whether each quote is a COMPONENT or an ASSEMBLY \u2014 assemblies in green with the puzzle piece, so a bill-of-material quote is picked out of a long list at a glance. It sorts and filters like every other column. Quotes written before rev 147 show a dash rather than a guess: nothing was recorded then, and inferring one from whether a bill happens to exist would be putting words in their mouth. Also fixed in passing: the filter dropdown on the ANNUAL QTY column was still listing BATCH sizes, left behind when the column changed over in rev 156, so filtering it could not match what the column showed."},
   {rev:159, date:"2026-08-08", note:"The row buttons \u2014 \u25b2 \u25bc + \u2715 \u2014 have moved from the far right of the bill to the far left, ahead of the ID. On a twelve-line bill they sat past the NOTES column, a long way from the part being moved, and on a narrow window they were off the edge entirely. They are beside the part number now. Everything that keys off column position moved with them: the footer total spans one column further along, and the left-justified PART NUMBER and PART NAME headings shifted a column, so nothing has come adrift."},
   {rev:158, date:"2026-08-08", note:"Parts can be moved up and down the bill. Each line carries \u25b2 and \u25bc beside the + and the \u2715, so an order typed wrong is dragged straight rather than deleted and retyped. The assembly on row 1 does not move and nothing may pass above it, so the up arrow is absent on rows 1 and 2 and the down arrow on row 1 and on the last line \u2014 an arrow that does nothing is worse than no arrow at all. A part that lands under a shallower parent has its level brought back into line, since a level that skips a generation describes a parent that is not on the bill. The moved line keeps the focus, so several moves in a row need no re-aiming."},
   {rev:157, date:"2026-08-08", note:"Opening the BILL OF MATERIAL puts the cursor straight into the first PART NUMBER, so it can be typed without reaching for the mouse first \u2014 and with the arrow keys from rev 155 the whole bill can be filled in from there. It fires on entering the view only, not on every redraw, because the table is rebuilt on each keystroke and focusing from there would drag the cursor back to row 1 in the middle of a word."},
@@ -1742,9 +1745,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 159;
+const APP_REV = 160;
 const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "09:30";           /* increments every build — check both machines match */
+const BUILD_TIME = "11:15";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -4244,10 +4247,13 @@ function qDisp(k,q){
     case 'part': return f.partNo||'—';
     case 'cust': return f.customer||'—';
     case 'date': return q.updated? fmtDay(q.updated) : '—';
-    case 'qty':  return qty? String(qty) : '—';
+    case 'qty':  { const a=parseFloat(f.annualUsage)||0; return a? String(a) : '—'; }
     case 'pc':   return money(q.perPc);
     case 'tot':  return qty? money((q.perPc||0)*qty) : '—';
     case 'mat':  return f.material||'—';
+    /* quotes written before rev 147 have no scope recorded, and guessing one
+       from whether a bill exists would put words in their mouth */
+    case 'scope':return f.quoteScope||'—';
   }
   return '';
 }
@@ -4306,6 +4312,7 @@ function renderSaved(){
     pc:   q=>q.perPc||0,
     tot:  q=>(q.perPc||0)*(parseFloat((q.fields||{}).batchSize)||0),
     mat:  q=>String((q.fields||{}).material||'').toUpperCase(),
+    scope:q=>String((q.fields||{}).quoteScope||'').toUpperCase(),
   };
   const g0=get[qSortK]||get.date;
   const rows=arr.slice().sort((a,b)=>{
@@ -4315,7 +4322,7 @@ function renderSaved(){
   const th=(k,label,num)=>`<th data-s="${k}"${num?' class="num"':''}><span class="thlbl">${label}${qSortK===k?(qSortD>0?' ▲':' ▼'):''}</span><button class="fbtn${colFilters[k]?' on':''}" data-f="${k}" title="filter">▼</button></th>`;
   wrap.innerHTML = `<table class="qtable">
     <thead><tr>
-      ${th('no','Quote #')}${th('part','Part #')}${th('cust','Customer')}${th('date','Date Quoted')}
+      ${th('no','Quote #')}${th('part','Part #')}${th('scope','Type')}${th('cust','Customer')}${th('date','Date Quoted')}
       ${th('qty','Annual Qty',1)}${th('pc','Price/Pc',1)}${th('tot','Batch $',1)}${th('mat','Material')}<th></th>
     </tr></thead>
     <tbody>` + rows.map(q=>{
@@ -4328,6 +4335,9 @@ function renderSaved(){
         <td class="qno">${q.drawing?'<span class="clip" title="has drawing">📎</span>':''}#${q.no}${q.importedFrom && f.importApproved!=='1' ? ' <span class="st-imp">NEEDS REVIEW</span>'
           : (f.finalized==='1'?' <span class="st-fin">FINALIZED</span>':' <span class="st-prog">IN PROGRESS</span>')}${isActive?' <span class="ednow">editing</span>':''}</td>
         <td class="partno">${esc(f.partNo)||'—'}</td>
+        <td>${f.quoteScope==='ASSEMBLY'
+              ? '<span class="scope-asm">\u{1F9E9} ASSEMBLY</span>'
+              : (f.quoteScope==='COMPONENT' ? '<span class="scope-cmp">COMPONENT</span>' : '\u2014')}</td>
         <td>${esc(f.customer)||'—'}</td>
         <td class="dt">${when}</td>
         <td class="num">${annQty||'—'}</td>

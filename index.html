@@ -1577,6 +1577,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:151, date:"2026-08-08", note:"Choosing ASSEMBLY now asks for the assembly\u2019s part number and name before the bill opens. Those two answers are the same thing in two places \u2014 the PART NUMBER on the quote header, and line 1 of the bill, the level 1 everything else sits under \u2014 so they are asked once and written to both, which stops them drifting apart. The part number is required; the quote hangs off it. Two more lines are laid in at level 2 ready to type. BACK returns to COMPONENT or ASSEMBLY rather than stranding an assembly with no number on it."},
   {rev:150, date:"2026-08-07", note:"The bill now holds its shape, and parts can go in the middle. Every line carries a + that inserts a part directly beneath it, so a component found late goes where it belongs instead of on the end. LEVEL 1 IS NOW THE ASSEMBLY ITSELF AND NOTHING ELSE: row 1 is fixed at level 1 and its dropdown is locked, no other row is offered level 1 at all, and row 1 cannot be deleted \u2014 it is the thing being quoted. Levels also cannot leap a generation; a 4 sitting directly under a 2 claims a parent that is not on the bill, so the dropdown only offers down to one deeper than the line above. Bills typed before this rev are corrected on load rather than left in a shape the rules now forbid."},
   {rev:149, date:"2026-08-07", note:"Three fixes to the bill of material. A LEVEL column, 1 to 5, sits after the ID, and the part number steps right by one notch for each level, so a sub-assembly and the parts inside it read as a shape down the column rather than something to work out from a number. PART NUMBER is twice as wide \u2014 150 to 300px \u2014 taken out of PART NAME, which was swallowing all the spare width for text that is usually two words. And on an assembly quote the drawing button now says UPLOAD ASSY DRAWING, and reads ASSY DRAWING once one is on, since the print for an assembly is a different document from a part print. A component quote is unchanged."},
   {rev:148, date:"2026-08-07", note:"NEW QUOTE now opens by asking what is being quoted \u2014 COMPONENT or ASSEMBLY \u2014 before anything else. It is the first thing that happens because it decides what the rest of the quote is: a component carries on into the usual print-then-header walk untouched, while an assembly goes straight to the BILL OF MATERIAL with three lines ready to fill in. There is no Cancel and Escape does nothing; the quote exists by then and an unanswered scope is the very thing rev 147 set out to stop. Picking ASSEMBLY hides the intake panel while the bill is open so it has the full width, and the header is a tab away on the CALCULATIONS button whenever you want it."},
@@ -1721,9 +1722,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 150;
-const BUILD_DATE = "2026-08-07";
-const BUILD_TIME = "23:55";           /* increments every build — check both machines match */
+const APP_REV = 151;
+const BUILD_DATE = "2026-08-08";
+const BUILD_TIME = "00:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -4420,15 +4421,14 @@ function askQuoteScope(){
   const pick=(v)=>{
     quoteScope=v;
     const sel=$('quoteScope'); if(sel) sel.value=v;
-    if(v==='ASSEMBLY'){
-      /* three lines to start typing into rather than one, since a bill of one
-         part is not an assembly */
-      if(bomRows.length<3) while(bomRows.length<3) bomRows.push(blankBomRow());
-    }
     if(window.__updateScopeBtn) window.__updateScopeBtn();
-    if(window.__renderBom) window.__renderBom();
     ov.remove();
-    if(v==='ASSEMBLY') setOpsMode('bom');
+    if(v==='ASSEMBLY'){
+      /* the bill is seeded by the next question, which owns line 1 */
+      askAssyIdentity();
+      return;
+    }
+    if(window.__renderBom) window.__renderBom();
     autosaveNow();
   };
   $('qsComp').addEventListener('click', ()=>pick('COMPONENT'));
@@ -4436,6 +4436,63 @@ function askQuoteScope(){
   setTimeout(()=>{ const b=$('qsComp'); if(b) b.focus(); }, 30);
 }
 window.__askQuoteScope=askQuoteScope;
+
+function askAssyIdentity(){
+  const prev=$('aiOv'); if(prev) prev.remove();
+  const ov=document.createElement('div');
+  ov.className='ov'; ov.id='aiOv'; ov.style.display='flex';
+  ov.innerHTML=`<div class="modal" style="width:620px; max-width:94vw">
+    <h3 style="margin:0 0 6px">\u{1F9E9} The assembly</h3>
+    <div class="note" style="margin-bottom:18px">This is the part number on the quote, and the first
+      line of the bill of material \u2014 the level 1 the rest of the parts sit under.</div>
+    <div style="display:flex; gap:10px; align-items:center; margin-bottom:12px">
+      <div style="flex:0 0 150px; text-align:right; font-weight:700">ASSY PART NUMBER</div>
+      <input id="aiNo" type="text" placeholder="e.g. 116E6886G1" style="flex:1 1 auto; padding:7px 9px; font-size:15px">
+    </div>
+    <div style="display:flex; gap:10px; align-items:center">
+      <div style="flex:0 0 150px; text-align:right; font-weight:700">PART NAME</div>
+      <input id="aiName" type="text" placeholder="e.g. CHASSIS, S&amp;G" style="flex:1 1 auto; padding:7px 9px; font-size:15px">
+    </div>
+    <div class="note" id="aiErr" style="color:#a11; margin:10px 0 0 160px" hidden></div>
+    <div class="btns" style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px">
+      <button class="btn" id="aiBack">\u2190 Back</button>
+      <button class="btn primary" id="aiOk">\u2713 START THE BILL</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  const no=$('aiNo'), nm=$('aiName'), err=$('aiErr');
+  setTimeout(()=>no.focus(), 30);
+  const go=()=>{
+    const v=String(no.value||'').trim();
+    if(!v){ err.textContent='The assembly needs a part number \u2014 the whole quote hangs off it.';
+            err.hidden=false; no.focus(); return; }
+    const nmv=String(nm.value||'').trim();
+    const pn=$('partNo');
+    if(pn){ pn.value=v; pn.dispatchEvent(new Event('input',{bubbles:true})); }
+    if(!bomRows.length) bomRows.push(blankBomRow());
+    bomRows[0].lvl=1; bomRows[0].partNo=v; bomRows[0].name=nmv;
+    while(bomRows.length<3) bomRows.push(Object.assign(blankBomRow(),{lvl:2}));
+    ov.remove();
+    if(window.__renderBom) window.__renderBom();
+    setOpsMode('bom');
+    renderAll();
+    autosaveNow();
+  };
+  $('aiOk').addEventListener('click', go);
+  [no,nm].forEach(el=>el.addEventListener('keydown', ev=>{
+    if(ev.key==='Enter'){ ev.preventDefault(); go(); }
+  }));
+  /* Back returns to the first question rather than stranding a half-answered
+     assembly with no number on it. */
+  $('aiBack').addEventListener('click', ()=>{
+    ov.remove();
+    quoteScope='';
+    const sel=$('quoteScope'); if(sel) sel.value='';
+    if(window.__updateScopeBtn) window.__updateScopeBtn();
+    askQuoteScope();
+  });
+}
+window.__askAssyIdentity=askAssyIdentity;
 
 function startNewQuote(){
   autosaveNow();                       /* flush any pending edits to the old quote first */

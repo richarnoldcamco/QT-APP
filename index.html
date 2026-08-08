@@ -276,6 +276,9 @@
   .bomgrid td{border:1px solid var(--cp-line); padding:1px 2px; font-size:12px; vertical-align:middle}
   .bomgrid td.idc{text-align:center; font-weight:700; background:var(--cp-panel); width:34px}
   .bomgrid td.lvlc select{text-align:center; font-weight:800}
+  .bomgrid td.lvlc select:disabled{background:var(--cp-panel); opacity:1; color:var(--cp-ink)}
+  .bomgrid td.rowb{white-space:nowrap; text-align:center}
+  .bomgrid td.rowb .mini{padding:1px 5px; margin:0 1px; font-weight:800}
   .bomgrid tr.lvl2 td.lvlc, .bomgrid tr.lvl3 td.lvlc,
   .bomgrid tr.lvl4 td.lvlc, .bomgrid tr.lvl5 td.lvlc{background:#eef3f9}
   .bomgrid input, .bomgrid select{
@@ -1574,6 +1577,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:150, date:"2026-08-07", note:"The bill now holds its shape, and parts can go in the middle. Every line carries a + that inserts a part directly beneath it, so a component found late goes where it belongs instead of on the end. LEVEL 1 IS NOW THE ASSEMBLY ITSELF AND NOTHING ELSE: row 1 is fixed at level 1 and its dropdown is locked, no other row is offered level 1 at all, and row 1 cannot be deleted \u2014 it is the thing being quoted. Levels also cannot leap a generation; a 4 sitting directly under a 2 claims a parent that is not on the bill, so the dropdown only offers down to one deeper than the line above. Bills typed before this rev are corrected on load rather than left in a shape the rules now forbid."},
   {rev:149, date:"2026-08-07", note:"Three fixes to the bill of material. A LEVEL column, 1 to 5, sits after the ID, and the part number steps right by one notch for each level, so a sub-assembly and the parts inside it read as a shape down the column rather than something to work out from a number. PART NUMBER is twice as wide \u2014 150 to 300px \u2014 taken out of PART NAME, which was swallowing all the spare width for text that is usually two words. And on an assembly quote the drawing button now says UPLOAD ASSY DRAWING, and reads ASSY DRAWING once one is on, since the print for an assembly is a different document from a part print. A component quote is unchanged."},
   {rev:148, date:"2026-08-07", note:"NEW QUOTE now opens by asking what is being quoted \u2014 COMPONENT or ASSEMBLY \u2014 before anything else. It is the first thing that happens because it decides what the rest of the quote is: a component carries on into the usual print-then-header walk untouched, while an assembly goes straight to the BILL OF MATERIAL with three lines ready to fill in. There is no Cancel and Escape does nothing; the quote exists by then and an unanswered scope is the very thing rev 147 set out to stop. Picking ASSEMBLY hides the intake panel while the bill is open so it has the full width, and the header is a tab away on the CALCULATIONS button whenever you want it."},
   {rev:147, date:"2026-08-07", note:"COMPONENT or ASSEMBLY is now something you pick, not a button that had already decided. Rev 146 put a toggle in the VIEW bar sitting on COMPONENT, which meant an assembly could be quoted as a single part without anyone ever being asked. It is a header field now \u2014 COMPONENT OR ASSEMBLY? \u2014 opening on \u2014 PICK \u2014, in the tab run and a stop on the guided walk, right after JOB TYPE. Choosing ASSEMBLY reveals the BILL OF MATERIAL tab and starts a first line; it does not drag the view across mid-intake, so tabbing through the header carries on uninterrupted. The walk is 25 steps now."},
@@ -1717,9 +1721,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 149;
+const APP_REV = 150;
 const BUILD_DATE = "2026-08-07";
-const BUILD_TIME = "23:25";           /* increments every build — check both machines match */
+const BUILD_TIME = "23:55";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2701,6 +2705,7 @@ const drawingPath = no => `drawings/Q${no}.jpg`;
    summing to exactly 1487px and every one of them is load-bearing. */
 function renderBom(){
   const host=$('bomBody'); if(!host) return;
+  normalizeBom();
   const ae=document.activeElement;
   const foc=(ae && ae.dataset && ae.dataset.bk!=null)
       ? {i:ae.dataset.bi, k:ae.dataset.bk, val:ae.value} : null;
@@ -2712,8 +2717,10 @@ function renderBom(){
     }
     if(type==='lvl'){
       const cur=parseInt(r.lvl,10)||1;
-      return `<td class="lvlc"><select data-bi="${i}" data-bk="lvl">${
-        BOM_LEVELS.map(n=>`<option value="${n}"${n===cur?' selected':''}>${n}</option>`).join('')}</select></td>`;
+      const opts=bomLevelChoices(i);
+      const lock = (i===0) ? ' disabled title="Row 1 is the assembly being quoted \u2014 it is always level 1."' : '';
+      return `<td class="lvlc"><select data-bi="${i}" data-bk="lvl"${lock}>${
+        opts.map(n=>`<option value="${n}"${n===cur?' selected':''}>${n}</option>`).join('')}</select></td>`;
     }
     /* the part number steps right with its level, so the shape of the assembly
        reads off the column instead of having to be worked out from a number */
@@ -2724,7 +2731,7 @@ function renderBom(){
   host.innerHTML = `<table class="bomgrid">
     <colgroup><col style="width:34px"><col style="width:62px"><col style="width:300px"><col>
       <col style="width:64px"><col style="width:78px"><col style="width:96px"><col style="width:104px">
-      <col style="width:78px"><col style="width:210px"><col style="width:30px"></colgroup>
+      <col style="width:78px"><col style="width:210px"><col style="width:58px"></colgroup>
     <thead><tr>
       <th>ID</th><th>Level</th><th>Part Number</th><th>Part Name</th><th>Qty per<br>Unit</th>
       <th>Make /<br>Buy</th><th>Part Price</th><th>Price per<br>Assembly</th>
@@ -2742,7 +2749,8 @@ function renderBom(){
         <td class="calc">${money(bomExt(r))}</td>
         ${cell(i,'quoteNo',r)}
         ${cell(i,'notes',r)}
-        <td class="idc"><button class="mini delb" data-bdel="${i}" type="button" title="remove this part">✕</button></td>
+        <td class="idc rowb"><button class="mini" data-bins="${i}" type="button" title="insert a part directly below this line">+</button>${
+          i===0 ? '' : `<button class="mini delb" data-bdel="${i}" type="button" title="remove this part">✕</button>`}</td>
       </tr>`).join('')}</tbody>
     <tfoot><tr>
       <td colspan="7" style="text-align:right">TOTAL PARTS COST PER ASSEMBLY</td>
@@ -2756,6 +2764,18 @@ function renderBom(){
       const i=+e.target.dataset.bi, k=e.target.dataset.bk;
       bomRows[i][k]=e.target.value;
       renderBom(); scheduleAutosave();
+    });
+  });
+  host.querySelectorAll('button[data-bins]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const i=+b.dataset.bins;
+      /* a part inserted under a line is a sibling of it, not a child -- except
+         under row 1, where level 1 is not available to anything else */
+      const lvl = Math.max(2, parseInt(bomRows[i].lvl,10)||1);
+      const row = blankBomRow(); row.lvl = lvl;
+      bomRows.splice(i+1, 0, row);
+      renderBom();
+      if(typeof autosaveNow==='function') autosaveNow();
     });
   });
   host.querySelectorAll('button[data-bdel]').forEach(b=>{
@@ -2794,6 +2814,30 @@ function blankBomRow(){
   return {lvl:1, partNo:'', name:'', qty:1, mb:'MAKE', price:0, quoteNo:'', notes:''};
 }
 const BOM_LEVELS=[1,2,3,4,5];
+/* The shape of a bill is not free-form. Row 1 IS the assembly being quoted, so it
+   is the only level 1 there can ever be; everything below it is a part inside it.
+   A level also cannot leap: a 4 directly under a 2 describes a parent that is not
+   there. Both are fixed here rather than trusted to whoever is typing. */
+function normalizeBom(){
+  if(!bomRows.length) return;
+  bomRows[0].lvl = 1;
+  for(let i=1; i<bomRows.length; i++){
+    let l = parseInt(bomRows[i].lvl,10) || 2;
+    if(l < 2) l = 2;                                   /* only row 1 may be level 1 */
+    const prev = parseInt(bomRows[i-1].lvl,10) || 1;
+    if(l > prev+1) l = prev+1;                         /* no skipped generations */
+    if(l > 5) l = 5;
+    bomRows[i].lvl = l;
+  }
+}
+function bomLevelChoices(i){
+  if(i===0) return [1];
+  const prev = parseInt(bomRows[i-1].lvl,10) || 1;
+  const max = Math.min(5, prev+1);
+  const out=[];
+  for(let n=2; n<=max; n++) out.push(n);
+  return out.length ? out : [2];
+}
 function bomExt(r){ return (parseFloat(r.qty)||0) * (parseFloat(r.price)||0); }
 function bomTotal(){ return bomRows.reduce((s,r)=>s+bomExt(r), 0); }
 window.__bomTotal=bomTotal;
@@ -6020,7 +6064,9 @@ $('quoteScope').addEventListener('change', ()=>{
 });
 $('modeBom').addEventListener('click', ()=>setOpsMode('bom'));
 $('bomAdd').addEventListener('click', ()=>{
-  bomRows.push(blankBomRow());
+  const row=blankBomRow();
+  if(bomRows.length) row.lvl = Math.max(2, parseInt(bomRows[bomRows.length-1].lvl,10)||1);
+  bomRows.push(row);
   renderBom();
   autosaveNow();
 });

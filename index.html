@@ -309,6 +309,19 @@
   .bomtray .tray-empty{font-size:12px; color:var(--cp-dim); padding:10px 4px;
                        border:1px dashed var(--cp-line); border-radius:4px; text-align:center; line-height:1.7}
   .bomtray .tray-tip{font-size:11px; color:var(--cp-signal)}
+  .bdv-modal{width:96vw; max-width:1800px}
+  .bdv-bar{display:flex; align-items:center; gap:14px; margin:0 0 10px}
+  .bdv-bar h3{margin:0; flex:0 0 auto}
+  .bdv-bar .note{flex:1 1 auto}
+  .bdv-bar select{flex:0 0 300px; padding:5px}
+  .bdv-zoom{display:flex; align-items:center; gap:5px; flex:0 0 auto}
+  .bdv-zoom #bdvPct{min-width:48px; text-align:center; font-weight:700; font-variant-numeric:tabular-nums}
+  .bdv-vp{height:80vh; overflow:hidden; border:1px solid var(--cp-line); background:#fff;
+          cursor:grab; position:relative; touch-action:none}
+  .bdv-vp.grabbing{cursor:grabbing}
+  .bdv-vp img{position:absolute; top:0; left:0; transform-origin:0 0; max-width:none;
+              user-select:none; -webkit-user-drag:none}
+  .bdv-hint{margin-top:8px; font-size:11px; color:var(--cp-dim); text-align:center}
   .bomtray .tray-strip{display:flex; flex-wrap:wrap; gap:10px}
   .bomtray .tray-card{width:132px; border:1px solid var(--cp-line); border-radius:4px;
                       background:#fff; padding:5px; font-family:var(--ui)}
@@ -1688,6 +1701,8 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:180, date:"2026-08-09", note:"A maximised drawing can be panned and zoomed. The wheel zooms about the pointer, so whatever is under the cursor stays under it; dragging pans; double-click fits the page again; and there are \u2212 + FIT and 1:1 buttons with the current percentage beside them. Fit-to-window is useless on a print \u2014 the dimensions are the whole reason for opening it \u2014 and until now that was all there was. Both viewers share one piece of code, so a scanned page in the tray and a drawing on a bill row behave identically; they had grown into two near-matching blocks and putting zoom into only one would have been the wrong half of the job."},
+  {rev:179, date:"2026-08-09", note:"Scanning 25 pages filled this device\u2019s storage, and the app said nothing. Full-size prints were being held in the browser until the next sync \u2014 several megabytes against a limit of about five \u2014 so the save failed, the error was swallowed by an empty catch, the thumbnails vanished and the GitHub sync went down with them. Pages now upload to drawings/ the moment they are scanned and only a 260px thumbnail stays on this device, about 12KB each, so a hundred pages still fits; the full print is fetched back when it is opened. If storage does run out it now says so in the sync bar and on the bill instead of failing in silence. Clicking a scanned page opens it large enough to read the part number off, with a GIVE TO list in the viewer itself \u2014 look at it and assign it without having to remember which card it was. Escape or a click outside closes it."},
   {rev:178, date:"2026-08-09", note:"Correcting advice this app gave and should not have. Rev 175 said to copy Outlook attachments with Ctrl+C and paste them into the tray. That does not work either: Ctrl+C on an attachment puts a VIRTUAL file on the Windows clipboard \u2014 the same shell descriptor that defeats the drag \u2014 and Chrome cannot open it, so the paste silently delivers whatever the clipboard last held that it could read. That is worse than a plain failure, because it looks like it worked. An Outlook attachment cannot reach the browser by dragging or by copying. SAVE ALL ATTACHMENTS to a folder and drag them in from there: it is the only route that works, and it brings the real filenames with it instead of image.png. Copying a picture from inside a message body still pastes fine \u2014 that is a real bitmap, not an attachment."},
   {rev:177, date:"2026-08-09", note:"Pasting into the tray no longer refuses files it should have taken. The paste handler only accepted clipboard items whose type began with image/ \u2014 which is what an image copied from a message body looks like, and why that route worked \u2014 but a copied ATTACHMENT frequently arrives with an empty type or application/octet-stream and was thrown away on the spot. Any file the clipboard offers is now taken and read, failing by name if it turns out not to be a picture, which beats a paste that silently does nothing. clipboardData.files is checked as well as .items, since Windows fills one or the other depending on where the copy came from. And when the clipboard genuinely holds nothing readable, the message says what it does hold, so the next failure is diagnosable rather than mysterious."},
   {rev:176, date:"2026-08-09", note:"Scanned page names are readable and, more to the point, distinguishable. Anything pasted from Outlook arrives called image.png \u2014 that is the name the clipboard supplies, so five pasted drawings gave five identical labels and no way to tell which card was which. A repeated name is now numbered against its twins, image.png (2), image.png (3), and every card carries its position in the tray as a numbered badge, so a page can be referred to by number whatever it happens to be called. The name itself is larger, darker and wraps onto a second line instead of being cut off with an ellipsis. Files dragged in from a folder keep their own names as before, which is the better route precisely because those names mean something."},
@@ -1860,9 +1875,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 178;
+const APP_REV = 180;
 const BUILD_DATE = "2026-08-09";
-const BUILD_TIME = "13:35";           /* increments every build — check both machines match */
+const BUILD_TIME = "16:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2837,7 +2852,14 @@ function drwSave(c){
     /* quota: drop oldest clean entries and retry once */
     const cl2=Object.entries(c).filter(([k,v])=>!v.dirty).sort((a,b)=>(a[1].ts||0)-(b[1].ts||0));
     cl2.slice(0,4).forEach(([k])=>delete c[k]);
-    try{ localStorage.setItem(DRW_LS, JSON.stringify(c)); }catch(e2){}
+    try{ localStorage.setItem(DRW_LS, JSON.stringify(c)); }
+    catch(e2){
+      /* was silently swallowed until rev 179, which is how 25 scanned pages
+         disappeared without a word and took the GitHub sync down with them */
+      try{ ghStatus('This device is out of storage \u2014 drawings could not be held locally. Press SAVE to push what is here, then reopen.', false); }catch(e3){}
+      const m=document.getElementById('bomScanMsg');
+      if(m) m.innerHTML='<b>Out of local storage.</b> Some pages could not be kept on this device. Press \u2b07 SAVE to push them to GitHub, then reopen the quote.';
+    }
   }
 }
 const drawingPath = no => `drawings/Q${no}.jpg`;
@@ -3136,9 +3158,60 @@ function bomMoveCol(i,k,d){
    the row carries a ref, drwCache holds the bytes, and ghPush flushes them
    to drawings/ as their own file. Putting the image on the row itself would
    push megabytes into quote-data.json, which holds every quote there is. */
+/* Twenty-five full-size prints is several megabytes and the browser gives about
+   five in total, so drwSave hit the quota, swallowed the error and lost the lot.
+   Scans now go straight to GitHub and only a small thumbnail is kept here \u2014
+   about 12KB each, so a hundred pages still fits. The full image is fetched back
+   when it is actually looked at. */
+const BTHUMB_LS='qs_bomthumb_v1';
+function bthumbAll(){ try{ return JSON.parse(localStorage.getItem(BTHUMB_LS))||{}; }catch(e){ return {}; } }
+function bthumbPut(ref, dataURL){
+  const t=bthumbAll(); t[ref]=dataURL;
+  try{ localStorage.setItem(BTHUMB_LS, JSON.stringify(t)); }
+  catch(e){
+    /* even thumbnails can fill up eventually: drop the oldest half and retry once */
+    const keys=Object.keys(t);
+    keys.slice(0, Math.ceil(keys.length/2)).forEach(k=>delete t[k]);
+    t[ref]=dataURL;
+    try{ localStorage.setItem(BTHUMB_LS, JSON.stringify(t)); }
+    catch(e2){
+      const m=document.getElementById('bomScanMsg');
+      if(m) m.innerHTML='<b>Out of local storage.</b> Thumbnails could not be kept. The pages are safe in GitHub \u2014 reopen the quote and they will come back down.';
+    }
+  }
+}
+function bthumbDrop(ref){
+  const t=bthumbAll(); if(!(ref in t)) return;
+  delete t[ref];
+  try{ localStorage.setItem(BTHUMB_LS, JSON.stringify(t)); }catch(e){}
+}
 function bomDrwData(ref){
   if(!ref) return '';
+  try{
+    const e=drwCache()[ref];
+    if(e && !e.del && e.data) return e.data;       /* full image, if it is to hand */
+  }catch(err){}
+  return bthumbAll()[ref] || '';                   /* otherwise the thumbnail */
+}
+function bomFullData(ref){
+  if(!ref) return '';
   try{ const e=drwCache()[ref]; return (e && !e.del && e.data) ? e.data : ''; }catch(err){ return ''; }
+}
+/* shrink something that is already a dataURL, for the local thumbnail */
+function bomShrinkDataURL(dataURL, maxPx, quality){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onerror=()=>rej(new Error('bad image'));
+    img.onload=()=>{
+      let w=img.naturalWidth||img.width, hh=img.naturalHeight||img.height;
+      const s=Math.min(1, maxPx/Math.max(w,hh));
+      w=Math.max(1,Math.round(w*s)); hh=Math.max(1,Math.round(hh*s));
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=hh;
+      cv.getContext('2d').drawImage(img,0,0,w,hh);
+      res(cv.toDataURL('image/jpeg', quality));
+    };
+    img.src=dataURL;
+  });
 }
 function bomShrink(file, maxPx, quality){
   return new Promise((res,rej)=>{
@@ -3196,7 +3269,6 @@ async function bomScanPages(files){
         if(!url) throw new Error('came through empty');
         urls.push({url, name:file.name||'scan'});
       }
-      const cache=drwCache();
       for(const u of urls){
         let nm=(u.name||'page').trim();
         if(bomPages.some(p=>p.name===nm)){
@@ -3209,17 +3281,148 @@ async function bomScanPages(files){
         u.name=nm;
         const ref=(typeof newPageRef==='function') ? newPageRef()
                 : 'drawings/Q'+activeQuoteNo+'-'+Date.now().toString(36)+Math.random().toString(36).slice(2,4)+'.jpg';
-        cache[ref]={data:u.url, ts:Date.now(), dirty:true};
+        /* small copy for the screen, kept locally */
+        try{ bthumbPut(ref, await bomShrinkDataURL(u.url, 260, 0.6)); }catch(err){}
+        /* full copy straight to the repo, so nothing large sits in the browser */
+        let stored=false;
+        if(ghEnabled()){
+          try{
+            say('Uploading '+u.name+'\u2026');
+            await ghPutFile(ref, u.url.split(',')[1], 'Save '+ref);
+            stored=true;
+          }catch(err){ stored=false; }
+        }
+        if(!stored){
+          /* no GitHub, or the upload failed: hold it locally and let the normal
+             sync flush it later, exactly as before */
+          const cache=drwCache();
+          cache[ref]={data:u.url, ts:Date.now(), dirty:true};
+          drwSave(cache);
+        }
         bomPages.push({ref, name:u.name});
         added++;
       }
-      drwSave(cache);
     }catch(e){ say('Could not read '+(file.name||'that file')+': '+e.message); }
   }
   say(added? added+' page'+(added===1?'':'s')+' scanned \u2014 give each one to a part below.' : '');
   renderBom();
   autosaveNow();
   scheduleGhPush();
+}
+/* Open a scanned page big enough to read the part number off it, and hand it to
+   a line from inside the viewer \u2014 looking and assigning are one job, and doing
+   them in two places means remembering which card you just looked at. */
+/* A print is unreadable at fit-to-window; the dimensions are the whole point of
+   opening it. Wheel zooms about the pointer, drag pans, double-click fits again.
+   This lives on document.body, outside #view-quote, so vh units are safe here \u2014
+   inside that view they would be multiplied by the 1.2 browser zoom. */
+function bomShowImage(opts){
+  const prev=$('bdvOv'); if(prev) prev.remove();
+  const ov=document.createElement('div');
+  ov.className='ov'; ov.id='bdvOv'; ov.style.display='flex';
+  ov.innerHTML=`<div class="modal bdv-modal">
+    <div class="bdv-bar">
+      <h3>${esc(opts.title||'Drawing')}</h3>
+      <span class="note" id="bdvNote">${opts.note||''}</span>
+      <span class="bdv-zoom">
+        <button class="btn mini" id="bdvOut" title="zoom out">\u2212</button>
+        <span id="bdvPct">100%</span>
+        <button class="btn mini" id="bdvIn" title="zoom in">+</button>
+        <button class="btn mini" id="bdvFit" title="fit the whole page">FIT</button>
+        <button class="btn mini" id="bdvOne" title="full size">1:1</button>
+      </span>
+      ${opts.assign ? `<span style="font-weight:700">GIVE TO</span>
+        <select id="bdvTo"><option value="">\u2014 pick a part \u2014</option>${opts.assign}</select>` : ''}
+      <button class="btn" id="bdvClose">Close</button>
+    </div>
+    <div class="bdv-vp" id="bdvVp"><img id="bdvImg" src="${opts.src||''}" draggable="false"></div>
+    <div class="bdv-hint">Scroll to zoom \u00b7 drag to pan \u00b7 double-click to fit</div>
+  </div>`;
+  document.body.appendChild(ov);
+
+  const vp=$('bdvVp'), im=$('bdvImg'), pct=$('bdvPct');
+  let s=1, tx=0, ty=0, natW=0, natH=0;
+  const apply=()=>{
+    im.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;
+    if(pct) pct.textContent=Math.round(s*100)+'%';
+  };
+  const fit=()=>{
+    if(!natW||!natH) return;
+    const r=vp.getBoundingClientRect();
+    s=Math.min(r.width/natW, r.height/natH);
+    tx=(r.width-natW*s)/2; ty=(r.height-natH*s)/2;
+    apply();
+  };
+  const zoomAt=(cx,cy,factor)=>{
+    const r=vp.getBoundingClientRect();
+    const px=cx-r.left, py=cy-r.top;
+    const ns=Math.min(12, Math.max(0.05, s*factor));
+    /* keep whatever is under the pointer under the pointer */
+    tx = px - (px-tx)*(ns/s);
+    ty = py - (py-ty)*(ns/s);
+    s = ns; apply();
+  };
+  im.addEventListener('load', ()=>{ natW=im.naturalWidth; natH=im.naturalHeight; fit(); });
+  if(im.complete && im.naturalWidth){ natW=im.naturalWidth; natH=im.naturalHeight; fit(); }
+
+  vp.addEventListener('wheel', e=>{
+    e.preventDefault();
+    zoomAt(e.clientX, e.clientY, e.deltaY<0 ? 1.15 : 1/1.15);
+  }, {passive:false});
+  let drag=null;
+  vp.addEventListener('mousedown', e=>{
+    if(e.button!==0) return;
+    e.preventDefault();
+    drag={x:e.clientX, y:e.clientY, tx, ty};
+    vp.classList.add('grabbing');
+  });
+  window.addEventListener('mousemove', function mv(e){
+    if(!drag){ if(!document.getElementById('bdvOv')) window.removeEventListener('mousemove', mv); return; }
+    tx=drag.tx+(e.clientX-drag.x); ty=drag.ty+(e.clientY-drag.y); apply();
+  });
+  window.addEventListener('mouseup', function mu(){
+    drag=null; vp.classList.remove('grabbing');
+    if(!document.getElementById('bdvOv')) window.removeEventListener('mouseup', mu);
+  });
+  vp.addEventListener('dblclick', e=>{ e.preventDefault(); fit(); });
+  $('bdvIn').addEventListener('click', ()=>{ const r=vp.getBoundingClientRect(); zoomAt(r.left+r.width/2, r.top+r.height/2, 1.3); });
+  $('bdvOut').addEventListener('click', ()=>{ const r=vp.getBoundingClientRect(); zoomAt(r.left+r.width/2, r.top+r.height/2, 1/1.3); });
+  $('bdvFit').addEventListener('click', fit);
+  $('bdvOne').addEventListener('click', ()=>{ const r=vp.getBoundingClientRect();
+    tx=(r.width-natW)/2; ty=(r.height-natH)/2; s=1; apply(); });
+
+  const shut=()=>ov.remove();
+  $('bdvClose').addEventListener('click', shut);
+  ov.addEventListener('click', e=>{ if(e.target===ov) shut(); });
+  document.addEventListener('keydown', function esc2(e){
+    if(e.key==='Escape'){ shut(); document.removeEventListener('keydown', esc2); }
+  });
+  if(opts.assign && $('bdvTo')){
+    $('bdvTo').addEventListener('change', ()=>{
+      const v=$('bdvTo').value; if(v==='') return;
+      opts.onAssign(+v); shut();
+    });
+  }
+  return {setSrc:u=>{ im.src=u; }, note:t=>{ const n=$('bdvNote'); if(n) n.textContent=t; }};
+}
+
+function bomOpenPage(pageIdx){
+  const p=bomPages[pageIdx]; if(!p) return;
+  const prev=$('bdvOv'); if(prev) prev.remove();
+  const full=bomFullData(p.ref), px=full || bomDrwData(p.ref);
+  const opts=bomRows.map((r,i)=>`<option value="${i}">${i+1} \u00b7 ${esc(r.partNo||'(blank)')}${r.name?' \u2014 '+esc(r.name):''}</option>`).join('');
+  const v=bomShowImage({
+    title: p.name||'Scanned page',
+    note: full?'':'Fetching the full-size page\u2026',
+    src: px||'',
+    assign: opts,
+    onAssign: rowIdx=>bomAssignPage(pageIdx, rowIdx)
+  });
+  /* the local copy is only a thumbnail, so pull the real one for reading */
+  if(!full && typeof ghFetchDrawingRef==='function' && ghEnabled()){
+    ghFetchDrawingRef(p.ref).then(d=>{ if(d){ v.setSrc(d); v.note(''); } })
+      .catch(()=>v.note('Could not fetch the full-size page.'));
+  }
 }
 function bomAssignPage(pageIdx, rowIdx){
   const pg=bomPages[pageIdx]; if(!pg || !bomRows[rowIdx]) return;
@@ -3236,6 +3439,7 @@ function bomDiscardPage(pageIdx){
   const cache=drwCache();
   cache[pg.ref]={del:true, ts:Date.now(), dirty:true};
   drwSave(cache);
+  bthumbDrop(pg.ref);
   bomPages.splice(pageIdx,1);
   renderBom();
   autosaveNow();
@@ -3262,7 +3466,7 @@ function renderBomTray(){
       const px=bomDrwData(p.ref);
       return `<div class="tray-card">
         ${px?`<img src="${px}" data-tview="${i}" title="click to see this page full size">`
-            :`<div class="tray-wait">\u2026</div>`}
+            :`<div class="tray-wait" data-tview="${i}" title="click to open this page">\u2026</div>`}
         <div class="tray-name" title="${esc(p.name||'')}"><span class="tray-num">${i+1}</span>${esc(p.name||'page')}</div>
         <select data-tassign="${i}"><option value="">\u2014 give to \u2014</option>${opts}</select>
         <button class="mini" data-tdrop="${i}" type="button" title="discard this page">\u2715</button>
@@ -3277,21 +3481,7 @@ function renderBomTray(){
     b.addEventListener('click', ()=>bomDiscardPage(+b.dataset.tdrop));
   });
   tray.querySelectorAll('[data-tview]').forEach(im=>{
-    im.addEventListener('click', ()=>{
-      const p=bomPages[+im.dataset.tview]; if(!p) return;
-      const px=bomDrwData(p.ref); if(!px) return;
-      const prev=$('bdvOv'); if(prev) prev.remove();
-      const ov=document.createElement('div');
-      ov.className='ov'; ov.id='bdvOv'; ov.style.display='flex';
-      ov.innerHTML=`<div class="modal" style="width:92vw; max-width:1500px">
-        <h3 style="margin:0 0 10px">${esc(p.name||'Scanned page')}</h3>
-        <img src="${px}" style="width:100%; height:auto; display:block; border:1px solid var(--cp-line); background:#fff">
-        <div class="btns" style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px">
-          <button class="btn" id="bdvClose">Close</button></div></div>`;
-      document.body.appendChild(ov);
-      $('bdvClose').addEventListener('click', ()=>ov.remove());
-      ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
-    });
+    im.addEventListener('click', ()=>bomOpenPage(+im.dataset.tview));
   });
   bomPages.forEach(p=>{
     if(!bomDrwData(p.ref) && typeof ghFetchDrawingRef==='function' && ghEnabled()){
@@ -3329,20 +3519,17 @@ function bomViewDrawing(i){
   const ref=bomRows[i] && bomRows[i].dref; if(!ref) return;
   const px=bomDrwData(ref);
   if(!px){ if(typeof ghFetchDrawingRef==='function' && ghEnabled()) ghFetchDrawingRef(ref).then(()=>renderBom()); return; }
-  const prev=$('bdvOv'); if(prev) prev.remove();
-  const ov=document.createElement('div');
-  ov.className='ov'; ov.id='bdvOv'; ov.style.display='flex';
   const r=bomRows[i];
-  ov.innerHTML=`<div class="modal" style="width:92vw; max-width:1500px">
-    <h3 style="margin:0 0 10px">${esc(r.partNo||'Part')} ${r.name?'\u2014 '+esc(r.name):''}</h3>
-    <img src="${px}" style="width:100%; height:auto; display:block; border:1px solid var(--cp-line); background:#fff">
-    <div class="btns" style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px">
-      <button class="btn" id="bdvClose">Close</button>
-    </div>
-  </div>`;
-  document.body.appendChild(ov);
-  $('bdvClose').addEventListener('click', ()=>ov.remove());
-  ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
+  const full=bomFullData(r.dref);
+  const v=bomShowImage({
+    title: (r.partNo||'Part') + (r.name?' \u2014 '+r.name:''),
+    note: full?'':'Fetching the full-size drawing\u2026',
+    src: px
+  });
+  if(!full && typeof ghFetchDrawingRef==='function' && ghEnabled()){
+    ghFetchDrawingRef(r.dref).then(d=>{ if(d){ v.setSrc(d); v.note(''); } })
+      .catch(()=>v.note('Could not fetch the full-size drawing.'));
+  }
 }
 function normalizeBom(){
   if(!bomRows.length) return;

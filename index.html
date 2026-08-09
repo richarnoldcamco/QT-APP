@@ -1684,6 +1684,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:174, date:"2026-08-09", note:"Dropping Outlook attachments into the tray was throwing them away. Rev 173 kept only files reporting a size above zero, on the assumption that a zero-size file was junk \u2014 but Outlook hands attachments to Chrome as virtual files whose bytes are fetched lazily, so File.size reads 0 at the moment of the drop and fills in only once the file is read. Five drawings dropped in were discarded by that guard, and the app then reported that nothing droppable had arrived. Every dropped file is now taken and read to find out, dt.items is searched as well as dt.files since some sources fill only one of them, and a file that genuinely reads empty is named rather than passed over in silence. When a drop still yields nothing the message says how many items came and in what formats, so the next failure can be diagnosed instead of guessed at."},
   {rev:173, date:"2026-08-09", note:"Drawings can be dragged straight from an Outlook message into the tray, and Ctrl+V pastes into it while the bill is open rather than becoming another page of the quote\u2019s own drawing. The tray is now on screen even when empty \u2014 a drop target that only appears once it has something in it is one you can never hit the first time \u2014 and it lights up as something is dragged over it. Outlook hands over ATTACHMENTS as real files and those drop cleanly; a picture sitting inside the body of a message is a link or a lump of HTML instead, so the app tries to fetch it and, when the browser refuses, says exactly that and tells you to copy and paste it instead of appearing to do nothing."},
   {rev:172, date:"2026-08-09", note:"SCAN PAGES takes a whole stack of prints in one go. Pick several image files, or a single multi-page PDF straight off the scanner, and every page is read, shrunk and saved as its own file under drawings/. They land in a tray above the bill \u2014 thumbnail, page name, and a \u2018give to\u2019 list of the parts \u2014 and wait there until each is handed to a line. Nothing guesses which page belongs to which part; that is the one thing a machine cannot read off a scan. Handing a page to a row that already had a drawing puts the old one back in the tray instead of losing it. Pages left unassigned save with the quote and are still waiting next time it is opened, and \u2715 discards one and deletes it from the repo."},
   {rev:171, date:"2026-08-08", note:"Every line on the bill can carry its own drawing. A DWG column sits after PART NAME: \u2b06 attaches a print for that part, a thumbnail of it takes the button\u2019s place, clicking the thumbnail opens it full size and \u2715 removes it. The image does NOT go on the quote \u2014 it is shrunk to 1600px, saved as its own file under drawings/ and the row keeps only a short reference, the same arrangement the quote\u2019s own pages have used since the beginning. Putting pictures on the rows would have pushed megabytes into quote-data.json, which carries every quote there is, and filled the browser\u2019s storage in a few assemblies. On another machine the thumbnail shows a \u2026 while the file comes down from GitHub, then appears on its own. Removing a drawing marks it for deletion remotely too, so nothing is orphaned in the repo."},
@@ -1851,9 +1852,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 173;
+const APP_REV = 174;
 const BUILD_DATE = "2026-08-09";
-const BUILD_TIME = "21:05";           /* increments every build — check both machines match */
+const BUILD_TIME = "11:55";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -3136,6 +3137,7 @@ function bomShrink(file, maxPx, quality){
     const fr=new FileReader();
     fr.onerror=()=>rej(new Error('could not read that file'));
     fr.onload=()=>{
+      if(!fr.result){ rej(new Error('came through empty \u2014 save it to a folder first, or copy and paste it')); return; }
       const img=new Image();
       img.onerror=()=>rej(new Error('that does not look like an image'));
       img.onload=()=>{
@@ -3182,7 +3184,9 @@ async function bomScanPages(files){
                      name:(file.name||'scan').replace(/\.pdf$/i,'')+' p'+p});
         }
       }else{
-        urls.push({url: await bomShrink(file, 1600, 0.72), name:file.name||'scan'});
+        const url=await bomShrink(file, 1600, 0.72);
+        if(!url) throw new Error('came through empty');
+        urls.push({url, name:file.name||'scan'});
       }
       const cache=drwCache();
       for(const u of urls){
@@ -6675,7 +6679,13 @@ $('modeBom').addEventListener('click', ()=>setOpsMode('bom'));
   tray.addEventListener('drop', async e=>{
     stop(e); tray.classList.remove('dragover');
     const dt=e.dataTransfer; if(!dt) return;
-    const files=[...(dt.files||[])].filter(f=>f && f.size>0);
+    const files=[...(dt.files||[])];
+    /* some sources populate items but not files, so look in both */
+    if(!files.length && dt.items){
+      for(const it of dt.items){
+        if(it.kind==='file'){ const f=it.getAsFile(); if(f) files.push(f); }
+      }
+    }
     if(files.length){ bomScanPages(files); return; }
     /* Outlook sometimes hands over a link or a lump of HTML instead of a file --
        an image pasted into the body of a message, typically. Say so plainly
@@ -6703,7 +6713,11 @@ $('modeBom').addEventListener('click', ()=>setOpsMode('bom'));
         return;
       }
     }
-    if(msg) msg.textContent='Nothing droppable there. Outlook only hands over attachments \u2014 for a picture inside the message, right-click it, Copy, then Ctrl+V here.';
+    let kinds=[];
+    try{ kinds=[...(dt.types||[])]; }catch(err){}
+    let items=0; try{ items=(dt.items||[]).length; }catch(err){}
+    if(msg) msg.textContent='Nothing usable in that drop \u2014 '+items+' item(s), formats: '
+      +(kinds.join(', ')||'none')+'. A picture inside a message is not a file: right-click it, Copy, then Ctrl+V here.';
   });
 })();
 /* Ctrl+V lands in the tray while the bill is open, instead of becoming another

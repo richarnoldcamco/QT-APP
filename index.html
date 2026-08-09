@@ -1688,6 +1688,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:177, date:"2026-08-09", note:"Pasting into the tray no longer refuses files it should have taken. The paste handler only accepted clipboard items whose type began with image/ \u2014 which is what an image copied from a message body looks like, and why that route worked \u2014 but a copied ATTACHMENT frequently arrives with an empty type or application/octet-stream and was thrown away on the spot. Any file the clipboard offers is now taken and read, failing by name if it turns out not to be a picture, which beats a paste that silently does nothing. clipboardData.files is checked as well as .items, since Windows fills one or the other depending on where the copy came from. And when the clipboard genuinely holds nothing readable, the message says what it does hold, so the next failure is diagnosable rather than mysterious."},
   {rev:176, date:"2026-08-09", note:"Scanned page names are readable and, more to the point, distinguishable. Anything pasted from Outlook arrives called image.png \u2014 that is the name the clipboard supplies, so five pasted drawings gave five identical labels and no way to tell which card was which. A repeated name is now numbered against its twins, image.png (2), image.png (3), and every card carries its position in the tray as a numbered badge, so a page can be referred to by number whatever it happens to be called. The name itself is larger, darker and wraps onto a second line instead of being cut off with an ellipsis. Files dragged in from a folder keep their own names as before, which is the better route precisely because those names mean something."},
   {rev:175, date:"2026-08-09", note:"Dragging attachments straight out of Outlook cannot be made to work, and the app now says so instead of failing vaguely. The diagnostics added in rev 174 answered it: the drop arrives carrying the formats \u2018attachment\u2019 and \u2018chromium/x-drag-id\u2019 and no Files format at all. Classic Outlook offers a dragged attachment as a Windows shell descriptor, and Chrome does not materialise it \u2014 the browser is handed a placeholder, never the bytes, so there is nothing for any amount of code to read. The tray recognises that exact signature now and gives the two routes that do work: select the attachments in Outlook, Ctrl+C, click the tray and Ctrl+V; or Save All Attachments to a folder and drag them in from there. The empty tray says the same before the attempt rather than after it."},
   {rev:174, date:"2026-08-09", note:"Dropping Outlook attachments into the tray was throwing them away. Rev 173 kept only files reporting a size above zero, on the assumption that a zero-size file was junk \u2014 but Outlook hands attachments to Chrome as virtual files whose bytes are fetched lazily, so File.size reads 0 at the moment of the drop and fills in only once the file is read. Five drawings dropped in were discarded by that guard, and the app then reported that nothing droppable had arrived. Every dropped file is now taken and read to find out, dt.items is searched as well as dt.files since some sources fill only one of them, and a file that genuinely reads empty is named rather than passed over in silence. When a drop still yields nothing the message says how many items came and in what formats, so the next failure can be diagnosed instead of guessed at."},
@@ -1858,9 +1859,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 176;
+const APP_REV = 177;
 const BUILD_DATE = "2026-08-09";
-const BUILD_TIME = "12:45";           /* increments every build — check both machines match */
+const BUILD_TIME = "13:10";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -6750,14 +6751,23 @@ $('modeBom').addEventListener('click', ()=>setOpsMode('bom'));
 document.addEventListener('paste', e=>{
   if($('view-quote').hidden) return;
   if(opsMode!=='bom') return;
-  const items=(e.clipboardData&&e.clipboardData.items)||[];
+  const cd=e.clipboardData;
+  const items=(cd&&cd.items)||[];
   const files=[];
   for(const it of items){
-    if(it.kind==='file' && (/^image\//.test(it.type) || it.type==='application/pdf')){
-      const f=it.getAsFile(); if(f) files.push(f);
-    }
+    if(it.kind==='file'){ const f=it.getAsFile(); if(f) files.push(f); }
   }
-  if(files.length){ e.preventDefault(); e.stopPropagation(); bomScanPages(files); }
+  if(!files.length && cd && cd.files && cd.files.length) files.push(...cd.files);
+  if(files.length){ e.preventDefault(); e.stopPropagation(); bomScanPages(files); return; }
+  /* nothing file-shaped: say what WAS on the clipboard rather than doing nothing */
+  const msg=$('bomScanMsg');
+  if(msg){
+    const kinds=[...items].map(i=>i.kind+(i.type?':'+i.type:'')).join(', ');
+    let types=''; try{ types=[...(cd&&cd.types||[])].join(', '); }catch(err){}
+    msg.innerHTML = '<b>Nothing to paste.</b> The clipboard holds '+(kinds||types||'nothing the app can read')
+      + '. Copying an attachment in Outlook does not always put the file on the clipboard \u2014 '
+      + '<b>Save All Attachments</b> to a folder and drag them in, or open the drawing and copy the image itself.';
+  }
 }, true);
 $('bomScan').addEventListener('click', ()=>{
   let inp=$('bomScanPick');

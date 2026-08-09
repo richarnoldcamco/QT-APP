@@ -305,6 +305,9 @@
            border-radius:var(--r-sm); background:#fbf9f4}
   .bomtray .tray-head{font-size:12px; font-weight:800; color:var(--cp-signal);
                       text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px}
+  .bomtray.dragover{border-color:var(--cp-signal); background:#f7efe9; border-style:solid}
+  .bomtray .tray-empty{font-size:12px; color:var(--cp-dim); padding:10px 4px;
+                       border:1px dashed var(--cp-line); border-radius:4px; text-align:center}
   .bomtray .tray-strip{display:flex; flex-wrap:wrap; gap:10px}
   .bomtray .tray-card{width:132px; border:1px solid var(--cp-line); border-radius:4px;
                       background:#fff; padding:5px; font-family:var(--ui)}
@@ -1681,6 +1684,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:173, date:"2026-08-09", note:"Drawings can be dragged straight from an Outlook message into the tray, and Ctrl+V pastes into it while the bill is open rather than becoming another page of the quote\u2019s own drawing. The tray is now on screen even when empty \u2014 a drop target that only appears once it has something in it is one you can never hit the first time \u2014 and it lights up as something is dragged over it. Outlook hands over ATTACHMENTS as real files and those drop cleanly; a picture sitting inside the body of a message is a link or a lump of HTML instead, so the app tries to fetch it and, when the browser refuses, says exactly that and tells you to copy and paste it instead of appearing to do nothing."},
   {rev:172, date:"2026-08-09", note:"SCAN PAGES takes a whole stack of prints in one go. Pick several image files, or a single multi-page PDF straight off the scanner, and every page is read, shrunk and saved as its own file under drawings/. They land in a tray above the bill \u2014 thumbnail, page name, and a \u2018give to\u2019 list of the parts \u2014 and wait there until each is handed to a line. Nothing guesses which page belongs to which part; that is the one thing a machine cannot read off a scan. Handing a page to a row that already had a drawing puts the old one back in the tray instead of losing it. Pages left unassigned save with the quote and are still waiting next time it is opened, and \u2715 discards one and deletes it from the repo."},
   {rev:171, date:"2026-08-08", note:"Every line on the bill can carry its own drawing. A DWG column sits after PART NAME: \u2b06 attaches a print for that part, a thumbnail of it takes the button\u2019s place, clicking the thumbnail opens it full size and \u2715 removes it. The image does NOT go on the quote \u2014 it is shrunk to 1600px, saved as its own file under drawings/ and the row keeps only a short reference, the same arrangement the quote\u2019s own pages have used since the beginning. Putting pictures on the rows would have pushed megabytes into quote-data.json, which carries every quote there is, and filled the browser\u2019s storage in a few assemblies. On another machine the thumbnail shows a \u2026 while the file comes down from GitHub, then appears on its own. Removing a drawing marks it for deletion remotely too, so nothing is orphaned in the repo."},
   {rev:170, date:"2026-08-08", note:"On an assembly the header fields are now one column down the left at 420px instead of two at 760px, and the bill of material takes everything left over \u2014 about 500px more than it had. The panel also stops disappearing when the bill opens: on an assembly the two are meant to sit side by side, which is the point of having shrunk the fields in the first place. MAKE / BUY has gained a third choice, ASSY, for a sub-assembly: made here like a MAKE part, but built from the lines indented beneath it rather than from bar stock of its own. ASSY rows tint green and carry their part number in bold, so the shape of the bill reads off the page. Per-row drawings are next \u2014 see the note in the handoff about why they cannot simply be pasted into the row."},
@@ -1847,9 +1851,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 172;
+const APP_REV = 173;
 const BUILD_DATE = "2026-08-09";
-const BUILD_TIME = "20:10";           /* increments every build — check both machines match */
+const BUILD_TIME = "21:05";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -3218,7 +3222,15 @@ function bomDiscardPage(pageIdx){
 }
 function renderBomTray(){
   const tray=$('bomTray'); if(!tray) return;
-  if(!bomPages.length){ tray.hidden=true; tray.innerHTML=''; return; }
+  /* shown even when empty: a drop target that only appears once it has something
+     in it is a target you can never hit the first time */
+  if(!bomPages.length){
+    tray.hidden = (opsMode!=='bom');
+    tray.innerHTML = `<div class="tray-head">Scanned pages</div>
+      <div class="tray-empty">Drag drawings here \u2014 straight from an Outlook message, a folder,
+      or press <b>Ctrl+V</b> to paste one. Or use \u{1F5A8} SCAN PAGES above.</div>`;
+    return;
+  }
   tray.hidden=false;
   const opts=bomRows.map((r,i)=>`<option value="${i}">${i+1} \u00b7 ${esc(r.partNo||'(blank)')}</option>`).join('');
   tray.innerHTML = `<div class="tray-head">${bomPages.length} scanned page${bomPages.length===1?'':'s'} waiting \u2014 give each one to a part</div>
@@ -6648,6 +6660,66 @@ $('quoteScope').addEventListener('change', ()=>{
   autosaveNow();
 });
 $('modeBom').addEventListener('click', ()=>setOpsMode('bom'));
+/* Wired to the tray element itself, once. renderBomTray replaces its innerHTML
+   on every keystroke in the bill, so anything bound to the cards inside would be
+   thrown away and rebound constantly. */
+(function(){
+  const tray=$('bomTray'); if(!tray) return;
+  const stop=e=>{ e.preventDefault(); e.stopPropagation(); };
+  ['dragenter','dragover'].forEach(ev=>tray.addEventListener(ev, e=>{
+    stop(e);
+    try{ e.dataTransfer.dropEffect='copy'; }catch(err){}
+    tray.classList.add('dragover');
+  }));
+  ['dragleave','dragend'].forEach(ev=>tray.addEventListener(ev, ()=>tray.classList.remove('dragover')));
+  tray.addEventListener('drop', async e=>{
+    stop(e); tray.classList.remove('dragover');
+    const dt=e.dataTransfer; if(!dt) return;
+    const files=[...(dt.files||[])].filter(f=>f && f.size>0);
+    if(files.length){ bomScanPages(files); return; }
+    /* Outlook sometimes hands over a link or a lump of HTML instead of a file --
+       an image pasted into the body of a message, typically. Say so plainly
+       rather than appearing to do nothing. */
+    const msg=$('bomScanMsg');
+    let url='';
+    try{
+      url = dt.getData('text/uri-list') || '';
+      if(!url){
+        const html=dt.getData('text/html')||'';
+        const m=html.match(/<img[^>]+src="([^"]+)"/i);
+        if(m) url=m[1];
+      }
+    }catch(err){}
+    if(/^https?:/i.test(url)){
+      try{
+        if(msg) msg.textContent='Fetching that image\u2026';
+        const r=await fetch(url,{mode:'cors'});
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        const b=await r.blob();
+        bomScanPages([new File([b], (url.split('/').pop()||'image')+'.jpg', {type:b.type||'image/jpeg'})]);
+        return;
+      }catch(err){
+        if(msg) msg.textContent='That image is a link the browser will not fetch \u2014 save it, or copy it and press Ctrl+V.';
+        return;
+      }
+    }
+    if(msg) msg.textContent='Nothing droppable there. Outlook only hands over attachments \u2014 for a picture inside the message, right-click it, Copy, then Ctrl+V here.';
+  });
+})();
+/* Ctrl+V lands in the tray while the bill is open, instead of becoming another
+   page of the quote's own drawing. */
+document.addEventListener('paste', e=>{
+  if($('view-quote').hidden) return;
+  if(opsMode!=='bom') return;
+  const items=(e.clipboardData&&e.clipboardData.items)||[];
+  const files=[];
+  for(const it of items){
+    if(it.kind==='file' && (/^image\//.test(it.type) || it.type==='application/pdf')){
+      const f=it.getAsFile(); if(f) files.push(f);
+    }
+  }
+  if(files.length){ e.preventDefault(); e.stopPropagation(); bomScanPages(files); }
+}, true);
 $('bomScan').addEventListener('click', ()=>{
   let inp=$('bomScanPick');
   if(!inp){

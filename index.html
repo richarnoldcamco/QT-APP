@@ -307,7 +307,8 @@
                       text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px}
   .bomtray.dragover{border-color:var(--cp-signal); background:#f7efe9; border-style:solid}
   .bomtray .tray-empty{font-size:12px; color:var(--cp-dim); padding:10px 4px;
-                       border:1px dashed var(--cp-line); border-radius:4px; text-align:center}
+                       border:1px dashed var(--cp-line); border-radius:4px; text-align:center; line-height:1.7}
+  .bomtray .tray-tip{font-size:11px; color:var(--cp-signal)}
   .bomtray .tray-strip{display:flex; flex-wrap:wrap; gap:10px}
   .bomtray .tray-card{width:132px; border:1px solid var(--cp-line); border-radius:4px;
                       background:#fff; padding:5px; font-family:var(--ui)}
@@ -1684,6 +1685,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:175, date:"2026-08-09", note:"Dragging attachments straight out of Outlook cannot be made to work, and the app now says so instead of failing vaguely. The diagnostics added in rev 174 answered it: the drop arrives carrying the formats \u2018attachment\u2019 and \u2018chromium/x-drag-id\u2019 and no Files format at all. Classic Outlook offers a dragged attachment as a Windows shell descriptor, and Chrome does not materialise it \u2014 the browser is handed a placeholder, never the bytes, so there is nothing for any amount of code to read. The tray recognises that exact signature now and gives the two routes that do work: select the attachments in Outlook, Ctrl+C, click the tray and Ctrl+V; or Save All Attachments to a folder and drag them in from there. The empty tray says the same before the attempt rather than after it."},
   {rev:174, date:"2026-08-09", note:"Dropping Outlook attachments into the tray was throwing them away. Rev 173 kept only files reporting a size above zero, on the assumption that a zero-size file was junk \u2014 but Outlook hands attachments to Chrome as virtual files whose bytes are fetched lazily, so File.size reads 0 at the moment of the drop and fills in only once the file is read. Five drawings dropped in were discarded by that guard, and the app then reported that nothing droppable had arrived. Every dropped file is now taken and read to find out, dt.items is searched as well as dt.files since some sources fill only one of them, and a file that genuinely reads empty is named rather than passed over in silence. When a drop still yields nothing the message says how many items came and in what formats, so the next failure can be diagnosed instead of guessed at."},
   {rev:173, date:"2026-08-09", note:"Drawings can be dragged straight from an Outlook message into the tray, and Ctrl+V pastes into it while the bill is open rather than becoming another page of the quote\u2019s own drawing. The tray is now on screen even when empty \u2014 a drop target that only appears once it has something in it is one you can never hit the first time \u2014 and it lights up as something is dragged over it. Outlook hands over ATTACHMENTS as real files and those drop cleanly; a picture sitting inside the body of a message is a link or a lump of HTML instead, so the app tries to fetch it and, when the browser refuses, says exactly that and tells you to copy and paste it instead of appearing to do nothing."},
   {rev:172, date:"2026-08-09", note:"SCAN PAGES takes a whole stack of prints in one go. Pick several image files, or a single multi-page PDF straight off the scanner, and every page is read, shrunk and saved as its own file under drawings/. They land in a tray above the bill \u2014 thumbnail, page name, and a \u2018give to\u2019 list of the parts \u2014 and wait there until each is handed to a line. Nothing guesses which page belongs to which part; that is the one thing a machine cannot read off a scan. Handing a page to a row that already had a drawing puts the old one back in the tray instead of losing it. Pages left unassigned save with the quote and are still waiting next time it is opened, and \u2715 discards one and deletes it from the repo."},
@@ -1852,9 +1854,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 174;
+const APP_REV = 175;
 const BUILD_DATE = "2026-08-09";
-const BUILD_TIME = "11:55";           /* increments every build — check both machines match */
+const BUILD_TIME = "12:25";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -3231,8 +3233,10 @@ function renderBomTray(){
   if(!bomPages.length){
     tray.hidden = (opsMode!=='bom');
     tray.innerHTML = `<div class="tray-head">Scanned pages</div>
-      <div class="tray-empty">Drag drawings here \u2014 straight from an Outlook message, a folder,
-      or press <b>Ctrl+V</b> to paste one. Or use \u{1F5A8} SCAN PAGES above.</div>`;
+      <div class="tray-empty">Drag drawings here from a <b>folder</b>, or press <b>Ctrl+V</b> to paste.
+      Or use \u{1F5A8} SCAN PAGES above.<br>
+      <span class="tray-tip">Straight from Outlook: select the attachments, <b>Ctrl+C</b>, click here,
+      <b>Ctrl+V</b> \u2014 Chrome cannot read attachments that are dragged.</span></div>`;
     return;
   }
   tray.hidden=false;
@@ -6716,8 +6720,16 @@ $('modeBom').addEventListener('click', ()=>setOpsMode('bom'));
     let kinds=[];
     try{ kinds=[...(dt.types||[])]; }catch(err){}
     let items=0; try{ items=(dt.items||[]).length; }catch(err){}
-    if(msg) msg.textContent='Nothing usable in that drop \u2014 '+items+' item(s), formats: '
-      +(kinds.join(', ')||'none')+'. A picture inside a message is not a file: right-click it, Copy, then Ctrl+V here.';
+    const outlookPlaceholder = kinds.some(k=>/attachment|x-drag-id/i.test(k));
+    if(msg){
+      msg.innerHTML = outlookPlaceholder
+        ? '<b>Chrome cannot take attachments dragged straight out of Outlook.</b> Outlook offers them in a '
+          + 'Windows-only format and hands the browser a placeholder rather than the file \u2014 there is nothing '
+          + 'in the drop to read. Two ways round it: <b>select them in Outlook, press Ctrl+C, click here and press '
+          + 'Ctrl+V</b>; or <b>Save All Attachments</b> to a folder and drag them in from there.'
+        : 'Nothing usable in that drop \u2014 '+items+' item(s), formats: '+(kinds.join(', ')||'none')
+          + '. A picture inside a message is not a file: right-click it, Copy, then Ctrl+V here.';
+    }
   });
 })();
 /* Ctrl+V lands in the tray while the bill is open, instead of becoming another

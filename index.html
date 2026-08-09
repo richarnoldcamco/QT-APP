@@ -301,6 +301,21 @@
     border:1px solid var(--cp-line); border-radius:2px; background:#fff; vertical-align:middle;
   }
   .bomgrid .dwgwait{display:inline-block; width:34px; color:var(--cp-dim); font-weight:800}
+  .bomtray{margin:0 0 10px; padding:8px 10px; border:1px solid var(--cp-line);
+           border-radius:var(--r-sm); background:#fbf9f4}
+  .bomtray .tray-head{font-size:12px; font-weight:800; color:var(--cp-signal);
+                      text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px}
+  .bomtray .tray-strip{display:flex; flex-wrap:wrap; gap:10px}
+  .bomtray .tray-card{width:132px; border:1px solid var(--cp-line); border-radius:4px;
+                      background:#fff; padding:5px; font-family:var(--ui)}
+  .bomtray .tray-card img{width:120px; height:78px; object-fit:cover; object-position:top left;
+                          border:1px solid var(--cp-line); background:#fff; cursor:pointer; display:block}
+  .bomtray .tray-wait{width:120px; height:78px; display:flex; align-items:center; justify-content:center;
+                      color:var(--cp-dim); font-weight:800; border:1px dashed var(--cp-line)}
+  .bomtray .tray-name{font-size:10px; color:var(--cp-dim); margin:3px 0 4px;
+                      white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .bomtray .tray-card select{width:100%; font-size:11px; padding:2px; font-family:var(--ui)}
+  .bomtray .tray-card .mini{margin-top:4px; width:100%}
   .bomgrid tbody tr.dragging{opacity:.45}
   .bomgrid tbody tr.drop-above td{box-shadow:inset 0 3px 0 -1px var(--cp-signal)}
   .bomgrid tbody tr.drop-below td{box-shadow:inset 0 -3px 0 -1px var(--cp-signal)}
@@ -1225,8 +1240,11 @@
     <h2 class="bom-title">BILL OF MATERIAL</h2>
     <div class="bomtools">
       <button class="btn mini" id="bomAdd" type="button">+ ADD PART</button>
+      <button class="btn mini" id="bomScan" type="button" title="scan or pick several drawing pages at once, then give each page to a part">🖨 SCAN PAGES</button>
+      <span class="note" id="bomScanMsg"></span>
       <span class="note" id="bomNote">Each line is one part. MAKE is quoted here, BUY carries a purchase price, ASSY is a sub-assembly built from the lines indented beneath it.</span>
     </div>
+    <div id="bomTray" class="bomtray" hidden></div>
     <div id="bomBody"></div>
   </div>
   <div class="drawwrap" hidden>
@@ -1663,6 +1681,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:172, date:"2026-08-09", note:"SCAN PAGES takes a whole stack of prints in one go. Pick several image files, or a single multi-page PDF straight off the scanner, and every page is read, shrunk and saved as its own file under drawings/. They land in a tray above the bill \u2014 thumbnail, page name, and a \u2018give to\u2019 list of the parts \u2014 and wait there until each is handed to a line. Nothing guesses which page belongs to which part; that is the one thing a machine cannot read off a scan. Handing a page to a row that already had a drawing puts the old one back in the tray instead of losing it. Pages left unassigned save with the quote and are still waiting next time it is opened, and \u2715 discards one and deletes it from the repo."},
   {rev:171, date:"2026-08-08", note:"Every line on the bill can carry its own drawing. A DWG column sits after PART NAME: \u2b06 attaches a print for that part, a thumbnail of it takes the button\u2019s place, clicking the thumbnail opens it full size and \u2715 removes it. The image does NOT go on the quote \u2014 it is shrunk to 1600px, saved as its own file under drawings/ and the row keeps only a short reference, the same arrangement the quote\u2019s own pages have used since the beginning. Putting pictures on the rows would have pushed megabytes into quote-data.json, which carries every quote there is, and filled the browser\u2019s storage in a few assemblies. On another machine the thumbnail shows a \u2026 while the file comes down from GitHub, then appears on its own. Removing a drawing marks it for deletion remotely too, so nothing is orphaned in the repo."},
   {rev:170, date:"2026-08-08", note:"On an assembly the header fields are now one column down the left at 420px instead of two at 760px, and the bill of material takes everything left over \u2014 about 500px more than it had. The panel also stops disappearing when the bill opens: on an assembly the two are meant to sit side by side, which is the point of having shrunk the fields in the first place. MAKE / BUY has gained a third choice, ASSY, for a sub-assembly: made here like a MAKE part, but built from the lines indented beneath it rather than from bar stock of its own. ASSY rows tint green and carry their part number in bold, so the shape of the bill reads off the page. Per-row drawings are next \u2014 see the note in the handoff about why they cannot simply be pasted into the row."},
   {rev:169, date:"2026-08-08", note:"Parts can be dragged. Every part row has a \u2261 grip at its left end; take hold of it and drop the line where it belongs, with a coloured bar showing where it will land. The grip is what drags, not the row \u2014 a draggable row full of text boxes steals click-and-drag inside them, so selecting half a part number would start moving the line instead. The arrows stay: surer for one step, while dragging wins across a thirteen-line bill. The assembly on row 1 cannot be dragged and nothing can be dropped above it \u2014 a drop aimed at row 1 lands just below it, the first place a part is allowed to be. Levels are brought back into line after the move, as with the arrows."},
@@ -1828,9 +1847,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 171;
-const BUILD_DATE = "2026-08-08";
-const BUILD_TIME = "18:40";           /* increments every build — check both machines match */
+const APP_REV = 172;
+const BUILD_DATE = "2026-08-09";
+const BUILD_TIME = "20:10";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2643,6 +2662,7 @@ function snapshot(){
   fields.reqLead=reqLeadVal;
   fields.quoteScope=quoteScope;
   fields.bomRows=JSON.stringify(bomRows);
+  fields.bomPages=JSON.stringify(bomPages);
   fields.matOvrVal=matOverrideVal;
   fields.oddSel=JSON.stringify(oddSel);
   fields.intakePending=intakePending?'1':'';
@@ -2677,6 +2697,8 @@ function restore(s){
   if($('quoteScope')) $('quoteScope').value=quoteScope;
   try{ bomRows = JSON.parse((s.fields&&s.fields.bomRows)||'[]') || []; }catch(e){ bomRows=[]; }
   if(!Array.isArray(bomRows)) bomRows=[];
+  try{ bomPages = JSON.parse((s.fields&&s.fields.bomPages)||'[]') || []; }catch(e){ bomPages=[]; }
+  if(!Array.isArray(bomPages)) bomPages=[];
   updateScopeBtn(); renderBom();
   suspendAutosave=true;
   Object.entries(s.fields).forEach(([id,v])=>{ if($(id)) $(id).value=v; });
@@ -2813,6 +2835,7 @@ const drawingPath = no => `drawings/Q${no}.jpg`;
 function renderBom(){
   const host=$('bomBody'); if(!host) return;
   normalizeBom();
+  renderBomTray();
   const ae=document.activeElement;
   const foc=(ae && ae.dataset && ae.dataset.bk!=null)
       ? {i:ae.dataset.bi, k:ae.dataset.bk, val:ae.value} : null;
@@ -3056,6 +3079,7 @@ let opsMode='calc';
 let quoteScope='';                   /* '' until picked | COMPONENT | ASSEMBLY */
 let bomRows=[];                      /* bill of material lines, ASSEMBLY only */
 let bomDragFrom=-1;                  /* row being dragged, -1 when nothing is */
+let bomPages=[];                     /* scanned pages not yet given to a part: {ref,name} */
 function blankBomRow(){
   return {lvl:1, partNo:'', name:'', qty:1, mb:'MAKE', price:0, quoteNo:'', notes:''};
 }
@@ -3121,6 +3145,122 @@ function bomShrink(file, maxPx, quality){
       img.src=fr.result;
     };
     fr.readAsDataURL(file);
+  });
+}
+/* A stack of scanned prints arrives as one job: a multi-page PDF or a pile of
+   image files. Every page is stored the same way a row drawing is \u2014 its own
+   file under drawings/, a ref in the tray \u2014 and waits there until it is given
+   to a part. Nothing is assumed about which page belongs to which line. */
+async function bomScanPages(files){
+  const tray=$('bomTray');
+  const say=t=>{ const s=$('bomScanMsg'); if(s) s.textContent=t; };
+  let added=0;
+  for(const file of files){
+    try{
+      let urls=[];
+      if(/\.pdf$/i.test(file.name||'') || file.type==='application/pdf'){
+        say('Reading '+(file.name||'PDF')+'\u2026');
+        await loadPdfJs();
+        const buf=await file.arrayBuffer();
+        const pdf=await window.pdfjsLib.getDocument({data:buf}).promise;
+        for(let p=1;p<=pdf.numPages;p++){
+          say('Reading '+(file.name||'PDF')+' \u2014 page '+p+' of '+pdf.numPages+'\u2026');
+          const page=await pdf.getPage(p);
+          let vp=page.getViewport({scale:1});
+          const sc=Math.min(1800/vp.width, 1800/vp.height, 3);
+          vp=page.getViewport({scale:sc});
+          const c=document.createElement('canvas');
+          c.width=Math.round(vp.width); c.height=Math.round(vp.height);
+          const ctx=c.getContext('2d');
+          ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height);
+          await page.render({canvasContext:ctx, viewport:vp}).promise;
+          urls.push({url:c.toDataURL('image/jpeg',0.72),
+                     name:(file.name||'scan').replace(/\.pdf$/i,'')+' p'+p});
+        }
+      }else{
+        urls.push({url: await bomShrink(file, 1600, 0.72), name:file.name||'scan'});
+      }
+      const cache=drwCache();
+      for(const u of urls){
+        const ref=(typeof newPageRef==='function') ? newPageRef()
+                : 'drawings/Q'+activeQuoteNo+'-'+Date.now().toString(36)+Math.random().toString(36).slice(2,4)+'.jpg';
+        cache[ref]={data:u.url, ts:Date.now(), dirty:true};
+        bomPages.push({ref, name:u.name});
+        added++;
+      }
+      drwSave(cache);
+    }catch(e){ say('Could not read '+(file.name||'that file')+': '+e.message); }
+  }
+  say(added? added+' page'+(added===1?'':'s')+' scanned \u2014 give each one to a part below.' : '');
+  renderBom();
+  autosaveNow();
+  scheduleGhPush();
+}
+function bomAssignPage(pageIdx, rowIdx){
+  const pg=bomPages[pageIdx]; if(!pg || !bomRows[rowIdx]) return;
+  const had=bomRows[rowIdx].dref;
+  bomRows[rowIdx].dref=pg.ref;
+  bomPages.splice(pageIdx,1);
+  /* the drawing already on that row goes back to the tray rather than vanishing */
+  if(had) bomPages.push({ref:had, name:'(was on '+(bomRows[rowIdx].partNo||'row '+(rowIdx+1))+')'});
+  renderBom();
+  autosaveNow();
+}
+function bomDiscardPage(pageIdx){
+  const pg=bomPages[pageIdx]; if(!pg) return;
+  const cache=drwCache();
+  cache[pg.ref]={del:true, ts:Date.now(), dirty:true};
+  drwSave(cache);
+  bomPages.splice(pageIdx,1);
+  renderBom();
+  autosaveNow();
+  scheduleGhPush();
+}
+function renderBomTray(){
+  const tray=$('bomTray'); if(!tray) return;
+  if(!bomPages.length){ tray.hidden=true; tray.innerHTML=''; return; }
+  tray.hidden=false;
+  const opts=bomRows.map((r,i)=>`<option value="${i}">${i+1} \u00b7 ${esc(r.partNo||'(blank)')}</option>`).join('');
+  tray.innerHTML = `<div class="tray-head">${bomPages.length} scanned page${bomPages.length===1?'':'s'} waiting \u2014 give each one to a part</div>
+    <div class="tray-strip">${bomPages.map((p,i)=>{
+      const px=bomDrwData(p.ref);
+      return `<div class="tray-card">
+        ${px?`<img src="${px}" data-tview="${i}" title="click to see this page full size">`
+            :`<div class="tray-wait">\u2026</div>`}
+        <div class="tray-name" title="${esc(p.name||'')}">${esc(p.name||'page')}</div>
+        <select data-tassign="${i}"><option value="">\u2014 give to \u2014</option>${opts}</select>
+        <button class="mini" data-tdrop="${i}" type="button" title="discard this page">\u2715</button>
+      </div>`;}).join('')}</div>`;
+  tray.querySelectorAll('[data-tassign]').forEach(s=>{
+    s.addEventListener('change', ()=>{
+      const v=s.value; if(v==='') return;
+      bomAssignPage(+s.dataset.tassign, +v);
+    });
+  });
+  tray.querySelectorAll('[data-tdrop]').forEach(b=>{
+    b.addEventListener('click', ()=>bomDiscardPage(+b.dataset.tdrop));
+  });
+  tray.querySelectorAll('[data-tview]').forEach(im=>{
+    im.addEventListener('click', ()=>{
+      const p=bomPages[+im.dataset.tview]; if(!p) return;
+      const px=bomDrwData(p.ref); if(!px) return;
+      const prev=$('bdvOv'); if(prev) prev.remove();
+      const ov=document.createElement('div');
+      ov.className='ov'; ov.id='bdvOv'; ov.style.display='flex';
+      ov.innerHTML=`<div class="modal" style="width:92vw; max-width:1500px">
+        <h3 style="margin:0 0 10px">${esc(p.name||'Scanned page')}</h3>
+        <img src="${px}" style="width:100%; height:auto; display:block; border:1px solid var(--cp-line); background:#fff">
+        <div class="btns" style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px">
+          <button class="btn" id="bdvClose">Close</button></div></div>`;
+      document.body.appendChild(ov);
+      $('bdvClose').addEventListener('click', ()=>ov.remove());
+      ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
+    });
+  });
+  bomPages.forEach(p=>{
+    if(!bomDrwData(p.ref) && typeof ghFetchDrawingRef==='function' && ghEnabled()){
+      ghFetchDrawingRef(p.ref).then(d=>{ if(d) renderBomTray(); }).catch(()=>{});
+    }
   });
 }
 async function bomAttachDrawing(i, file){
@@ -4883,7 +5023,7 @@ function startNewQuote(){
   applySettingsDefaults();
   blankOps();
   matOverride='No'; matOverrideVal=0; reqLeadVal=''; buyerAskedOnce.clear();
-  quoteScope=''; bomRows=[];
+  quoteScope=''; bomRows=[]; bomPages=[];
   if($('quoteScope')) $('quoteScope').value='';
   if(window.__updateScopeBtn) window.__updateScopeBtn();
   if(window.__renderBom) window.__renderBom();
@@ -6508,6 +6648,18 @@ $('quoteScope').addEventListener('change', ()=>{
   autosaveNow();
 });
 $('modeBom').addEventListener('click', ()=>setOpsMode('bom'));
+$('bomScan').addEventListener('click', ()=>{
+  let inp=$('bomScanPick');
+  if(!inp){
+    inp=document.createElement('input');
+    inp.type='file'; inp.multiple=true; inp.accept='image/*,application/pdf';
+    inp.id='bomScanPick'; inp.hidden=true;
+    document.body.appendChild(inp);
+  }
+  inp.value='';
+  inp.onchange=()=>{ const f=[...(inp.files||[])]; if(f.length) bomScanPages(f); };
+  inp.click();
+});
 $('bomAdd').addEventListener('click', ()=>{
   const row=blankBomRow();
   if(bomRows.length) row.lvl = Math.max(2, parseInt(bomRows[bomRows.length-1].lvl,10)||1);

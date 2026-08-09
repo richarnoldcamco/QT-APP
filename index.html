@@ -316,8 +316,11 @@
                           border:1px solid var(--cp-line); background:#fff; cursor:pointer; display:block}
   .bomtray .tray-wait{width:120px; height:78px; display:flex; align-items:center; justify-content:center;
                       color:var(--cp-dim); font-weight:800; border:1px dashed var(--cp-line)}
-  .bomtray .tray-name{font-size:10px; color:var(--cp-dim); margin:3px 0 4px;
-                      white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .bomtray .tray-name{font-size:11px; color:var(--cp-ink); font-weight:600; margin:4px 0;
+                      line-height:1.25; word-break:break-all; max-height:2.5em; overflow:hidden}
+  .bomtray .tray-num{display:inline-block; min-width:15px; margin-right:4px; padding:0 3px;
+                     background:var(--cp-signal); color:#fff; border-radius:3px;
+                     font-size:10px; font-weight:800; text-align:center}
   .bomtray .tray-card select{width:100%; font-size:11px; padding:2px; font-family:var(--ui)}
   .bomtray .tray-card .mini{margin-top:4px; width:100%}
   .bomgrid tbody tr.dragging{opacity:.45}
@@ -1685,6 +1688,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:176, date:"2026-08-09", note:"Scanned page names are readable and, more to the point, distinguishable. Anything pasted from Outlook arrives called image.png \u2014 that is the name the clipboard supplies, so five pasted drawings gave five identical labels and no way to tell which card was which. A repeated name is now numbered against its twins, image.png (2), image.png (3), and every card carries its position in the tray as a numbered badge, so a page can be referred to by number whatever it happens to be called. The name itself is larger, darker and wraps onto a second line instead of being cut off with an ellipsis. Files dragged in from a folder keep their own names as before, which is the better route precisely because those names mean something."},
   {rev:175, date:"2026-08-09", note:"Dragging attachments straight out of Outlook cannot be made to work, and the app now says so instead of failing vaguely. The diagnostics added in rev 174 answered it: the drop arrives carrying the formats \u2018attachment\u2019 and \u2018chromium/x-drag-id\u2019 and no Files format at all. Classic Outlook offers a dragged attachment as a Windows shell descriptor, and Chrome does not materialise it \u2014 the browser is handed a placeholder, never the bytes, so there is nothing for any amount of code to read. The tray recognises that exact signature now and gives the two routes that do work: select the attachments in Outlook, Ctrl+C, click the tray and Ctrl+V; or Save All Attachments to a folder and drag them in from there. The empty tray says the same before the attempt rather than after it."},
   {rev:174, date:"2026-08-09", note:"Dropping Outlook attachments into the tray was throwing them away. Rev 173 kept only files reporting a size above zero, on the assumption that a zero-size file was junk \u2014 but Outlook hands attachments to Chrome as virtual files whose bytes are fetched lazily, so File.size reads 0 at the moment of the drop and fills in only once the file is read. Five drawings dropped in were discarded by that guard, and the app then reported that nothing droppable had arrived. Every dropped file is now taken and read to find out, dt.items is searched as well as dt.files since some sources fill only one of them, and a file that genuinely reads empty is named rather than passed over in silence. When a drop still yields nothing the message says how many items came and in what formats, so the next failure can be diagnosed instead of guessed at."},
   {rev:173, date:"2026-08-09", note:"Drawings can be dragged straight from an Outlook message into the tray, and Ctrl+V pastes into it while the bill is open rather than becoming another page of the quote\u2019s own drawing. The tray is now on screen even when empty \u2014 a drop target that only appears once it has something in it is one you can never hit the first time \u2014 and it lights up as something is dragged over it. Outlook hands over ATTACHMENTS as real files and those drop cleanly; a picture sitting inside the body of a message is a link or a lump of HTML instead, so the app tries to fetch it and, when the browser refuses, says exactly that and tells you to copy and paste it instead of appearing to do nothing."},
@@ -1854,9 +1858,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 175;
+const APP_REV = 176;
 const BUILD_DATE = "2026-08-09";
-const BUILD_TIME = "12:25";           /* increments every build — check both machines match */
+const BUILD_TIME = "12:45";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -3192,6 +3196,15 @@ async function bomScanPages(files){
       }
       const cache=drwCache();
       for(const u of urls){
+        let nm=(u.name||'page').trim();
+        if(bomPages.some(p=>p.name===nm)){
+          let n=2;
+          const dot=nm.lastIndexOf('.');
+          const stem=dot>0?nm.slice(0,dot):nm, ext=dot>0?nm.slice(dot):'';
+          while(bomPages.some(p=>p.name===stem+' ('+n+')'+ext)) n++;
+          nm=stem+' ('+n+')'+ext;
+        }
+        u.name=nm;
         const ref=(typeof newPageRef==='function') ? newPageRef()
                 : 'drawings/Q'+activeQuoteNo+'-'+Date.now().toString(36)+Math.random().toString(36).slice(2,4)+'.jpg';
         cache[ref]={data:u.url, ts:Date.now(), dirty:true};
@@ -3247,7 +3260,7 @@ function renderBomTray(){
       return `<div class="tray-card">
         ${px?`<img src="${px}" data-tview="${i}" title="click to see this page full size">`
             :`<div class="tray-wait">\u2026</div>`}
-        <div class="tray-name" title="${esc(p.name||'')}">${esc(p.name||'page')}</div>
+        <div class="tray-name" title="${esc(p.name||'')}"><span class="tray-num">${i+1}</span>${esc(p.name||'page')}</div>
         <select data-tassign="${i}"><option value="">\u2014 give to \u2014</option>${opts}</select>
         <button class="mini" data-tdrop="${i}" type="button" title="discard this page">\u2715</button>
       </div>`;}).join('')}</div>`;

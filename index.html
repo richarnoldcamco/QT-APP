@@ -1688,6 +1688,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:178, date:"2026-08-09", note:"Correcting advice this app gave and should not have. Rev 175 said to copy Outlook attachments with Ctrl+C and paste them into the tray. That does not work either: Ctrl+C on an attachment puts a VIRTUAL file on the Windows clipboard \u2014 the same shell descriptor that defeats the drag \u2014 and Chrome cannot open it, so the paste silently delivers whatever the clipboard last held that it could read. That is worse than a plain failure, because it looks like it worked. An Outlook attachment cannot reach the browser by dragging or by copying. SAVE ALL ATTACHMENTS to a folder and drag them in from there: it is the only route that works, and it brings the real filenames with it instead of image.png. Copying a picture from inside a message body still pastes fine \u2014 that is a real bitmap, not an attachment."},
   {rev:177, date:"2026-08-09", note:"Pasting into the tray no longer refuses files it should have taken. The paste handler only accepted clipboard items whose type began with image/ \u2014 which is what an image copied from a message body looks like, and why that route worked \u2014 but a copied ATTACHMENT frequently arrives with an empty type or application/octet-stream and was thrown away on the spot. Any file the clipboard offers is now taken and read, failing by name if it turns out not to be a picture, which beats a paste that silently does nothing. clipboardData.files is checked as well as .items, since Windows fills one or the other depending on where the copy came from. And when the clipboard genuinely holds nothing readable, the message says what it does hold, so the next failure is diagnosable rather than mysterious."},
   {rev:176, date:"2026-08-09", note:"Scanned page names are readable and, more to the point, distinguishable. Anything pasted from Outlook arrives called image.png \u2014 that is the name the clipboard supplies, so five pasted drawings gave five identical labels and no way to tell which card was which. A repeated name is now numbered against its twins, image.png (2), image.png (3), and every card carries its position in the tray as a numbered badge, so a page can be referred to by number whatever it happens to be called. The name itself is larger, darker and wraps onto a second line instead of being cut off with an ellipsis. Files dragged in from a folder keep their own names as before, which is the better route precisely because those names mean something."},
   {rev:175, date:"2026-08-09", note:"Dragging attachments straight out of Outlook cannot be made to work, and the app now says so instead of failing vaguely. The diagnostics added in rev 174 answered it: the drop arrives carrying the formats \u2018attachment\u2019 and \u2018chromium/x-drag-id\u2019 and no Files format at all. Classic Outlook offers a dragged attachment as a Windows shell descriptor, and Chrome does not materialise it \u2014 the browser is handed a placeholder, never the bytes, so there is nothing for any amount of code to read. The tray recognises that exact signature now and gives the two routes that do work: select the attachments in Outlook, Ctrl+C, click the tray and Ctrl+V; or Save All Attachments to a folder and drag them in from there. The empty tray says the same before the attempt rather than after it."},
@@ -1859,9 +1860,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 177;
+const APP_REV = 178;
 const BUILD_DATE = "2026-08-09";
-const BUILD_TIME = "13:10";           /* increments every build — check both machines match */
+const BUILD_TIME = "13:35";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -3249,8 +3250,9 @@ function renderBomTray(){
     tray.innerHTML = `<div class="tray-head">Scanned pages</div>
       <div class="tray-empty">Drag drawings here from a <b>folder</b>, or press <b>Ctrl+V</b> to paste.
       Or use \u{1F5A8} SCAN PAGES above.<br>
-      <span class="tray-tip">Straight from Outlook: select the attachments, <b>Ctrl+C</b>, click here,
-      <b>Ctrl+V</b> \u2014 Chrome cannot read attachments that are dragged.</span></div>`;
+      <span class="tray-tip">From Outlook, attachments must be saved out first \u2014 <b>Save All Attachments</b>
+      to a folder, then drag them in. Chrome cannot read an Outlook attachment that is dragged OR copied;
+      only a picture inside the message body can be copied and pasted.</span></div>`;
     return;
   }
   tray.hidden=false;
@@ -6737,10 +6739,11 @@ $('modeBom').addEventListener('click', ()=>setOpsMode('bom'));
     const outlookPlaceholder = kinds.some(k=>/attachment|x-drag-id/i.test(k));
     if(msg){
       msg.innerHTML = outlookPlaceholder
-        ? '<b>Chrome cannot take attachments dragged straight out of Outlook.</b> Outlook offers them in a '
-          + 'Windows-only format and hands the browser a placeholder rather than the file \u2014 there is nothing '
-          + 'in the drop to read. Two ways round it: <b>select them in Outlook, press Ctrl+C, click here and press '
-          + 'Ctrl+V</b>; or <b>Save All Attachments</b> to a folder and drag them in from there.'
+        ? '<b>Chrome cannot take Outlook attachments \u2014 dragged or copied.</b> Outlook offers them as a '
+          + 'Windows shell descriptor and the browser is handed a placeholder, never the bytes. Copying them has '
+          + 'the same problem, and the paste then quietly delivers whatever was on the clipboard before. '
+          + '<b>Save All Attachments</b> to a folder and drag them in from there \u2014 that is the only route '
+          + 'that works, and the filenames come with them.'
         : 'Nothing usable in that drop \u2014 '+items+' item(s), formats: '+(kinds.join(', ')||'none')
           + '. A picture inside a message is not a file: right-click it, Copy, then Ctrl+V here.';
     }
@@ -6765,8 +6768,9 @@ document.addEventListener('paste', e=>{
     const kinds=[...items].map(i=>i.kind+(i.type?':'+i.type:'')).join(', ');
     let types=''; try{ types=[...(cd&&cd.types||[])].join(', '); }catch(err){}
     msg.innerHTML = '<b>Nothing to paste.</b> The clipboard holds '+(kinds||types||'nothing the app can read')
-      + '. Copying an attachment in Outlook does not always put the file on the clipboard \u2014 '
-      + '<b>Save All Attachments</b> to a folder and drag them in, or open the drawing and copy the image itself.';
+      + '. An Outlook ATTACHMENT copied with Ctrl+C never reaches the browser \u2014 it is a virtual file '
+      + 'Chrome cannot open, which is why a paste can appear to work and deliver something older instead. '
+      + '<b>Save All Attachments</b> to a folder and drag them in.';
   }
 }, true);
 $('bomScan').addEventListener('click', ()=>{

@@ -295,6 +295,7 @@
     color:var(--cp-dim); font-size:15px; line-height:1; user-select:none; vertical-align:middle;
   }
   .bomgrid td.rowb .grip:active{cursor:grabbing}
+  .ip-val input.inherited, .sheet input.inherited{background:#eef3f9; color:var(--cp-dim); cursor:not-allowed}
   .childbar{display:flex; align-items:center; gap:14px; margin:0 0 8px; padding:6px 12px;
             background:#eef3f9; border:1px solid var(--cp-line); border-radius:var(--r-sm);
             font-family:var(--ui); font-size:13px}
@@ -1458,13 +1459,63 @@ const OP_CLASSES = ['MACHINING','SUBCONTRACT'];   /* work-centre cost class; see
    sitting there inviting an answer that means nothing. */
 const ASM_HIDE = new Set(['material','priceLevel','barForm','barOverride','barDia',
                           'partLength','extraLength','chuckExtra','stockForm','barLen']);
+/* A part quote belongs to an assembly, and these are the assembly's answers, not
+   the part's. Asking again invites two versions of the same fact. They are filled
+   from the parent and taken off the walk; everything genuinely about the part \u2014
+   its material, its bar, its tolerances, its FAI \u2014 is still asked. */
+const CHILD_HIDE = new Set(['customer','buyer','quotedBy','salesman',
+                            'nreSep','custQuoteNo','faiQty']);
+/* Shown, but not editable here: it is worked out from the assembly. */
+const CHILD_LOCK = new Set(['annualUsage']);
+function lockChildFields(){
+  CHILD_LOCK.forEach(id=>{
+    const el=$(id); if(!el) return;
+    const lock = !!(typeof childOf!=='undefined' && childOf);
+    el.readOnly = lock;
+    el.title = lock ? 'Set by the assembly \u2014 its yearly quantity times how many of this part go into one.' : '';
+    el.classList.toggle('inherited', lock);
+  });
+}
+function childHidden(id){
+  return (typeof childOf!=='undefined') && childOf && CHILD_HIDE.has(id);
+}
+/* Pull the assembly's answers down onto this part quote, including the yearly
+   quantity: the assembly's annual usage times how many of this part go in one. */
+function syncFromParent(){
+  if(!childOf) return;
+  let p=null;
+  try{ p=loadSaved().find(x=>String(x.no)===String(childOf.no)); }catch(e){}
+  if(!p || !p.fields) return;
+  const f=p.fields;
+  const put=(id,v)=>{ const el=$(id); if(el && v!=null && v!=='' && el.value!==v){ el.value=v; } };
+  put('customer', f.customer); put('buyer', f.buyer);
+  put('quotedBy', f.quotedBy); put('salesman', f.salesman);
+  put('nreSep', f.nreSep); put('custQuoteNo', f.custQuoteNo); put('faiQty', f.faiQty);
+  /* how many of this part per assembly, read off the parent's own bill */
+  let per=1;
+  try{
+    const rows=JSON.parse(f.bomRows||'[]')||[];
+    const mine=rows.find(r=>String(r.quoteNo)===String(activeQuoteNo));
+    if(mine) per=parseFloat(mine.qty)||1;
+  }catch(e){}
+  const pa=parseFloat(f.annualUsage)||0;
+  if(pa>0) put('annualUsage', String(pa*per));
+  childOf.part = f.partNo || childOf.part;
+  childOf.per  = per;
+  childOf.customer = f.customer||'';
+  childOf.buyer = f.buyer||'';
+  lockChildFields();
+}
 function asmHidden(id){
   return (typeof quoteScope!=='undefined') && quoteScope==='ASSEMBLY' && ASM_HIDE.has(id);
 }
 function guideList(){
-  return (typeof quoteScope!=='undefined' && quoteScope==='ASSEMBLY')
+  let list = (typeof quoteScope!=='undefined' && quoteScope==='ASSEMBLY')
     ? GUIDE_ORDER.filter(id=>!ASM_HIDE.has(id))
     : GUIDE_ORDER;
+  if(typeof childOf!=='undefined' && childOf)
+    list = list.filter(id=>!CHILD_HIDE.has(id) && !CHILD_LOCK.has(id));
+  return list;
 }
 const TBL_LS = 'qs_tables_v1';
 function factoryTables(){
@@ -1712,6 +1763,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:183, date:"2026-08-10", note:"A part quote stops asking what the assembly has already answered. CUSTOMER, BUYER, QUOTED BY, SALESMAN, SEPARATE NRE, CUSTOMER QUOTE # and QTY TO DEPRECIATE NRE are taken from the parent and dropped from both the panel and the walk \u2014 asking twice is how two versions of one fact get into a quote. ANNUAL USAGE comes down as well, worked out as the assembly\u2019s yearly quantity times how many of this part go into one, read off the parent\u2019s own bill. They are re-read every time the part quote is opened rather than copied once, so changing the buyer on the assembly changes it on every part under it. Everything genuinely about the part is still asked: its material, its bar, its tolerances, its FAI, its operations. The walk drops from 25 steps to 17."},
   {rev:182, date:"2026-08-10", note:"A MAKE line on the bill can be quoted. The QUOTE # column carries a QUOTE button on every MAKE part; pressing it opens a full quote of its own for that part \u2014 same sheet, same engine, its own operations \u2014 prefilled with the part number, the customer, the buyer and a yearly quantity worked out as the assembly\u2019s annual usage times how many go into one. It is a COMPONENT by definition so it is not asked, and a bar across the top says which assembly it belongs to with a way back. The bill keeps the child\u2019s quote number and READS ITS PRICE BACK: that line\u2019s PART PRICE turns green and shows what the part quote works out to, so the assembly total follows the parts as they are priced rather than being typed twice and drifting apart. The number itself becomes a button that opens the part quote. Lines with no quote of their own still take a typed price, which is what BUY parts want."},
   {rev:181, date:"2026-08-09", note:"The bill was hammering GitHub, and it was this app doing it. Any page whose picture was not to hand triggered a request for it \u2014 from inside the redraw, which runs on every keystroke. Twenty-five pages with no picture meant twenty-five requests per redraw, endlessly, and that is what took the sync down twice. A drawing is now asked for ONCE per session; if the repository does not have it, it is marked missing and never asked for again. A missing page shows NO IMAGE in red rather than a \u2026 that never resolves, and opening one says plainly that it is not in the repository and needs scanning again, instead of sitting on \u2018Fetching the full-size page\u2019 for ever \u2014 a fetch that came back empty simply left that message on screen. Added \u2715 CLEAR ALL PAGES beside SCAN PAGES, since clearing a tray of twenty-five one at a time is its own punishment; it asks first, and leaves drawings already given to a part alone."},
   {rev:180, date:"2026-08-09", note:"A maximised drawing can be panned and zoomed. The wheel zooms about the pointer, so whatever is under the cursor stays under it; dragging pans; double-click fits the page again; and there are \u2212 + FIT and 1:1 buttons with the current percentage beside them. Fit-to-window is useless on a print \u2014 the dimensions are the whole reason for opening it \u2014 and until now that was all there was. Both viewers share one piece of code, so a scanned page in the tray and a drawing on a bill row behave identically; they had grown into two near-matching blocks and putting zoom into only one would have been the wrong half of the job."},
@@ -1888,9 +1940,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 182;
+const APP_REV = 183;
 const BUILD_DATE = "2026-08-10";
-const BUILD_TIME = "19:10";           /* increments every build — check both machines match */
+const BUILD_TIME = "19:45";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2743,6 +2795,9 @@ function restore(s){
   if(!Array.isArray(bomPages)) bomPages=[];
   childOf=(s.fields&&s.fields.parentNo)
     ? {no:s.fields.parentNo, part:s.fields.parentPart||('#'+s.fields.parentNo)} : null;
+  /* the assembly may have moved on since this part was last opened \u2014 take its
+     answers again rather than trusting a copy taken who knows when */
+  if(childOf) setTimeout(()=>{ try{ syncFromParent(); updateChildBar(); renderAll(); }catch(e){} }, 0);
   updateChildBar();
   updateScopeBtn(); renderBom();
   suspendAutosave=true;
@@ -3519,6 +3574,7 @@ function applyPendingChild(){
   /* the assembly's yearly need times how many go in one: what this part's year is */
   if(c.annual) put('annualUsage', String(c.annual));
   childOf={no:c.parentNo, part:c.parentPart||('#'+c.parentNo)};
+  syncFromParent();
   updateChildBar();
   renderAll();
   autosaveNow();
@@ -3527,7 +3583,12 @@ function updateChildBar(){
   const b=$('childBar'); if(!b) return;
   if(!childOf){ b.hidden=true; b.innerHTML=''; return; }
   b.hidden=false;
+  const bits=[];
+  if(childOf.customer) bits.push(esc(childOf.customer));
+  if(childOf.buyer) bits.push(esc(childOf.buyer));
+  if(childOf.per>1) bits.push(childOf.per+' per assembly');
   b.innerHTML=`<span>Part of assembly <b>${esc(String(childOf.part||''))}</b> \u00b7 quote #${esc(String(childOf.no))}</span>
+    ${bits.length?`<span class="note">${bits.join(' \u00b7 ')}</span>`:''}
     <button class="btn mini" id="childBack" type="button">\u21a9 BACK TO THE ASSEMBLY</button>`;
   const bb=$('childBack');
   if(bb) bb.addEventListener('click', ()=>{ loadQuote(childOf.no); switchView('quote'); });
@@ -5371,7 +5432,7 @@ function startNewQuote(){
   blankOps();
   matOverride='No'; matOverrideVal=0; reqLeadVal=''; buyerAskedOnce.clear();
   quoteScope=''; bomRows=[]; bomPages=[];
-  childOf=null; updateChildBar();
+  childOf=null; updateChildBar(); lockChildFields();
   if($('quoteScope')) $('quoteScope').value='';
   if(window.__updateScopeBtn) window.__updateScopeBtn();
   if(window.__renderBom) window.__renderBom();
@@ -6568,6 +6629,7 @@ function buildIntakePanel(){
     if(!td || !sheet.contains(td)) return;
     if(el.hasAttribute('hidden')) return;          /* admin values stay in the hidden table */
     if(asmHidden(id)) return;                      /* bar-stock fields: not an assembly's business */
+    if(childHidden(id)) return;                    /* the assembly already answered these */
     const row=document.createElement('div'); row.className='ip-row';
     const lab=document.createElement('div'); lab.className='ip-lab'; lab.textContent=ipLabelFor(el);
     const val=document.createElement('div'); val.className='ip-val';

@@ -329,6 +329,9 @@
                           border:1px solid var(--cp-line); background:#fff; cursor:pointer; display:block}
   .bomtray .tray-wait{width:120px; height:78px; display:flex; align-items:center; justify-content:center;
                       color:var(--cp-dim); font-weight:800; border:1px dashed var(--cp-line)}
+  .bomtray .tray-gone{width:120px; height:78px; display:flex; align-items:center; justify-content:center;
+                      color:#a5342a; font-weight:800; font-size:11px; text-align:center;
+                      border:1px dashed #a5342a; background:#fbf1ef}
   .bomtray .tray-name{font-size:11px; color:var(--cp-ink); font-weight:600; margin:4px 0;
                       line-height:1.25; word-break:break-all; max-height:2.5em; overflow:hidden}
   .bomtray .tray-num{display:inline-block; min-width:15px; margin-right:4px; padding:0 3px;
@@ -1261,6 +1264,7 @@
     <div class="bomtools">
       <button class="btn mini" id="bomAdd" type="button">+ ADD PART</button>
       <button class="btn mini" id="bomScan" type="button" title="scan or pick several drawing pages at once, then give each page to a part">🖨 SCAN PAGES</button>
+      <button class="btn mini" id="bomClearPages" type="button" hidden title="discard every page still waiting in the tray">✕ CLEAR ALL PAGES</button>
       <span class="note" id="bomScanMsg"></span>
       <span class="note" id="bomNote">Each line is one part. MAKE is quoted here, BUY carries a purchase price, ASSY is a sub-assembly built from the lines indented beneath it.</span>
     </div>
@@ -1701,6 +1705,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:181, date:"2026-08-09", note:"The bill was hammering GitHub, and it was this app doing it. Any page whose picture was not to hand triggered a request for it \u2014 from inside the redraw, which runs on every keystroke. Twenty-five pages with no picture meant twenty-five requests per redraw, endlessly, and that is what took the sync down twice. A drawing is now asked for ONCE per session; if the repository does not have it, it is marked missing and never asked for again. A missing page shows NO IMAGE in red rather than a \u2026 that never resolves, and opening one says plainly that it is not in the repository and needs scanning again, instead of sitting on \u2018Fetching the full-size page\u2019 for ever \u2014 a fetch that came back empty simply left that message on screen. Added \u2715 CLEAR ALL PAGES beside SCAN PAGES, since clearing a tray of twenty-five one at a time is its own punishment; it asks first, and leaves drawings already given to a part alone."},
   {rev:180, date:"2026-08-09", note:"A maximised drawing can be panned and zoomed. The wheel zooms about the pointer, so whatever is under the cursor stays under it; dragging pans; double-click fits the page again; and there are \u2212 + FIT and 1:1 buttons with the current percentage beside them. Fit-to-window is useless on a print \u2014 the dimensions are the whole reason for opening it \u2014 and until now that was all there was. Both viewers share one piece of code, so a scanned page in the tray and a drawing on a bill row behave identically; they had grown into two near-matching blocks and putting zoom into only one would have been the wrong half of the job."},
   {rev:179, date:"2026-08-09", note:"Scanning 25 pages filled this device\u2019s storage, and the app said nothing. Full-size prints were being held in the browser until the next sync \u2014 several megabytes against a limit of about five \u2014 so the save failed, the error was swallowed by an empty catch, the thumbnails vanished and the GitHub sync went down with them. Pages now upload to drawings/ the moment they are scanned and only a 260px thumbnail stays on this device, about 12KB each, so a hundred pages still fits; the full print is fetched back when it is opened. If storage does run out it now says so in the sync bar and on the bill instead of failing in silence. Clicking a scanned page opens it large enough to read the part number off, with a GIVE TO list in the viewer itself \u2014 look at it and assign it without having to remember which card it was. Escape or a click outside closes it."},
   {rev:178, date:"2026-08-09", note:"Correcting advice this app gave and should not have. Rev 175 said to copy Outlook attachments with Ctrl+C and paste them into the tray. That does not work either: Ctrl+C on an attachment puts a VIRTUAL file on the Windows clipboard \u2014 the same shell descriptor that defeats the drag \u2014 and Chrome cannot open it, so the paste silently delivers whatever the clipboard last held that it could read. That is worse than a plain failure, because it looks like it worked. An Outlook attachment cannot reach the browser by dragging or by copying. SAVE ALL ATTACHMENTS to a folder and drag them in from there: it is the only route that works, and it brings the real filenames with it instead of image.png. Copying a picture from inside a message body still pastes fine \u2014 that is a real bitmap, not an attachment."},
@@ -1875,9 +1880,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 180;
+const APP_REV = 181;
 const BUILD_DATE = "2026-08-09";
-const BUILD_TIME = "16:20";           /* increments every build — check both machines match */
+const BUILD_TIME = "18:05";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -2998,10 +3003,8 @@ function renderBom(){
     el.addEventListener('click', ()=>bomViewDrawing(+el.dataset.bdview));
   });
   /* pixels not on this machine yet: pull them, then redraw */
-  bomRows.forEach((r,i)=>{
-    if(r.dref && !bomDrwData(r.dref) && typeof ghFetchDrawingRef==='function' && ghEnabled()){
-      ghFetchDrawingRef(r.dref).then(d=>{ if(d) renderBom(); }).catch(()=>{});
-    }
+  bomRows.forEach(r=>{
+    if(r.dref && !bomDrwData(r.dref)) bomFetchOnce(r.dref, d=>{ if(d) renderBom(); });
   });
   host.querySelectorAll('[data-bgrip]').forEach(g=>{
     g.addEventListener('dragstart', e=>{
@@ -3164,6 +3167,22 @@ function bomMoveCol(i,k,d){
    about 12KB each, so a hundred pages still fits. The full image is fetched back
    when it is actually looked at. */
 const BTHUMB_LS='qs_bomthumb_v1';
+/* renderBom runs on every keystroke, and it was asking GitHub for the pixels of
+   every page that had none \u2014 twenty-five missing pages meant twenty-five
+   requests per redraw, forever. That is what took the sync down. A ref is tried
+   ONCE per session; if it is not there, it is marked missing and never asked for
+   again. */
+const bomFetchTried=new Set();
+const bomFetchGone=new Set();
+function bomFetchOnce(ref, after){
+  if(!ref || bomFetchTried.has(ref)) return;
+  if(!ghEnabled() || typeof ghFetchDrawingRef!=='function') return;
+  bomFetchTried.add(ref);
+  ghFetchDrawingRef(ref)
+    .then(d=>{ if(d){ if(after) after(d); } else { bomFetchGone.add(ref); if(after) after(null); } })
+    .catch(()=>{ bomFetchGone.add(ref); if(after) after(null); });
+}
+function bomIsGone(ref){ return bomFetchGone.has(ref); }
 function bthumbAll(){ try{ return JSON.parse(localStorage.getItem(BTHUMB_LS))||{}; }catch(e){ return {}; } }
 function bthumbPut(ref, dataURL){
   const t=bthumbAll(); t[ref]=dataURL;
@@ -3411,17 +3430,24 @@ function bomOpenPage(pageIdx){
   const prev=$('bdvOv'); if(prev) prev.remove();
   const full=bomFullData(p.ref), px=full || bomDrwData(p.ref);
   const opts=bomRows.map((r,i)=>`<option value="${i}">${i+1} \u00b7 ${esc(r.partNo||'(blank)')}${r.name?' \u2014 '+esc(r.name):''}</option>`).join('');
+  const gone=bomIsGone(p.ref);
   const v=bomShowImage({
     title: p.name||'Scanned page',
-    note: full?'':'Fetching the full-size page\u2026',
+    note: gone ? 'This page is not in the repository \u2014 delete it and scan again.'
+               : (full?'':'Fetching the full-size page\u2026'),
     src: px||'',
     assign: opts,
     onAssign: rowIdx=>bomAssignPage(pageIdx, rowIdx)
   });
-  /* the local copy is only a thumbnail, so pull the real one for reading */
-  if(!full && typeof ghFetchDrawingRef==='function' && ghEnabled()){
-    ghFetchDrawingRef(p.ref).then(d=>{ if(d){ v.setSrc(d); v.note(''); } })
-      .catch(()=>v.note('Could not fetch the full-size page.'));
+  /* the local copy is only a thumbnail, so pull the real one for reading. A ref
+     that is not in the repo reports it rather than sitting on \u2018Fetching\u2026\u2019
+     for ever, which is what a null return used to do. */
+  if(!full && !gone){
+    bomFetchOnce(p.ref, d=>{
+      if(d){ v.setSrc(d); v.note(''); }
+      else v.note('This page is not in the repository \u2014 delete it and scan again.');
+    });
+    if(bomFetchTried.has(p.ref) && !ghEnabled()) v.note('GitHub is not set up on this device.');
   }
 }
 function bomAssignPage(pageIdx, rowIdx){
@@ -3449,6 +3475,7 @@ function renderBomTray(){
   const tray=$('bomTray'); if(!tray) return;
   /* shown even when empty: a drop target that only appears once it has something
      in it is a target you can never hit the first time */
+  const cb0=$('bomClearPages'); if(cb0) cb0.hidden=true;
   if(!bomPages.length){
     tray.hidden = (opsMode!=='bom');
     tray.innerHTML = `<div class="tray-head">Scanned pages</div>
@@ -3460,13 +3487,16 @@ function renderBomTray(){
     return;
   }
   tray.hidden=false;
+  const cb=$('bomClearPages'); if(cb) cb.hidden=false;
   const opts=bomRows.map((r,i)=>`<option value="${i}">${i+1} \u00b7 ${esc(r.partNo||'(blank)')}</option>`).join('');
   tray.innerHTML = `<div class="tray-head">${bomPages.length} scanned page${bomPages.length===1?'':'s'} waiting \u2014 give each one to a part</div>
     <div class="tray-strip">${bomPages.map((p,i)=>{
       const px=bomDrwData(p.ref);
       return `<div class="tray-card">
         ${px?`<img src="${px}" data-tview="${i}" title="click to see this page full size">`
-            :`<div class="tray-wait" data-tview="${i}" title="click to open this page">\u2026</div>`}
+            : bomIsGone(p.ref)
+              ? `<div class="tray-gone" title="this page is not in the repository \u2014 delete it and scan again">no image</div>`
+              : `<div class="tray-wait" data-tview="${i}" title="click to open this page">\u2026</div>`}
         <div class="tray-name" title="${esc(p.name||'')}"><span class="tray-num">${i+1}</span>${esc(p.name||'page')}</div>
         <select data-tassign="${i}"><option value="">\u2014 give to \u2014</option>${opts}</select>
         <button class="mini" data-tdrop="${i}" type="button" title="discard this page">\u2715</button>
@@ -3484,9 +3514,7 @@ function renderBomTray(){
     im.addEventListener('click', ()=>bomOpenPage(+im.dataset.tview));
   });
   bomPages.forEach(p=>{
-    if(!bomDrwData(p.ref) && typeof ghFetchDrawingRef==='function' && ghEnabled()){
-      ghFetchDrawingRef(p.ref).then(d=>{ if(d) renderBomTray(); }).catch(()=>{});
-    }
+    if(!bomDrwData(p.ref)) bomFetchOnce(p.ref, ()=>renderBomTray());
   });
 }
 async function bomAttachDrawing(i, file){
@@ -6960,6 +6988,21 @@ document.addEventListener('paste', e=>{
       + '<b>Save All Attachments</b> to a folder and drag them in.';
   }
 }, true);
+$('bomClearPages').addEventListener('click', ()=>{
+  const n=bomPages.length; if(!n) return;
+  if(!confirm('Discard all '+n+' scanned page'+(n===1?'':'s')+' still waiting in the tray?\n\nDrawings already given to a part are not touched.')) return;
+  const cache=drwCache();
+  bomPages.forEach(p=>{
+    /* only ask GitHub to delete pages that actually got there */
+    if(!bomIsGone(p.ref)) cache[p.ref]={del:true, ts:Date.now(), dirty:true};
+    bthumbDrop(p.ref);
+  });
+  drwSave(cache);
+  bomPages=[];
+  renderBom();
+  autosaveNow();
+  scheduleGhPush();
+});
 $('bomScan').addEventListener('click', ()=>{
   let inp=$('bomScanPick');
   if(!inp){

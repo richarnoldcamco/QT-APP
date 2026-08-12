@@ -296,6 +296,21 @@
   }
   .bomgrid td.rowb .grip:active{cursor:grabbing}
   .ip-val input.inherited, .sheet input.inherited{background:#eef3f9; color:var(--cp-dim); cursor:not-allowed}
+  .modebtn.airoute{background:#3b3486; color:#fff; border-color:#241f5c; font-weight:800}
+  .modebtn.airoute:hover{filter:brightness(1.15)}
+  .ai-route-out{margin:0 0 10px; padding:12px 14px; background:#f7f6fb;
+    border:1px solid #b9b3d8; border-radius:var(--r-sm); font-family:var(--ui); font-size:14px}
+  .ai-route-out.warn{background:#fdf3f1; border-color:#d8a79e}
+  .ai-route-prose{margin-bottom:10px; line-height:1.5}
+  .ai-route-tbl{border-collapse:collapse; width:100%; background:#fff; font-size:13px}
+  .ai-route-tbl th{background:var(--cp-panel); padding:5px 7px; border:1px solid var(--cp-line);
+    text-align:left; font-weight:800; font-size:11px; text-transform:uppercase; letter-spacing:.03em}
+  .ai-route-tbl td{padding:4px 7px; border:1px solid var(--cp-line)}
+  .ai-route-tbl tr.unknown td{background:#fdf3f1}
+  .ai-route-tbl .tag{font-size:10px; color:#a5342a; font-weight:800}
+  .ai-route-risks{margin-top:10px; padding:8px 10px; background:#fffbe9;
+    border:1px solid #e0cd7a; border-radius:4px; font-size:13px; line-height:1.5}
+  .ai-route-actions{margin-top:12px; display:flex; align-items:center; gap:10px}
   .childbar{display:flex; align-items:center; gap:14px; margin:0 0 8px; padding:6px 12px;
             background:#eef3f9; border:1px solid var(--cp-line); border-radius:var(--r-sm);
             font-family:var(--ui); font-size:13px}
@@ -1240,8 +1255,11 @@
     <span style="flex:0 0 10px"></span>
     <button class="modebtn oddbtn" id="oddBtn" type="button" title="mark unusual features on this part — each adds a % to cycle time">🚩 Odd Features</button>
     <button class="modebtn" id="modeBom" type="button" hidden>🧩 Bill of Material</button>
+    <span style="flex:0 0 14px"></span>
+    <button class="modebtn airoute" id="aiRouteBtn" type="button" title="read the print and propose a routing — operations, setup and cycle times, subcontract costs">🤖 PROPOSE ROUTING</button>
   </div>
   <div class="childbar" id="childBar" hidden></div>
+  <div class="ai-route-out" id="aiRouteOut" hidden></div>
   <div class="ops-flex">
    <div class="ops-scroll">
     <table class="opgrid" id="opSheet">
@@ -1765,6 +1783,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:186, date:"2026-08-11", note:"\u{1F916} PROPOSE ROUTING reads the print and suggests how to make the part: operations chosen from the rate table by their exact names, setup hours, cycle minutes, and per-piece and lot subcontract costs for plating, anodize, masking and the like. It is shown first as a table with what drives the cost and what it was unsure of \u2014 any work centre it names that is NOT on the rate table is flagged in red, since an unknown name prices at nothing. PUT THIS IN THE GRID fills the operation rows; the locked Material and Saw rows are left alone. It never sets a price: rates, premiums, quantity breaks and margin are all still the engine\u2019s, applied on top of the hours it proposes. It is a starting point to be corrected, not a quote \u2014 the times are read off a drawing by a model that has never run your machines."},
   {rev:185, date:"2026-08-11", note:"Intake fields and the drawing toolbar both 70% larger \u2014 labels 16px to 27px, boxes 17px to 29px, toolbar buttons to 19px with the padding to match. Rev 184 shrank the fields on the basis that the panel had the screen to itself, which is true until a drawing is open beside it; then the panel was being squeezed as well and the same rules came out far smaller again, with labels wrapping to one word a line. The panel now holds a floor of 1060px rather than giving way to the drawing pane, which is what made those labels unreadable rather than merely small. The toolbar above the drawing wraps onto a second line instead of cramming, since the buttons no longer fit across at this size."},
   {rev:184, date:"2026-08-11", note:"The intake fields on a component quote are back to a sensible size \u2014 labels 25px to 16px, boxes 26px to 17px, and the panel from 1520px to 1060px. Those sizes were set in rev 141 when a 620px panel was being blown up to fill a screen it shared with a drawing pane; on a component quote the panel now has the screen to itself and the type read as shouting. Still comfortably larger than the 10.5px it started at, which was the original complaint. An assembly quote is unaffected \u2014 its fields are already compact, because the bill of material sits beside them."},
   {rev:183, date:"2026-08-10", note:"A part quote stops asking what the assembly has already answered. CUSTOMER, BUYER, QUOTED BY, SALESMAN, SEPARATE NRE, CUSTOMER QUOTE # and QTY TO DEPRECIATE NRE are taken from the parent and dropped from both the panel and the walk \u2014 asking twice is how two versions of one fact get into a quote. ANNUAL USAGE comes down as well, worked out as the assembly\u2019s yearly quantity times how many of this part go into one, read off the parent\u2019s own bill. They are re-read every time the part quote is opened rather than copied once, so changing the buyer on the assembly changes it on every part under it. Everything genuinely about the part is still asked: its material, its bar, its tolerances, its FAI, its operations. The walk drops from 25 steps to 17."},
@@ -1944,9 +1963,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 185;
+const APP_REV = 186;
 const BUILD_DATE = "2026-08-11";
-const BUILD_TIME = "20:55";           /* increments every build — check both machines match */
+const BUILD_TIME = "21:40";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -3203,6 +3222,126 @@ function updateScopeBtn(){
   if(!asm && opsMode==='bom') setOpsMode('calc');
 }
 window.__updateScopeBtn=updateScopeBtn;
+
+/* ===== AI ROUTING PROPOSAL =====
+   Reads the print and proposes operations, setup and cycle times, and subcontract
+   costs. It writes them into the ops grid as a starting point to be corrected \u2014
+   it never sets a price, because the price is the engine's job: rates, premiums,
+   quantity breaks and margin all still apply on top of what it fills in. */
+async function aiRouting(){
+  const key=(localStorage.getItem('qs_ai_key')||'').trim();
+  const wrap=$('aiRouteOut');
+  const say=(t,cls)=>{ if(wrap){ wrap.className='ai-route-out '+(cls||''); wrap.innerHTML=t; wrap.hidden=false; } };
+  if(!key || !/^sk-/.test(key)){
+    say('\u26a0 No Anthropic API key saved. Admin \u2192 AI Assistant.', 'warn'); return;
+  }
+  if(!curDrawing){ say('\u26a0 Attach the print to this quote first.', 'warn'); return; }
+  say('\u{1F916} Loading the print\u2026');
+  const data=await ensureDrawingData();
+  if(!data){ say('\u26a0 Could not load the drawing image.', 'warn'); return; }
+
+  /* Everything the model needs to answer in OUR terms: the exact work-centre names
+     it may use, and the shop rate, so its hours mean something. */
+  const centres=(TABLES.operations||[]).map(o=>o.name);
+  const matName=($('material')&&$('material').value)||'';
+  const annual=($('annualUsage')&&$('annualUsage').value)||'';
+  const diff=($('difficulty')&&$('difficulty').value)||'';
+  const rate=(function(){ try{ return (TABLES.settings&&TABLES.settings.shopRate)||''; }catch(e){ return ''; } })();
+
+  say('\u{1F916} Reading the print and proposing a routing\u2026 (20\u201340 seconds)');
+  const body={
+    model:'claude-sonnet-4-6',
+    max_tokens:8000,
+    thinking:{type:'enabled', budget_tokens:5000},
+    messages:[{role:'user', content:[
+      {type:'image', source:{type:'base64', media_type:'image/jpeg', data:data.split(',')[1]}},
+      {type:'text', text:
+        'You are quoting this part for a precision machine shop. Propose a manufacturing routing.\n\n'
+        +'CONTEXT FROM THE QUOTE:\n'
+        +'- Material: '+(matName||'(not set)')+'\n'
+        +'- Annual quantity: '+(annual||'(not set)')+'\n'
+        +'- Part processing difficulty: '+(diff||'(not set)')+'\n\n'
+        +'YOU MAY ONLY USE THESE WORK CENTRE NAMES, spelled exactly:\n'+centres.join(' | ')+'\n\n'
+        +'RULES:\n'
+        +'1. Read the print carefully. Tolerances, finishes, thread callouts and notes all drive the routing.\n'
+        +'2. Any plating, anodize, chem film, passivate, heat treat or paint is a SUBCONTRACT line: give a per-piece dollar figure and any lot charge. Include masking as its own step if the print calls for masked areas.\n'
+        +'3. Setup hours and cycle MINUTES per piece for each in-house operation.\n'
+        +'4. Do NOT give a price. Hours and subcontract dollars only.\n'
+        +'5. Say what you are unsure of \u2014 an honest doubt is worth more than a confident guess.\n\n'
+        +'Answer with a short paragraph on what drives the cost, then EXACTLY this block:\n'
+        +'ROUTING_JSON\n'
+        +'[{"op":20,"centre":"<exact name>","note":"<what happens>","setupHr":0.0,"cycleMin":0.0,"subPc":0.0,"subLot":0.0}]\n'
+        +'END_JSON\n'
+        +'Then a RISKS: line listing anything that could scrap the part or that you could not read.'}
+    ]}]
+  };
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':key,
+               'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify(body)
+    });
+    if(!r.ok){
+      const t=await r.text().catch(()=>'');
+      throw new Error('API '+r.status+(t?' \u00b7 '+t.slice(0,140):''));
+    }
+    const j=await r.json();
+    const text=(j.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\n');
+    const m=text.match(/ROUTING_JSON\s*([\s\S]*?)\s*END_JSON/);
+    if(!m) throw new Error('the model did not return a routing block');
+    let rows;
+    try{ rows=JSON.parse(m[1]); }
+    catch(e){ throw new Error('could not read the routing it returned'); }
+    if(!Array.isArray(rows) || !rows.length) throw new Error('the routing came back empty');
+    aiRoutePending=rows;
+    const prose=text.split('ROUTING_JSON')[0].trim();
+    const risks=(text.split('END_JSON')[1]||'').trim();
+    say('<div class="ai-route-prose">'+esc(prose)+'</div>'
+      +'<table class="ai-route-tbl"><thead><tr><th>Op</th><th>Work centre</th><th>What happens</th>'
+      +'<th>Setup hr</th><th>Cycle min</th><th>Sub $/pc</th><th>Sub lot $</th></tr></thead><tbody>'
+      +rows.map(x=>{
+          const known=(TABLES.operations||[]).some(o=>o.name===x.centre);
+          return '<tr'+(known?'':' class="unknown"')+'><td>'+esc(String(x.op||''))+'</td>'
+            +'<td>'+esc(String(x.centre||''))+(known?'':' <span class="tag">not on the rate table</span>')+'</td>'
+            +'<td>'+esc(String(x.note||''))+'</td>'
+            +'<td>'+(+x.setupHr||0)+'</td><td>'+(+x.cycleMin||0)+'</td>'
+            +'<td>'+((+x.subPc||0)?money(+x.subPc):'')+'</td>'
+            +'<td>'+((+x.subLot||0)?money(+x.subLot):'')+'</td></tr>';
+        }).join('')
+      +'</tbody></table>'
+      +(risks?'<div class="ai-route-risks">'+esc(risks)+'</div>':'')
+      +'<div class="ai-route-actions">'
+      +'<button class="btn primary" id="aiRouteApply">\u2713 PUT THIS IN THE GRID</button> '
+      +'<button class="btn" id="aiRouteDrop">Discard</button>'
+      +'<span class="note">A proposal, not a quote \u2014 check every line before you send it.</span></div>');
+    const ap=$('aiRouteApply'); if(ap) ap.addEventListener('click', applyAiRouting);
+    const dp=$('aiRouteDrop'); if(dp) dp.addEventListener('click', ()=>{ aiRoutePending=null; wrap.hidden=true; });
+  }catch(e){
+    say('\u26a0 '+e.message, 'warn');
+  }
+}
+let aiRoutePending=null;
+function applyAiRouting(){
+  const rows=aiRoutePending; if(!rows) return;
+  /* keep the locked Material and Saw rows; replace the operations under them */
+  const keep=opRows.filter(r=>r.locked);
+  const made=rows.map((x,i)=>makeRow(20+i*10, {
+    desc:(TABLES.operations||[]).some(o=>o.name===x.centre) ? x.centre : '',
+    quote:String(x.note||''),
+    setup:(+x.setupHr||0)*60,          /* the grid works in minutes */
+    cycle:(+x.cycleMin||0),
+    subPc:(+x.subPc||0),
+    subCostBatch:(+x.subLot||0)
+  }));
+  opRows=keep.concat(made);
+  while(opRows.length<10) opRows.push(makeRow((opRows.length-1)*10+20));
+  aiRoutePending=null;
+  const w=$('aiRouteOut'); if(w) w.hidden=true;
+  renderAll();
+  autosaveNow();
+}
+window.__aiRouting=aiRouting;
 
 /* ===== Calculations ⇄ Drawing view toggle (same grid region) ===== */
 let opsMode='calc';
@@ -7065,6 +7204,7 @@ $('quoteScope').addEventListener('change', ()=>{
   autosaveNow();
 });
 $('modeBom').addEventListener('click', ()=>setOpsMode('bom'));
+$('aiRouteBtn').addEventListener('click', aiRouting);
 /* Wired to the tray element itself, once. renderBomTray replaces its innerHTML
    on every keystroke in the bill, so anything bound to the cards inside would be
    thrown away and rebound constantly. */

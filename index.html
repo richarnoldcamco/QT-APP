@@ -311,6 +311,20 @@
   .ai-route-risks{margin-top:10px; padding:8px 10px; background:#fffbe9;
     border:1px solid #e0cd7a; border-radius:4px; font-size:13px; line-height:1.5}
   .ai-route-actions{margin-top:12px; display:flex; align-items:center; gap:10px}
+  /* docked: a column beside the grid, its own scroll, the table stacked to fit */
+  .ai-route-out.docked{
+    flex:0 0 620px; width:620px; margin:0 10px 8px 0; overflow:auto;
+    align-self:flex-start; position:relative;
+  }
+  .ai-route-out.docked .ai-route-tbl{font-size:12px}
+  .ai-route-out.docked .ai-route-tbl th{font-size:10px; padding:3px 4px}
+  .ai-route-out.docked .ai-route-tbl td{padding:3px 4px}
+  .ai-route-out.docked .ai-route-prose{font-size:12.5px}
+  .ai-route-out.docked .ai-route-risks{font-size:12px}
+  .ai-route-out.docked .ai-route-actions{flex-wrap:wrap; gap:6px;
+    position:sticky; bottom:0; background:#f7f6fb; padding-top:8px;
+    border-top:1px solid #cfc9e4; margin-top:10px}
+  body.ai-route-docked .intake-panel{display:none}
   .ai-route-raw{margin-top:10px}
   .ai-route-raw pre{max-height:280px; overflow:auto; background:#fff; border:1px solid var(--cp-line);
     border-radius:4px; padding:8px; font-size:11px; white-space:pre-wrap; word-break:break-word}
@@ -1786,6 +1800,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:190, date:"2026-08-11", note:"\u21f2 DOCK BESIDE THE GRID puts the routing proposal in a 620px column next to the operation rows, so the times can be read off it while they are typed in rather than remembered from a block above. The drawing pane steps aside while it is docked \u2014 there is no room for a third column, and the print has been read by the time the proposal exists \u2014 and comes back when it is undocked. The panel gets its own scroll with the PUT THIS IN THE GRID row stuck to the bottom of it, so the buttons stay reachable however long the routing is. Its height is measured and divided by the sheet zoom rather than set in vh, which would be multiplied by the 1.2 zoom this view carries."},
   {rev:189, date:"2026-08-11", note:"\u2018Could not read the routing it returned\u2019 is fixed. The model was answering perfectly well and wrapping its JSON in a markdown code fence, which JSON.parse cannot read \u2014 the answer was fine, the parser was brittle. Fences are stripped now, along with curly quotes, trailing commas, line comments and any prose either side of the array, and each repair is tried in turn before giving up. The prompt also asks for raw JSON between the markers, since not producing the problem beats repairing it. When it genuinely cannot be read, rev 188 already shows what the model actually said."},
   {rev:188, date:"2026-08-11", note:"PROPOSE ROUTING can be diagnosed when it fails. It had no timeout, so a request that never came back sat on \u2018reading the print\u2019 indefinitely and looked exactly like one that was working; there is a running seconds counter now and it gives up after three minutes and says so. When the answer comes back in a shape the parser did not expect it prints WHAT THE MODEL ACTUALLY SAID rather than a bare complaint, which is the difference between a fixable problem and a mystery. A bare JSON array is accepted as well as the marked block, so a good answer is not thrown away over its packaging, and 401, 429 and billing errors each say what to do about them."},
   {rev:187, date:"2026-08-11", note:"Intake fields up another 30% \u2014 labels 27px to 35px, boxes 29px to 38px \u2014 and the panel dropped from two columns to one. Two columns was the real reason they looked squeezed rather than merely small: the panel was split in half, so a 300px label left the entry box barely 200px whatever the font size claimed. One column gives every row the whole width. It makes the panel taller, which costs nothing here since the fields are tabbed through from top to bottom anyway."},
@@ -1969,9 +1984,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 189;
+const APP_REV = 190;
 const BUILD_DATE = "2026-08-11";
-const BUILD_TIME = "22:45";           /* increments every build — check both machines match */
+const BUILD_TIME = "23:15";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -3337,10 +3352,18 @@ async function aiRouting(){
       +(risks?'<div class="ai-route-risks">'+esc(risks)+'</div>':'')
       +'<div class="ai-route-actions">'
       +'<button class="btn primary" id="aiRouteApply">\u2713 PUT THIS IN THE GRID</button> '
+      +'<button class="btn" id="aiRouteDockBtn">\u21f2 DOCK BESIDE THE GRID</button> '
       +'<button class="btn" id="aiRouteDrop">Discard</button>'
       +'<span class="note">A proposal, not a quote \u2014 check every line before you send it.</span></div>');
     const ap=$('aiRouteApply'); if(ap) ap.addEventListener('click', applyAiRouting);
-    const dp=$('aiRouteDrop'); if(dp) dp.addEventListener('click', ()=>{ aiRoutePending=null; wrap.hidden=true; });
+    const db=$('aiRouteDockBtn');
+    if(db){
+      db.textContent = aiRouteDocked ? '\u2921 UNDOCK' : '\u21f2 DOCK BESIDE THE GRID';
+      db.addEventListener('click', ()=>aiRouteDock());
+    }
+    if(aiRouteDocked) setTimeout(()=>aiRouteDock(true), 0);   /* keep it docked across a re-run */
+    const dp=$('aiRouteDrop');
+    if(dp) dp.addEventListener('click', ()=>{ aiRoutePending=null; aiRouteDock(false); wrap.hidden=true; });
   }catch(e){
     const aborted=/abort/i.test(String(e && (e.name||e.message)));
     say('\u26a0 <b>'+esc(aborted ? 'No answer after three minutes \u2014 the request was given up on.' : e.message)+'</b>'
@@ -3372,6 +3395,39 @@ function parseRoutingJson(s){
   }
   return null;
 }
+function aiRouteDock(on){
+  const panel=$('aiRouteOut'), flex=document.querySelector('.ops-flex');
+  if(!panel || !flex) return;
+  aiRouteDocked=(on!=null) ? !!on : !aiRouteDocked;
+  const dw=document.querySelector('.drawwrap');
+  if(aiRouteDocked){
+    panel.classList.add('docked');
+    flex.insertBefore(panel, flex.firstChild);
+    /* the drawing gets out of the way: with the proposal beside the grid there is
+       no room for a third column, and the print has been read by now anyway */
+    if(dw){ dw.dataset.wasHidden=dw.hidden?'1':'0'; dw.hidden=true; }
+    document.body.classList.add('ai-route-docked');
+  }else{
+    panel.classList.remove('docked');
+    flex.parentNode.insertBefore(panel, flex);
+    if(dw && dw.dataset.wasHidden==='0' && opsMode==='draw') dw.hidden=false;
+    document.body.classList.remove('ai-route-docked');
+  }
+  sizeAiRoute();
+  const b=$('aiRouteDockBtn');
+  if(b) b.textContent = aiRouteDocked ? '\u2921 UNDOCK' : '\u21f2 DOCK BESIDE THE GRID';
+}
+/* px, never vh: this lives inside #view-quote, which is zoomed */
+function sizeAiRoute(){
+  const panel=$('aiRouteOut'); if(!panel || panel.hidden) return;
+  if(!aiRouteDocked){ panel.style.maxHeight=''; return; }
+  const z=(typeof sheetZoom!=='undefined' && sheetZoom)||1.2;
+  const top=panel.getBoundingClientRect().top;
+  const avail=Math.max(320, (window.innerHeight - top - 40)/z);
+  panel.style.maxHeight=Math.round(avail)+'px';
+}
+window.addEventListener('resize', ()=>{ try{ sizeAiRoute(); }catch(e){} });
+let aiRouteDocked=false;
 function applyAiRouting(){
   const rows=aiRoutePending; if(!rows) return;
   /* keep the locked Material and Saw rows; replace the operations under them */
@@ -3387,6 +3443,7 @@ function applyAiRouting(){
   opRows=keep.concat(made);
   while(opRows.length<10) opRows.push(makeRow((opRows.length-1)*10+20));
   aiRoutePending=null;
+  aiRouteDock(false);
   const w=$('aiRouteOut'); if(w) w.hidden=true;
   renderAll();
   autosaveNow();

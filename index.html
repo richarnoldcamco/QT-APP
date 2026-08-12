@@ -311,6 +311,9 @@
   .ai-route-risks{margin-top:10px; padding:8px 10px; background:#fffbe9;
     border:1px solid #e0cd7a; border-radius:4px; font-size:13px; line-height:1.5}
   .ai-route-actions{margin-top:12px; display:flex; align-items:center; gap:10px}
+  .ai-route-raw{margin-top:10px}
+  .ai-route-raw pre{max-height:280px; overflow:auto; background:#fff; border:1px solid var(--cp-line);
+    border-radius:4px; padding:8px; font-size:11px; white-space:pre-wrap; word-break:break-word}
   .childbar{display:flex; align-items:center; gap:14px; margin:0 0 8px; padding:6px 12px;
             background:#eef3f9; border:1px solid var(--cp-line); border-radius:var(--r-sm);
             font-family:var(--ui); font-size:13px}
@@ -1783,6 +1786,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:188, date:"2026-08-11", note:"PROPOSE ROUTING can be diagnosed when it fails. It had no timeout, so a request that never came back sat on \u2018reading the print\u2019 indefinitely and looked exactly like one that was working; there is a running seconds counter now and it gives up after three minutes and says so. When the answer comes back in a shape the parser did not expect it prints WHAT THE MODEL ACTUALLY SAID rather than a bare complaint, which is the difference between a fixable problem and a mystery. A bare JSON array is accepted as well as the marked block, so a good answer is not thrown away over its packaging, and 401, 429 and billing errors each say what to do about them."},
   {rev:187, date:"2026-08-11", note:"Intake fields up another 30% \u2014 labels 27px to 35px, boxes 29px to 38px \u2014 and the panel dropped from two columns to one. Two columns was the real reason they looked squeezed rather than merely small: the panel was split in half, so a 300px label left the entry box barely 200px whatever the font size claimed. One column gives every row the whole width. It makes the panel taller, which costs nothing here since the fields are tabbed through from top to bottom anyway."},
   {rev:186, date:"2026-08-11", note:"\u{1F916} PROPOSE ROUTING reads the print and suggests how to make the part: operations chosen from the rate table by their exact names, setup hours, cycle minutes, and per-piece and lot subcontract costs for plating, anodize, masking and the like. It is shown first as a table with what drives the cost and what it was unsure of \u2014 any work centre it names that is NOT on the rate table is flagged in red, since an unknown name prices at nothing. PUT THIS IN THE GRID fills the operation rows; the locked Material and Saw rows are left alone. It never sets a price: rates, premiums, quantity breaks and margin are all still the engine\u2019s, applied on top of the hours it proposes. It is a starting point to be corrected, not a quote \u2014 the times are read off a drawing by a model that has never run your machines."},
   {rev:185, date:"2026-08-11", note:"Intake fields and the drawing toolbar both 70% larger \u2014 labels 16px to 27px, boxes 17px to 29px, toolbar buttons to 19px with the padding to match. Rev 184 shrank the fields on the basis that the panel had the screen to itself, which is true until a drawing is open beside it; then the panel was being squeezed as well and the same rules came out far smaller again, with labels wrapping to one word a line. The panel now holds a floor of 1060px rather than giving way to the drawing pane, which is what made those labels unreadable rather than merely small. The toolbar above the drawing wraps onto a second line instead of cramming, since the buttons no longer fit across at this size."},
@@ -1964,9 +1968,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 187;
+const APP_REV = 188;
 const BUILD_DATE = "2026-08-11";
-const BUILD_TIME = "22:00";           /* increments every build — check both machines match */
+const BUILD_TIME = "22:25";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -3276,24 +3280,42 @@ async function aiRouting(){
         +'Then a RISKS: line listing anything that could scrap the part or that you could not read.'}
     ]}]
   };
+  /* count the seconds up, so a slow answer looks different from a dead one */
+  let secs=0;
+  const tick=setInterval(()=>{ secs++;
+    if(secs<=180) say('\u{1F916} Reading the print and proposing a routing\u2026 '+secs+'s');
+  }, 1000);
+  const ctl=(typeof AbortController!=='undefined') ? new AbortController() : null;
+  const killer=setTimeout(()=>{ try{ ctl && ctl.abort(); }catch(e){} }, 180000);
+  let raw='';
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':key,
                'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify(body)
+      body:JSON.stringify(body),
+      signal: ctl ? ctl.signal : undefined
     });
     if(!r.ok){
       const t=await r.text().catch(()=>'');
-      throw new Error('API '+r.status+(t?' \u00b7 '+t.slice(0,140):''));
+      throw new Error('API '+r.status
+        +(r.status===401?' \u2014 the key was rejected. Check Admin \u2192 AI Assistant.':'')
+        +(r.status===400 && /credit|billing/i.test(t)?' \u2014 the Anthropic account needs credits at console.anthropic.com.':'')
+        +(r.status===429?' \u2014 rate limited by Anthropic; wait a minute and try again.':'')
+        +(t?' \u00b7 '+t.slice(0,200):''));
     }
     const j=await r.json();
-    const text=(j.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\n');
-    const m=text.match(/ROUTING_JSON\s*([\s\S]*?)\s*END_JSON/);
-    if(!m) throw new Error('the model did not return a routing block');
+    raw=(j.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\n');
+    if(!raw.trim()) throw new Error('the model replied with nothing at all');
+    const text=raw;
+    /* the markers are what was asked for, but accept a bare JSON array too rather
+       than throwing away a good answer over its packaging */
+    let m=text.match(/ROUTING_JSON\s*([\s\S]*?)\s*END_JSON/);
+    if(!m) m=text.match(/(\[\s*\{[\s\S]*?\}\s*\])/);
+    if(!m) throw new Error('no routing found in the reply');
     let rows;
     try{ rows=JSON.parse(m[1]); }
-    catch(e){ throw new Error('could not read the routing it returned'); }
+    catch(e){ throw new Error('the routing it returned was not readable JSON'); }
     if(!Array.isArray(rows) || !rows.length) throw new Error('the routing came back empty');
     aiRoutePending=rows;
     const prose=text.split('ROUTING_JSON')[0].trim();
@@ -3319,7 +3341,13 @@ async function aiRouting(){
     const ap=$('aiRouteApply'); if(ap) ap.addEventListener('click', applyAiRouting);
     const dp=$('aiRouteDrop'); if(dp) dp.addEventListener('click', ()=>{ aiRoutePending=null; wrap.hidden=true; });
   }catch(e){
-    say('\u26a0 '+e.message, 'warn');
+    const aborted=/abort/i.test(String(e && (e.name||e.message)));
+    say('\u26a0 <b>'+esc(aborted ? 'No answer after three minutes \u2014 the request was given up on.' : e.message)+'</b>'
+      +(raw ? '<div class="ai-route-raw"><b>What it actually said:</b><pre>'+esc(raw.slice(0,1800))+'</pre></div>' : '')
+      +'<div class="note" style="margin-top:8px">If this keeps happening, tell Claude the message above.</div>', 'warn');
+    try{ console.warn('PROPOSE ROUTING failed:', e, raw); }catch(e2){}
+  }finally{
+    clearInterval(tick); clearTimeout(killer);
   }
 }
 let aiRoutePending=null;

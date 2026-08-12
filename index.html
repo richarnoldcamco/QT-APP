@@ -1786,6 +1786,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:189, date:"2026-08-11", note:"\u2018Could not read the routing it returned\u2019 is fixed. The model was answering perfectly well and wrapping its JSON in a markdown code fence, which JSON.parse cannot read \u2014 the answer was fine, the parser was brittle. Fences are stripped now, along with curly quotes, trailing commas, line comments and any prose either side of the array, and each repair is tried in turn before giving up. The prompt also asks for raw JSON between the markers, since not producing the problem beats repairing it. When it genuinely cannot be read, rev 188 already shows what the model actually said."},
   {rev:188, date:"2026-08-11", note:"PROPOSE ROUTING can be diagnosed when it fails. It had no timeout, so a request that never came back sat on \u2018reading the print\u2019 indefinitely and looked exactly like one that was working; there is a running seconds counter now and it gives up after three minutes and says so. When the answer comes back in a shape the parser did not expect it prints WHAT THE MODEL ACTUALLY SAID rather than a bare complaint, which is the difference between a fixable problem and a mystery. A bare JSON array is accepted as well as the marked block, so a good answer is not thrown away over its packaging, and 401, 429 and billing errors each say what to do about them."},
   {rev:187, date:"2026-08-11", note:"Intake fields up another 30% \u2014 labels 27px to 35px, boxes 29px to 38px \u2014 and the panel dropped from two columns to one. Two columns was the real reason they looked squeezed rather than merely small: the panel was split in half, so a 300px label left the entry box barely 200px whatever the font size claimed. One column gives every row the whole width. It makes the panel taller, which costs nothing here since the fields are tabbed through from top to bottom anyway."},
   {rev:186, date:"2026-08-11", note:"\u{1F916} PROPOSE ROUTING reads the print and suggests how to make the part: operations chosen from the rate table by their exact names, setup hours, cycle minutes, and per-piece and lot subcontract costs for plating, anodize, masking and the like. It is shown first as a table with what drives the cost and what it was unsure of \u2014 any work centre it names that is NOT on the rate table is flagged in red, since an unknown name prices at nothing. PUT THIS IN THE GRID fills the operation rows; the locked Material and Saw rows are left alone. It never sets a price: rates, premiums, quantity breaks and margin are all still the engine\u2019s, applied on top of the hours it proposes. It is a starting point to be corrected, not a quote \u2014 the times are read off a drawing by a model that has never run your machines."},
@@ -1968,9 +1969,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 188;
+const APP_REV = 189;
 const BUILD_DATE = "2026-08-11";
-const BUILD_TIME = "22:25";           /* increments every build — check both machines match */
+const BUILD_TIME = "22:45";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -3277,6 +3278,7 @@ async function aiRouting(){
         +'ROUTING_JSON\n'
         +'[{"op":20,"centre":"<exact name>","note":"<what happens>","setupHr":0.0,"cycleMin":0.0,"subPc":0.0,"subLot":0.0}]\n'
         +'END_JSON\n'
+        +'The JSON must be RAW between those two markers \u2014 no markdown code fence, no backticks, no comments, no trailing comma. Plain double quotes only.\n'
         +'Then a RISKS: line listing anything that could scrap the part or that you could not read.'}
     ]}]
   };
@@ -3313,10 +3315,9 @@ async function aiRouting(){
     let m=text.match(/ROUTING_JSON\s*([\s\S]*?)\s*END_JSON/);
     if(!m) m=text.match(/(\[\s*\{[\s\S]*?\}\s*\])/);
     if(!m) throw new Error('no routing found in the reply');
-    let rows;
-    try{ rows=JSON.parse(m[1]); }
-    catch(e){ throw new Error('the routing it returned was not readable JSON'); }
-    if(!Array.isArray(rows) || !rows.length) throw new Error('the routing came back empty');
+    const rows=parseRoutingJson(m[1]);
+    if(!rows) throw new Error('the routing it returned could not be read even after cleaning it up');
+    if(!rows.length) throw new Error('the routing came back empty');
     aiRoutePending=rows;
     const prose=text.split('ROUTING_JSON')[0].trim();
     const risks=(text.split('END_JSON')[1]||'').trim();
@@ -3351,6 +3352,26 @@ async function aiRouting(){
   }
 }
 let aiRoutePending=null;
+/* Models format JSON the way prose is formatted: fenced, commented, sometimes with
+   a stray comma. None of that changes what they meant. */
+function parseRoutingJson(s){
+  if(!s) return null;
+  let t=String(s).trim();
+  t=t.replace(/^```[a-z]*\s*/i,'').replace(/```\s*$/,'').trim();   /* code fences */
+  t=t.replace(/[\u201c\u201d]/g,'"').replace(/[\u2018\u2019]/g,"'");  /* smart quotes */
+  const a=t.indexOf('['), b=t.lastIndexOf(']');
+  if(a>=0 && b>a) t=t.slice(a,b+1);                              /* drop any prose around it */
+  const tries=[
+    t,
+    t.replace(/,\s*([}\]])/g,'$1'),                               /* trailing commas */
+    t.replace(/,\s*([}\]])/g,'$1').replace(/\/\/[^\n]*/g,''),     /* line comments */
+    t.replace(/,\s*([}\]])/g,'$1').replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g,'$1"$2":')  /* bare keys */
+  ];
+  for(const cand of tries){
+    try{ const v=JSON.parse(cand); if(Array.isArray(v)) return v; }catch(e){}
+  }
+  return null;
+}
 function applyAiRouting(){
   const rows=aiRoutePending; if(!rows) return;
   /* keep the locked Material and Saw rows; replace the operations under them */

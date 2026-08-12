@@ -574,24 +574,24 @@
      height on the right. Moving preserves ids, values and listeners; everything is put
      back in its original cell when the intake finishes. */
   .intake-panel{
-    flex:0 0 auto; width:1060px; min-width:1060px; margin:0 10px 8px 0;
-    display:grid; grid-template-columns:1fr 1fr; gap:2px 14px;
+    flex:0 0 auto; width:1000px; min-width:1000px; margin:0 10px 8px 0;
+    display:grid; grid-template-columns:1fr; gap:2px 14px;
     align-content:start; font-family:var(--ui);
   }
-  .ip-row{display:flex; align-items:center; gap:12px; min-width:0; padding:5px 0}
+  .ip-row{display:flex; align-items:center; gap:14px; min-width:0; padding:6px 0}
   .ip-lab{
-    flex:0 0 300px; text-align:right; font-size:27px; font-weight:700;
+    flex:0 0 390px; text-align:right; font-size:35px; font-weight:700;
     letter-spacing:.01em; color:var(--cp-ink); line-height:1.2;
     min-width:0; overflow-wrap:anywhere;
   }
   .ip-val{flex:1 1 auto; min-width:0; position:relative; display:flex; align-items:center; gap:4px}
   .ip-val input, .ip-val select{
-    width:100%; min-width:0; font-size:29px; padding:6px 10px;
+    width:100%; min-width:0; font-size:38px; padding:8px 12px;
     border:1px solid var(--cp-line); border-radius:3px; background:var(--yellow);
   }
   /* the job-type dropdown carries an inline font-size:9px from the header table,
      so overriding it needs the !important */
-  body.intake-panel-on .ip-val select#jobType{font-size:25px !important}
+  body.intake-panel-on .ip-val select#jobType{font-size:32px !important}
   /* On an assembly the bill sits alongside, so the header fields give up half
      their size to make room for it. */
   body.asm-intake .intake-panel{flex:0 0 420px; width:420px; grid-template-columns:1fr}
@@ -1783,6 +1783,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:187, date:"2026-08-11", note:"Intake fields up another 30% \u2014 labels 27px to 35px, boxes 29px to 38px \u2014 and the panel dropped from two columns to one. Two columns was the real reason they looked squeezed rather than merely small: the panel was split in half, so a 300px label left the entry box barely 200px whatever the font size claimed. One column gives every row the whole width. It makes the panel taller, which costs nothing here since the fields are tabbed through from top to bottom anyway."},
   {rev:186, date:"2026-08-11", note:"\u{1F916} PROPOSE ROUTING reads the print and suggests how to make the part: operations chosen from the rate table by their exact names, setup hours, cycle minutes, and per-piece and lot subcontract costs for plating, anodize, masking and the like. It is shown first as a table with what drives the cost and what it was unsure of \u2014 any work centre it names that is NOT on the rate table is flagged in red, since an unknown name prices at nothing. PUT THIS IN THE GRID fills the operation rows; the locked Material and Saw rows are left alone. It never sets a price: rates, premiums, quantity breaks and margin are all still the engine\u2019s, applied on top of the hours it proposes. It is a starting point to be corrected, not a quote \u2014 the times are read off a drawing by a model that has never run your machines."},
   {rev:185, date:"2026-08-11", note:"Intake fields and the drawing toolbar both 70% larger \u2014 labels 16px to 27px, boxes 17px to 29px, toolbar buttons to 19px with the padding to match. Rev 184 shrank the fields on the basis that the panel had the screen to itself, which is true until a drawing is open beside it; then the panel was being squeezed as well and the same rules came out far smaller again, with labels wrapping to one word a line. The panel now holds a floor of 1060px rather than giving way to the drawing pane, which is what made those labels unreadable rather than merely small. The toolbar above the drawing wraps onto a second line instead of cramming, since the buttons no longer fit across at this size."},
   {rev:184, date:"2026-08-11", note:"The intake fields on a component quote are back to a sensible size \u2014 labels 25px to 16px, boxes 26px to 17px, and the panel from 1520px to 1060px. Those sizes were set in rev 141 when a 620px panel was being blown up to fill a screen it shared with a drawing pane; on a component quote the panel now has the screen to itself and the type read as shouting. Still comfortably larger than the 10.5px it started at, which was the original complaint. An assembly quote is unaffected \u2014 its fields are already compact, because the bill of material sits beside them."},
@@ -1963,9 +1964,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 186;
+const APP_REV = 187;
 const BUILD_DATE = "2026-08-11";
-const BUILD_TIME = "21:40";           /* increments every build — check both machines match */
+const BUILD_TIME = "22:00";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */

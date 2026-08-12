@@ -559,24 +559,24 @@
      height on the right. Moving preserves ids, values and listeners; everything is put
      back in its original cell when the intake finishes. */
   .intake-panel{
-    flex:0 1 1060px; width:1060px; min-width:0; margin:0 10px 8px 0;
+    flex:0 0 auto; width:1060px; min-width:1060px; margin:0 10px 8px 0;
     display:grid; grid-template-columns:1fr 1fr; gap:2px 14px;
     align-content:start; font-family:var(--ui);
   }
-  .ip-row{display:flex; align-items:center; gap:10px; min-width:0; padding:3px 0}
+  .ip-row{display:flex; align-items:center; gap:12px; min-width:0; padding:5px 0}
   .ip-lab{
-    flex:0 0 250px; text-align:right; font-size:16px; font-weight:700;
+    flex:0 0 300px; text-align:right; font-size:27px; font-weight:700;
     letter-spacing:.01em; color:var(--cp-ink); line-height:1.2;
     min-width:0; overflow-wrap:anywhere;
   }
   .ip-val{flex:1 1 auto; min-width:0; position:relative; display:flex; align-items:center; gap:4px}
   .ip-val input, .ip-val select{
-    width:100%; min-width:0; font-size:17px; padding:4px 8px;
+    width:100%; min-width:0; font-size:29px; padding:6px 10px;
     border:1px solid var(--cp-line); border-radius:3px; background:var(--yellow);
   }
   /* the job-type dropdown carries an inline font-size:9px from the header table,
      so overriding it needs the !important */
-  body.intake-panel-on .ip-val select#jobType{font-size:15px !important}
+  body.intake-panel-on .ip-val select#jobType{font-size:25px !important}
   /* On an assembly the bill sits alongside, so the header fields give up half
      their size to make room for it. */
   body.asm-intake .intake-panel{flex:0 0 420px; width:420px; grid-template-columns:1fr}
@@ -617,13 +617,15 @@
   .dz-empty{font-size:13px; color:var(--cp-dim); text-align:center; padding:14px 6px; line-height:1.7}
   .dz-edittools{display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:5px}
   /* drawing toolbar: single line, scrolls sideways only if truly too narrow */
-  .dz-toolbar{display:flex; align-items:center; gap:3px; flex-wrap:nowrap; margin-bottom:5px;
+  .dz-toolbar{display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;
     overflow-x:auto; overflow-y:hidden; scrollbar-width:thin; padding-bottom:1px}
-  .dz-toolbar .mini{white-space:nowrap; flex:0 0 auto; padding:3px 7px}
+  .dz-toolbar .mini{white-space:nowrap; flex:0 0 auto; padding:6px 13px; font-size:19px; border-radius:9px}
+  .dz-toolbar .dz-sep{height:26px}
+  .dz-toolbar .note, .dz-toolbar span{font-size:17px}
   .dz-edittools{background:#fff8dc; border:1px solid #d9c26a; border-radius:7px; padding:5px 8px}
   .dz-edittools .etlbl{font-size:10px; font-weight:800; letter-spacing:.1em; color:#8a6d00}
   .dz-sep{width:1px; height:16px; background:var(--cp-line-strong); margin:0 3px}
-  .dz-edittools .mini{min-width:26px}
+  .dz-edittools .mini{min-width:44px}
   .dz-toolbar .mini{min-width:0}
   .dz-toolbar .dz-sep{margin:0 2px}
   .dz-toolbar .mini:disabled{opacity:.4; cursor:default}
@@ -1763,6 +1765,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:185, date:"2026-08-11", note:"Intake fields and the drawing toolbar both 70% larger \u2014 labels 16px to 27px, boxes 17px to 29px, toolbar buttons to 19px with the padding to match. Rev 184 shrank the fields on the basis that the panel had the screen to itself, which is true until a drawing is open beside it; then the panel was being squeezed as well and the same rules came out far smaller again, with labels wrapping to one word a line. The panel now holds a floor of 1060px rather than giving way to the drawing pane, which is what made those labels unreadable rather than merely small. The toolbar above the drawing wraps onto a second line instead of cramming, since the buttons no longer fit across at this size."},
   {rev:184, date:"2026-08-11", note:"The intake fields on a component quote are back to a sensible size \u2014 labels 25px to 16px, boxes 26px to 17px, and the panel from 1520px to 1060px. Those sizes were set in rev 141 when a 620px panel was being blown up to fill a screen it shared with a drawing pane; on a component quote the panel now has the screen to itself and the type read as shouting. Still comfortably larger than the 10.5px it started at, which was the original complaint. An assembly quote is unaffected \u2014 its fields are already compact, because the bill of material sits beside them."},
   {rev:183, date:"2026-08-10", note:"A part quote stops asking what the assembly has already answered. CUSTOMER, BUYER, QUOTED BY, SALESMAN, SEPARATE NRE, CUSTOMER QUOTE # and QTY TO DEPRECIATE NRE are taken from the parent and dropped from both the panel and the walk \u2014 asking twice is how two versions of one fact get into a quote. ANNUAL USAGE comes down as well, worked out as the assembly\u2019s yearly quantity times how many of this part go into one, read off the parent\u2019s own bill. They are re-read every time the part quote is opened rather than copied once, so changing the buyer on the assembly changes it on every part under it. Everything genuinely about the part is still asked: its material, its bar, its tolerances, its FAI, its operations. The walk drops from 25 steps to 17."},
   {rev:182, date:"2026-08-10", note:"A MAKE line on the bill can be quoted. The QUOTE # column carries a QUOTE button on every MAKE part; pressing it opens a full quote of its own for that part \u2014 same sheet, same engine, its own operations \u2014 prefilled with the part number, the customer, the buyer and a yearly quantity worked out as the assembly\u2019s annual usage times how many go into one. It is a COMPONENT by definition so it is not asked, and a bar across the top says which assembly it belongs to with a way back. The bill keeps the child\u2019s quote number and READS ITS PRICE BACK: that line\u2019s PART PRICE turns green and shows what the part quote works out to, so the assembly total follows the parts as they are priced rather than being typed twice and drifting apart. The number itself becomes a button that opens the part quote. Lines with no quote of their own still take a typed price, which is what BUY parts want."},
@@ -1941,9 +1944,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 184;
+const APP_REV = 185;
 const BUILD_DATE = "2026-08-11";
-const BUILD_TIME = "20:35";           /* increments every build — check both machines match */
+const BUILD_TIME = "20:55";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */

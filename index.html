@@ -296,6 +296,9 @@
   }
   .bomgrid td.rowb .grip:active{cursor:grabbing}
   .ip-val input.inherited, .sheet input.inherited{background:#eef3f9; color:var(--cp-dim); cursor:not-allowed}
+  .pane-zoom{display:inline-flex; align-items:center; gap:8px; margin-left:14px;
+    font-family:var(--ui); font-size:11px; font-weight:700; color:var(--cp-dim);
+    letter-spacing:.03em; white-space:nowrap}
   .modebtn.airoute{background:#3b3486; color:#fff; border-color:#241f5c; font-weight:800}
   .modebtn.airoute:hover{filter:brightness(1.15)}
   .ai-route-out{margin:0 0 10px; padding:12px 14px; background:#f7f6fb;
@@ -1274,6 +1277,10 @@
     <button class="modebtn" id="modeBom" type="button" hidden>🧩 Bill of Material</button>
     <span style="flex:0 0 14px"></span>
     <button class="modebtn airoute" id="aiRouteBtn" type="button" title="read the print and propose a routing — operations, setup and cycle times, subcontract costs">🤖 PROPOSE ROUTING</button>
+    <span class="pane-zoom" id="paneZoomWrap" title="scroll the wheel over either side to zoom it — Shift+wheel scrolls, Ctrl+wheel zooms the whole sheet">
+      <span id="paneZoomChip">DATA 100%  ·  DRAWING 100%</span>
+      <button class="mini" id="paneZoomReset" type="button">RESET</button>
+    </span>
   </div>
   <div class="childbar" id="childBar" hidden></div>
   <div class="ai-route-out" id="aiRouteOut" hidden></div>
@@ -1800,6 +1807,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:192, date:"2026-08-15", note:"The wheel now zooms whichever side the mouse is over, and the two sides trade room. Scroll over the data and it magnifies while the drawing gives up width; scroll over the drawing and the reverse. Making one bigger has to make the other smaller or the zoomed side simply runs off the edge, so the widths are shared out in proportion to the two zoom levels. The left side never needs to scroll, which is what makes a plain wheel free to mean zoom there. Shift+wheel still scrolls, Ctrl+wheel still zooms the whole sheet as before, and the wheel inside the maximised drawing viewer is left alone since it already zooms. A readout in the view bar shows both percentages with a RESET beside it."},
   {rev:191, date:"2026-08-11", note:"Tight tolerances are priced the way Rich prices them. Three bands now instead of two \u2014 $5 a feature at .001, $10 at .0005 or less, $20 at .0002 or less \u2014 against the old flat 13 cents and 20 cents, which were set for a different kind of work and made a reamed bore cost about the same as a drilled hole. A TOLERANCE FEATURE LENGTH column has been added with it: over half an inch, every further quarter inch adds 10%, because a tight bore gets harder the deeper it goes \u2014 chip evacuation, tool deflection and gauging all get worse. So a .0002 bore an inch and a quarter deep is $20 x 1.3 = $26 a feature rather than a flat $20. The grid is 39 columns now; the width came out of DESCRIPTION and QUOTE, and the six footer spans moved from 33 to 36 to match. The rates are all three in Admin \u2192 Global Settings."},
   {rev:190, date:"2026-08-11", note:"\u21f2 DOCK BESIDE THE GRID puts the routing proposal in a 620px column next to the operation rows, so the times can be read off it while they are typed in rather than remembered from a block above. The drawing pane steps aside while it is docked \u2014 there is no room for a third column, and the print has been read by the time the proposal exists \u2014 and comes back when it is undocked. The panel gets its own scroll with the PUT THIS IN THE GRID row stuck to the bottom of it, so the buttons stay reachable however long the routing is. Its height is measured and divided by the sheet zoom rather than set in vh, which would be multiplied by the 1.2 zoom this view carries."},
   {rev:189, date:"2026-08-11", note:"\u2018Could not read the routing it returned\u2019 is fixed. The model was answering perfectly well and wrapping its JSON in a markdown code fence, which JSON.parse cannot read \u2014 the answer was fine, the parser was brittle. Fences are stripped now, along with curly quotes, trailing commas, line comments and any prose either side of the array, and each repair is tried in turn before giving up. The prompt also asks for raw JSON between the markers, since not producing the problem beats repairing it. When it genuinely cannot be read, rev 188 already shows what the model actually said."},
@@ -1985,9 +1993,9 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 191;
-const BUILD_DATE = "2026-08-11";
-const BUILD_TIME = "23:55";           /* increments every build — check both machines match */
+const APP_REV = 192;
+const BUILD_DATE = "2026-08-15";
+const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
 let oddSel=[];               /* odd features checked for THIS quote (names) */
 let reqLeadVal='';           /* REQUESTED LEADTIME days for THIS quote (blank = none) */
@@ -7329,6 +7337,7 @@ $('quoteScope').addEventListener('change', ()=>{
 });
 $('modeBom').addEventListener('click', ()=>setOpsMode('bom'));
 $('aiRouteBtn').addEventListener('click', aiRouting);
+$('paneZoomReset').addEventListener('click', resetPaneZoom);
 /* Wired to the tray element itself, once. renderBomTray replaces its innerHTML
    on every keystroke in the bill, so anything bound to the cards inside would be
    thrown away and rebound constantly. */
@@ -8425,6 +8434,57 @@ $('view-quote').addEventListener('wheel', e=>{
   setSheetZoom(sheetZoom * (e.deltaY<0 ? 1.08 : 1/1.08));
 }, {passive:false});
 fitPage();
+
+/* ===== per-pane zoom: wheel over a pane magnifies THAT pane =====
+   The left side never scrolls, so a plain wheel there is free to mean zoom.
+   Over the drawing it means zoom too, which is what the maximised viewer already
+   does. Shift+wheel still scrolls, and Ctrl+wheel still zooms the whole sheet. */
+let paneZoomL = 1, paneZoomR = 1;
+function applyPaneZoom(){
+  const L=document.querySelector('.ops-scroll');
+  const P=document.getElementById('intakePanel');
+  const R=document.querySelector('.drawwrap');
+  const left = L && !L.hidden ? L : P;
+  if(left){ left.style.zoom = paneZoomL; }
+  if(R){ R.style.zoom = paneZoomR; }
+  /* share the width out in proportion to the two zooms, so zooming one side
+     genuinely takes room from the other rather than overflowing */
+  if(left && R && !R.hidden){
+    const tot = paneZoomL + paneZoomR;
+    left.style.flex = '1 1 ' + Math.round(paneZoomL/tot*100) + '%';
+    R.style.flex    = '1 1 ' + Math.round(paneZoomR/tot*100) + '%';
+    R.style.maxWidth='none';
+  }else if(R){
+    R.style.flex=''; R.style.maxWidth='';
+  }
+  const chip=document.getElementById('paneZoomChip');
+  if(chip) chip.textContent='DATA '+Math.round(paneZoomL*100)+'%  ·  DRAWING '+Math.round(paneZoomR*100)+'%';
+  if(window.sizeThumbs) setTimeout(sizeThumbs, 0);
+  if(window.__sizeViewport) setTimeout(window.__sizeViewport, 0);
+}
+function bumpPane(side, dir){
+  const f = dir<0 ? 1.08 : 1/1.08;
+  if(side==='R') paneZoomR=Math.min(4, Math.max(0.3, paneZoomR*f));
+  else           paneZoomL=Math.min(4, Math.max(0.3, paneZoomL*f));
+  applyPaneZoom();
+}
+function resetPaneZoom(){ paneZoomL=1; paneZoomR=1; applyPaneZoom(); }
+window.__resetPaneZoom=resetPaneZoom;
+(function(){
+  const vq=document.getElementById('view-quote');
+  if(!vq) return;
+  vq.addEventListener('wheel', e=>{
+    if(e.ctrlKey) return;                    /* whole-sheet zoom, handled above */
+    if(e.shiftKey) return;                   /* let it scroll */
+    const inDraw = e.target.closest && e.target.closest('.drawwrap');
+    const inLeft = e.target.closest && (e.target.closest('.ops-scroll') || e.target.closest('#intakePanel'));
+    if(!inDraw && !inLeft) return;           /* anywhere else behaves normally */
+    /* inside the maximised drawing viewer the wheel is already zoom \u2014 leave it */
+    if(e.target.closest && e.target.closest('.bdv-vp')) return;
+    e.preventDefault();
+    bumpPane(inDraw ? 'R' : 'L', e.deltaY);
+  }, {passive:false});
+})();
 
 /* ===== middle-mouse drag pans the quote screen (CAD-style) ===== */
 (function(){

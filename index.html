@@ -1203,6 +1203,8 @@
     <input type="file" id="rfqFile" accept="image/*" hidden>
     <input type="file" id="matQuoteFile" accept="image/*" hidden>
     <button class="btn topbtn mailbtn" id="emailQuoteBtn" title="build an Outlook draft with the quote, drawing and customer quotation attached"><span class="mi"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" style="fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><rect x="2" y="4" width="20" height="16" rx="1.5"/><path d="m2 7 10 6 10-6"/></svg></span>E-mail</button>
+    <button class="btn topbtn ghost" id="quoteUndoBtn" title="undo the last change to this quote (Ctrl+Z). Header fields, operation rows, quantities \u2014 everything on the sheet." disabled>\u21b6 Undo</button>
+    <button class="btn topbtn ghost" id="quoteRedoBtn" title="redo (Ctrl+Y)" disabled>\u21b7 Redo</button>
     <button class="btn topbtn ghost" id="saveNowBtn" title="save this quote and push it to GitHub right now">⬇ Save</button>
     <button class="btn topbtn ghost" id="finalizeBtn" title="mark this quote finalized — it shows FINALIZED instead of IN PROGRESS in Past Quotes. Click again to reopen it.">✓ Finalize</button>
     <button class="btn topbtn ghost" id="addOp">+ Add Op Row</button>
@@ -1958,6 +1960,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:204, date:"2026-10-12", note:"The quote sheet has an UNDO. The drawing editor has had one since rev 180, but the sheet itself never did \u2014 a mistyped batch size, a wrong rate, a deleted operation row were all gone for good, with autosave writing the mistake away within half a second. UNDO and REDO sit in the top bar beside SAVE, with the number of steps available on the button, and Ctrl+Z and Ctrl+Y work. It is built on snapshot() and restore(), which already handle the whole quote, so it covers header fields, every operation row, quantities and scope rather than one widget. Capture rides on scheduleAutosave, the single funnel every edit passes through, and is debounced at half a second so a burst of typing is one step and not one per keystroke; identical states are dropped so a redraw does not fill the stack. The history is capped at 60 and reset on a new quote. Ctrl+Z inside a text box is left to the browser, where character-level undo is the more useful one; the button always undoes the whole quote."},
   {rev:203, date:"2026-10-12", note:"S/U COST PER PC goes red below $0.05. A setup cost of nothing on an operation that has a work centre picked means the quote is not paying for the setup, and at $0.00 in a column of ordinary-looking dollar figures it reads as a number rather than as a hole. White on a solid red cell, with the reason on the tooltip. Only rows that have an operation selected are tested \u2014 an empty row further down the ladder is unused, not wrong, and lighting those up would have turned the bottom of every short routing red. Note that a subcontract line with no in-house setup, SUB - HEAT TREAT for one, is genuinely $0.00 here and will show red too."},
   {rev:202, date:"2026-10-12", note:"A work centre added in Admin now appears in the operation dropdown where its name says it should. It was always in the list \u2014 what was wrong is that the operation table is held in the order it was built, which is alphabetical, and Add pushes the new row onto the END. So a new machine landed underneath every other entry in a list that reads as sorted, below SHIPPING and the SUB lines, where nobody would think to look. The dropdown sorts for itself now; Admin keeps insertion order so a row stays where it was typed. A value the table no longer knows is kept on the row and marked, rather than silently blanking the operation off an existing quote when a machine is renamed or deleted. Add also drops the cursor into the new row's name box: a work centre called New Operation is no use in a dropdown, and the row had to be hunted for. Option text is escaped."},
   {rev:201, date:"2026-10-12", note:"The thinking bar stops covering the print. Rev 200 stretched it to the full width and gave it a z-index, which is how it ended up painted across the top inch of the drawing \u2014 the print's box starts higher up the page than the bar does, so full width and drawn-on-top means it lands on the drawing. The z-index is gone and the print is pushed down by the exact overlap instead, measured and zoom-corrected, so the bar runs the whole width with the drawing beginning underneath it and nothing hidden. The push is padding-top rather than margin-top on purpose: applyDrawLift and liftDrawIntake both write the drawing's margin, and a third writer would have them fighting. Cleared on every non-thinking state along with the width."},
@@ -2155,7 +2158,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 203;
+const APP_REV = 204;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -3117,7 +3120,85 @@ function scheduleAutosave(){
   if(suspendAutosave) return;
   clearTimeout(autosaveTimer);
   autosaveTimer=setTimeout(autosaveNow, 450);
+  undoCapture();
 }
+
+/* ===== UNDO for the QUOTE SHEET =====
+   The drawing editor has had an undo since rev 180; the sheet itself never did, so a
+   mistyped batch size or a deleted operation row was gone for good. snapshot() already
+   produces the whole quote and restore() already puts one back, so undo is a stack of
+   those rather than anything new.
+   Capture is debounced and rides on scheduleAutosave, the one funnel every edit passes
+   through, so a burst of typing is ONE undo step rather than one per keystroke. The
+   stack holds the state from BEFORE each burst: prevSnap trails the sheet by one
+   settled moment, which is what makes a single step land where you expect. */
+const UNDO_MAX=60;
+let undoStack=[], redoStack=[], prevSnap=null, undoBusy=false, undoTimer=null;
+function snapKey(s){ try{ return JSON.stringify(s); }catch(e){ return Math.random()+''; } }
+function undoBaseline(){
+  try{ prevSnap=snapshot(); }catch(e){ prevSnap=null; }
+  undoStack=[]; redoStack=[]; updateUndoUI();
+}
+window.__undoBaseline=undoBaseline;
+function undoCapture(){
+  if(undoBusy) return;
+  clearTimeout(undoTimer);
+  undoTimer=setTimeout(()=>{
+    if(undoBusy) return;
+    let now; try{ now=snapshot(); }catch(e){ return; }
+    if(!prevSnap){ prevSnap=now; return; }
+    if(snapKey(prevSnap)===snapKey(now)) return;      /* a render, not an edit */
+    undoStack.push(prevSnap);
+    if(undoStack.length>UNDO_MAX) undoStack.shift();  /* bounded: these are whole quotes */
+    redoStack=[];                                      /* a new edit ends the redo line */
+    prevSnap=now;
+    updateUndoUI();
+  }, 500);
+}
+function undoApply(s){
+  undoBusy=true;
+  try{ restore(s); }catch(e){ }
+  undoBusy=false;
+  prevSnap=s;
+  try{ autosaveNow(); }catch(e){ }   /* dialog-driven changes must not use scheduleAutosave */
+  updateUndoUI();
+}
+function quoteUndo(){
+  if(!undoStack.length){ if(window.updateToast) updateToast('Nothing to undo on this quote'); return; }
+  let cur; try{ cur=snapshot(); }catch(e){ return; }
+  redoStack.push(cur);
+  undoApply(undoStack.pop());
+  if(window.updateToast) updateToast('Undone \u2014 '+undoStack.length+' more step'+(undoStack.length===1?'':'s')+' back');
+}
+function quoteRedo(){
+  if(!redoStack.length){ if(window.updateToast) updateToast('Nothing to redo'); return; }
+  let cur; try{ cur=snapshot(); }catch(e){ return; }
+  undoStack.push(cur);
+  undoApply(redoStack.pop());
+  if(window.updateToast) updateToast('Redone');
+}
+window.quoteUndo=quoteUndo; window.quoteRedo=quoteRedo;
+function updateUndoUI(){
+  const u=document.getElementById('quoteUndoBtn'), r=document.getElementById('quoteRedoBtn');
+  if(u){ u.disabled=!undoStack.length; u.textContent='\u21b6 Undo'+(undoStack.length?' ('+undoStack.length+')':''); }
+  if(r){ r.disabled=!redoStack.length; }
+}
+(function(){
+  const u=document.getElementById('quoteUndoBtn'), r=document.getElementById('quoteRedoBtn');
+  if(u) u.addEventListener('click', quoteUndo);
+  if(r) r.addEventListener('click', quoteRedo);
+  document.addEventListener('keydown', e=>{
+    if(!(e.ctrlKey||e.metaKey)) return;
+    const k=(e.key||'').toLowerCase();
+    if(k!=='z' && k!=='y') return;
+    /* inside a text box the browser's own character-level undo is the more useful one,
+       so it is left alone there; the toolbar button always undoes the whole quote */
+    const t=e.target;
+    if(t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA') && t.type!=='checkbox' && t.type!=='radio') return;
+    e.preventDefault();
+    if(k==='y' || (k==='z' && e.shiftKey)) quoteRedo(); else quoteUndo();
+  });
+})();
 
 /* ================= DRAWING: paste (Ctrl+V), drop, browse ================= 
    Drawing FILES live as separate objects: locally in a small pruned cache,
@@ -5990,6 +6071,7 @@ function startNewQuote(){
   renderSaved();
   if(window.__fitPage) setTimeout(window.__fitPage, 0);
   suspendAutosave=false;
+  if(window.__undoBaseline) window.__undoBaseline();   /* a new quote starts a new history */
   /* a quote started from a bill line is a COMPONENT by definition, so it does not
      get asked \u2014 it is prefilled from the line instead */
   if(pendingChild){ applyPendingChild(); return; }

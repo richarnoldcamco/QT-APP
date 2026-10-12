@@ -330,7 +330,7 @@
   .ai-route-out.thinking{
     background:linear-gradient(180deg,#efecfb,#e4e0f7);
     border:3px solid #5b4fc7; color:#231d57;
-    position:relative; overflow:hidden; width:100%; box-sizing:border-box;
+    position:relative; overflow:hidden; box-sizing:border-box; z-index:6;
     padding:16px 18px; font-size:19px; font-weight:800; letter-spacing:.01em;
     animation:aiBreathe 1.25s ease-in-out infinite;
   }
@@ -1930,6 +1930,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:200, date:"2026-10-12", note:"The thinking banner itself now runs the full width, across the drawing as well. Rev 199 pulsed the drawing PANE on the same beat, which was answering a different question \u2014 what Rich asked for was the violet bar to reach the right-hand side, and it still stopped dead where the print began. The cause: the bar sits above .ops-flex so its width is its parent's, while the drawing pane inside .ops-flex sticks out past that parent's right edge. It is measured now, taking the furthest right edge of the bar and the print and stretching to it, with the result divided by the sheet zoom before being written as a CSS length \u2014 the rects are post-zoom, and a fixed position would have hit the rev 57 failure. It re-measures on every state change, on resize and on a pane zoom, and any state other than thinking clears the width, so a finished or failed routing goes straight back to normal."},
   {rev:199, date:"2026-10-12", note:"The PROPOSE ROUTING animation is stronger and it reaches the print. The pulse now carries the background and the border with it rather than only a ring, and beats at 1.25s instead of 1.6 \u2014 a ring fading in and out was too polite to read as activity from any distance. The banner sits above the grid and ends where the drawing pane starts, so on a wide screen the entire right half of the window showed no sign anything was happening; the drawing pane now breathes on the same beat with a scan line travelling down the page, which is also honest about what is going on \u2014 the print is the thing being read. The class is cleared in the finally block, so a failed or abandoned request stops the animation exactly like a successful one."},
   {rev:198, date:"2026-10-12", note:"DATE RECEIVED. The sheet recorded when a quote was last touched and nothing at all about when the RFQ arrived, so turnaround could not be answered from the quote itself. It is a real header field: third in the tab order and the guided walk, straight after the part number, saved and restored with the quote like any other header value. A new quote starts at today because that is what it is nearly every time, and it is still walked so an older RFQ being caught up on can be corrected. The date is built in local time, not from toISOString, which would put a quote started after 8pm Eastern on tomorrow. On PAST QUOTES it appears as a second line under the quoted stamp in the same cell rather than as a new column \u2014 that table already runs off the right edge of the window, and rev 161 was the lesson about adding a column to a table without asking what falls off the end."},
   {rev:197, date:"2026-10-12", note:"On PAST QUOTES the clock time in the DATE QUOTED column is 30 percent smaller while the date keeps its height, because the date is what the eye is scanning for and the time was competing with it at the same size. The shrink sits on a span around the time alone rather than on the cell, which is what keeps the date where it was. fmtWhen is untouched and still returns plain text \u2014 it also feeds the trash list, where a span would print as literal angle brackets \u2014 so the markup version is a separate function. The PART # column is now bold in full-strength ink: it is the column actually being searched down, and it was rendering lighter than the customer name beside it."},
@@ -2123,7 +2124,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 199;
+const APP_REV = 200;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -3407,7 +3408,12 @@ window.__updateScopeBtn=updateScopeBtn;
 async function aiRouting(){
   const key=(localStorage.getItem('qs_ai_key')||'').trim();
   const wrap=$('aiRouteOut');
-  const say=(t,cls)=>{ if(wrap){ wrap.className='ai-route-out '+(cls||''); wrap.innerHTML=t; wrap.hidden=false; } };
+  const say=(t,cls)=>{
+    if(!wrap) return;
+    wrap.className='ai-route-out '+(cls||'');
+    wrap.innerHTML=t; wrap.hidden=false;
+    if(window.sizeThinkBar) window.sizeThinkBar();   /* stretch while thinking, clear after */
+  };
   /* The working state is drawn, not written: a spinning rotor, a sweeping bar, walking
      dots and a big seconds readout. Built with innerHTML from fixed strings only \u2014
      nothing here comes from the model. */
@@ -4275,6 +4281,31 @@ function sizeIntakePanel(){
 }
 window.sizeIntakePanel=sizeIntakePanel;
 window.addEventListener('resize', ()=>sizeIntakePanel());
+/* The thinking banner sits above .ops-flex, so its width is its parent's \u2014 and the
+   drawing pane inside .ops-flex sticks out past that parent's right edge. That is why
+   the bar stopped dead where the print began. Measure the furthest right edge of the
+   two and stretch the bar to it. Post-zoom rects, so divide by the zoom before writing
+   a CSS length, and never position:fixed \u2014 #view-quote carries zoom (the rev 57
+   failure). Only ever applied while thinking; any other state clears it. */
+function sizeThinkBar(){
+  const el=document.getElementById('aiRouteOut');
+  if(!el) return;
+  el.style.width='';
+  if(el.hidden || !el.classList.contains('thinking')) return;
+  if(el.offsetParent===null) return;
+  const z=(typeof sheetZoom!=='undefined' && sheetZoom)||1.2;
+  const a=el.getBoundingClientRect();
+  let right=a.right;
+  const dw=document.querySelector('.drawwrap');
+  if(dw && !dw.hidden && dw.offsetParent!==null){
+    const d=dw.getBoundingClientRect();
+    if(d.right>right) right=d.right;
+  }
+  const w=(right-a.left)/z;
+  if(w>120) el.style.width=w+'px';
+}
+window.sizeThinkBar=sizeThinkBar;
+window.addEventListener('resize', ()=>sizeThinkBar());
 function sizeThumbs(){
   const tw=$('thumbWrap'); if(!tw || tw.hidden) return;
   const z=(typeof sheetZoom!=='undefined' && sheetZoom)||1.2;
@@ -8685,6 +8716,7 @@ function applyPaneZoom(){
   if(window.sizeThumbs) setTimeout(sizeThumbs, 0);
   if(window.__sizeViewport) setTimeout(window.__sizeViewport, 0);
   if(window.sizeIntakePanel) setTimeout(window.sizeIntakePanel, 0);
+  if(window.sizeThinkBar) setTimeout(window.sizeThinkBar, 0);
 }
 function bumpPane(side, dir){
   const f = dir<0 ? 1.08 : 1/1.08;

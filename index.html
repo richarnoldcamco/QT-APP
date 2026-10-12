@@ -228,10 +228,11 @@
   .guide-cur{outline:3px solid var(--cp-signal) !important; outline-offset:-1px; background:#fff8c4 !important}
   /* an explicit way out of the guided intake. TAB off the last field still ends it,
      but a walk you can only leave by guessing the right key is a trap. */
-  .guide-done{margin-left:16px; padding:4px 16px; border-radius:7px; border:1px solid #0d4a1c;
-    background:#1d6b33; color:#fff; font:800 12px var(--ui); letter-spacing:.05em; cursor:pointer}
+  .guide-done{margin-left:18px; padding:7px 20px; border-radius:8px; border:2px solid #0d4a1c;
+    background:#1d6b33; color:#fff; font:800 17px var(--ui); letter-spacing:.05em; cursor:pointer;
+    box-shadow:0 2px 6px rgba(0,0,0,.3); vertical-align:middle}
   .guide-done:hover{filter:brightness(1.15)}
-  body.intake-panel-on .guide-done{padding:3px 12px; font-size:11px}
+  body.intake-panel-on .guide-done{padding:6px 18px; font-size:16px}
   .oddbtn.on{background:linear-gradient(180deg,#fdf29a,#f3df57); color:#5a4a00; border-color:#c9b23a}
   /* operation dropdown: keep the open list at a readable, compact size */
   .oddcell{text-align:center; padding:0 1px}
@@ -600,7 +601,7 @@
      height on the right. Moving preserves ids, values and listeners; everything is put
      back in its original cell when the intake finishes. */
   .intake-panel{
-    flex:0 0 auto; width:880px; min-width:880px; margin:0 10px 8px 0;
+    flex:0 0 auto; width:680px; min-width:680px; margin:0 10px 8px 0;
     display:grid; grid-template-columns:1fr; gap:2px 14px;
     align-content:start; font-family:var(--ui);
     /* taller than the window, so it scrolls itself instead of running off the bottom.
@@ -612,18 +613,18 @@
   .intake-panel::-webkit-scrollbar-track{background:#ededed}
   .ip-row{display:flex; align-items:center; gap:14px; min-width:0; padding:4px 0}
   .ip-lab{
-    flex:0 0 300px; text-align:right; font-size:26px; font-weight:700;
+    flex:0 0 230px; text-align:right; font-size:19px; font-weight:700;
     letter-spacing:.01em; color:var(--cp-ink); line-height:1.2;
     min-width:0; overflow-wrap:anywhere;
   }
   .ip-val{flex:1 1 auto; min-width:0; position:relative; display:flex; align-items:center; gap:4px}
   .ip-val input, .ip-val select{
-    width:100%; min-width:0; font-size:28px; padding:6px 10px;
+    width:100%; min-width:0; font-size:20px; padding:5px 9px;
     border:1px solid var(--cp-line); border-radius:3px; background:var(--yellow);
   }
   /* the job-type dropdown carries an inline font-size:9px from the header table,
      so overriding it needs the !important */
-  body.intake-panel-on .ip-val select#jobType{font-size:24px !important}
+  body.intake-panel-on .ip-val select#jobType{font-size:18px !important}
   /* On an assembly the bill sits alongside, so the header fields give up half
      their size to make room for it. */
   body.asm-intake .intake-panel{flex:0 0 420px; width:420px; grid-template-columns:1fr}
@@ -639,9 +640,9 @@
      style on load, which brought the empty duplicate table back. */
   /* intake: give the vertical space back to the drawing — the banner and the view bar
      shrink, and the drawing pane lifts beside them (measured, see liftDrawIntake). */
-  body.intake-panel-on .guide-banner{padding:3px 12px; font-size:11px; line-height:1.3; margin-bottom:2px}
-  body.intake-panel-on .ops-modebar{margin:2px 0 2px}
-  body.intake-panel-on .ops-modebar .modebtn{padding:4px 12px; font-size:11px}
+  body.intake-panel-on .guide-banner{padding:6px 12px; font-size:15px; line-height:1.35; margin-bottom:2px}
+  body.intake-panel-on .ops-modebar{margin:3px 0 3px; font-size:14px}
+  body.intake-panel-on .ops-modebar .modebtn{padding:6px 14px; font-size:15px}
   body.intake-panel-on #hdrSheet,
   body.intake-panel-on .hdr-bar,
   body.intake-panel-on .ops-scroll{display:none !important}
@@ -666,9 +667,9 @@
   /* drawing toolbar: single line, scrolls sideways only if truly too narrow */
   .dz-toolbar{display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;
     overflow-x:auto; overflow-y:hidden; scrollbar-width:thin; padding-bottom:1px}
-  .dz-toolbar .mini{white-space:nowrap; flex:0 0 auto; padding:7px 15px; font-size:23px; border-radius:9px}
+  .dz-toolbar .mini{white-space:nowrap; flex:0 0 auto; padding:6px 13px; font-size:20px; border-radius:9px}
   .dz-toolbar .dz-sep{height:26px}
-  .dz-toolbar .note, .dz-toolbar span{font-size:20px}
+  .dz-toolbar .note, .dz-toolbar span{font-size:18px}
   .dz-edittools{background:#fff8dc; border:1px solid #d9c26a; border-radius:7px; padding:5px 8px}
   .dz-edittools .etlbl{font-size:10px; font-weight:800; letter-spacing:.1em; color:#8a6d00}
   .dz-sep{width:1px; height:16px; background:var(--cp-line-strong); margin:0 3px}
@@ -1819,6 +1820,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:194, date:"2026-10-12", note:"One type scale across the intake screen instead of three. The header fields were sitting at 26 and 28px against banner and mode-bar chrome at 11px \u2014 better than rev 192's 35/38 against 19, but still more than twice everything around them, which is what Rich kept seeing. Labels and fields now sit at 19 and 20px, the drawing toolbar at 20, and the banner, mode bar and view buttons come up to 14\u201315px, so the whole screen reads in one band rather than as a big form bolted to a small application. The DONE \u2014 UNLOCK GRID button went from 11px to 16px with a heavier border and a shadow: it is the way out of the guided intake and it was rendering smaller than the text telling you to press it. Narrowing the fields also narrows the panel, 880 to 680px, which hands the difference straight to the print."},
   {rev:193, date:"2026-10-11", note:"The scroll wheel is given back. Rev 192 put pane zoom on a plain wheel on the reasoning that the left side never needs to scroll \u2014 wrong: the intake panel is taller than the window, and taking the wheel meant the bottom fields could not be reached at all. A plain wheel now always scrolls, and zoom moved onto Ctrl+wheel, which is where a browser puts zoom anyway: Ctrl+wheel over the data or the drawing zooms that side, Ctrl+wheel anywhere else zooms the whole sheet. The intake panel also scrolls inside itself now, with a measured max-height rather than a vh unit. Second fault, same screen: the guided intake could be entered and never left. TAB only advanced the walk when focus was still on the current field, so one click on the print killed TAB for the rest of the quote and the calculation grid stayed locked behind a 35 percent ghost. TAB now returns to the field the walk is waiting on, clicking into another header field moves the walk there, and a green DONE \u2014 UNLOCK GRID button sits in the banner so there is a way out that needs no guessing. Third, the two sides read as one interface again: the header labels and fields came down from 35/38px and the drawing toolbar came up from 19px, closing a 2:1 mismatch that pane zoom had made impossible to ignore."},
   {rev:192, date:"2026-08-15", note:"The wheel now zooms whichever side the mouse is over, and the two sides trade room. Scroll over the data and it magnifies while the drawing gives up width; scroll over the drawing and the reverse. Making one bigger has to make the other smaller or the zoomed side simply runs off the edge, so the widths are shared out in proportion to the two zoom levels. The left side never needs to scroll, which is what makes a plain wheel free to mean zoom there. Shift+wheel still scrolls, Ctrl+wheel still zooms the whole sheet as before, and the wheel inside the maximised drawing viewer is left alone since it already zooms. A readout in the view bar shows both percentages with a RESET beside it."},
   {rev:191, date:"2026-08-11", note:"Tight tolerances are priced the way Rich prices them. Three bands now instead of two \u2014 $5 a feature at .001, $10 at .0005 or less, $20 at .0002 or less \u2014 against the old flat 13 cents and 20 cents, which were set for a different kind of work and made a reamed bore cost about the same as a drilled hole. A TOLERANCE FEATURE LENGTH column has been added with it: over half an inch, every further quarter inch adds 10%, because a tight bore gets harder the deeper it goes \u2014 chip evacuation, tool deflection and gauging all get worse. So a .0002 bore an inch and a quarter deep is $20 x 1.3 = $26 a feature rather than a flat $20. The grid is 39 columns now; the width came out of DESCRIPTION and QUOTE, and the six footer spans moved from 33 to 36 to match. The rates are all three in Admin \u2192 Global Settings."},
@@ -2006,7 +2008,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 193;
+const APP_REV = 194;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */

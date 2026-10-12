@@ -329,14 +329,18 @@
      the top edge, a breathing border, a spinning rotor and three walking dots. ===== */
   .ai-route-out.thinking{
     background:linear-gradient(180deg,#efecfb,#e4e0f7);
-    border:2px solid #5b4fc7; color:#231d57;
-    position:relative; overflow:hidden;
+    border:3px solid #5b4fc7; color:#231d57;
+    position:relative; overflow:hidden; width:100%; box-sizing:border-box;
     padding:16px 18px; font-size:19px; font-weight:800; letter-spacing:.01em;
-    animation:aiBreathe 1.6s ease-in-out infinite;
+    animation:aiBreathe 1.25s ease-in-out infinite;
   }
+  /* the pulse carries the background with it now, not just the ring \u2014 the ring
+     alone was too polite to read as activity from across the shop */
   @keyframes aiBreathe{
-    0%,100%{box-shadow:0 0 0 0 rgba(91,79,199,.55)}
-    50%    {box-shadow:0 0 0 7px rgba(91,79,199,0)}
+    0%,100%{box-shadow:0 0 0 0 rgba(91,79,199,.75), inset 0 0 0 0 rgba(91,79,199,0);
+            border-color:#5b4fc7; background:linear-gradient(180deg,#efecfb,#e4e0f7)}
+    50%    {box-shadow:0 0 0 12px rgba(91,79,199,0), inset 0 0 26px 0 rgba(91,79,199,.22);
+            border-color:#8f84ef; background:linear-gradient(180deg,#e2ddfa,#d2cbf5)}
   }
   /* the sweeping bar: an indeterminate progress stripe running the full width */
   .ai-route-out.thinking::before{
@@ -366,8 +370,30 @@
   @keyframes aiDot{ 0%,80%,100%{opacity:.22; transform:translateY(0)} 40%{opacity:1; transform:translateY(-5px)} }
   /* a slow job is not a dead job: past 45s it says so rather than looking stuck */
   .ai-think-note{display:block; font-size:13px; font-weight:600; color:#4a3fb5; margin-top:3px}
+  /* ===== the print pulses too =====
+     The banner sits above the grid and stops where the drawing pane begins, so on a
+     wide screen the whole right-hand half of the window showed no sign anything was
+     happening. The print is also the thing actually being read, so it is the right
+     place for it. Same violet, same 1.25s beat, so the two read as one animation: a
+     breathing ring around the pane and a scan line travelling down the page. */
+  body.ai-thinking .drawwrap{
+    position:relative; border-radius:10px;
+    animation:aiBreathe 1.25s ease-in-out infinite;
+  }
+  body.ai-thinking .drawwrap::after{
+    content:''; position:absolute; inset:0; pointer-events:none; z-index:5;
+    border-radius:10px; overflow:hidden;
+    background:linear-gradient(180deg,
+      rgba(91,79,199,0) 0%, rgba(91,79,199,0) 42%,
+      rgba(143,132,239,.38) 50%,
+      rgba(91,79,199,0) 58%, rgba(91,79,199,0) 100%);
+    background-size:100% 220%;
+    animation:aiScan 2.1s linear infinite;
+  }
+  @keyframes aiScan{ 0%{background-position:0 -120%} 100%{background-position:0 220%} }
   @media (prefers-reduced-motion:reduce){
-    .ai-route-out.thinking,.ai-route-out.thinking::before,.ai-rotor,.ai-dots i{animation:none}
+    .ai-route-out.thinking,.ai-route-out.thinking::before,.ai-rotor,.ai-dots i,
+    body.ai-thinking .drawwrap,body.ai-thinking .drawwrap::after{animation:none}
   }
   .ai-route-prose{margin-bottom:10px; line-height:1.5}
   .ai-route-tbl{border-collapse:collapse; width:100%; background:#fff; font-size:13px}
@@ -940,6 +966,10 @@
   /* the clock time is the least useful half of the stamp: 30% down, and the date
      keeps its own height because the shrink is on the time span alone */
   .qtable td.dt .tm{font-size:70%; opacity:.85; margin-left:3px}
+  /* date received rides under the quoted stamp in the same cell rather than taking a
+     new column: the table already runs past the right edge of his window */
+  .qtable td.dt .rcvd{display:block; font-size:10px; font-weight:700; color:var(--cp-ink);
+    letter-spacing:.02em; opacity:.75; margin-top:1px}
   .qtable td.qno{font-weight:400; font-size:9px; white-space:nowrap; color:var(--cp-dim)}
   /* part numbers never wrap — the column takes whatever width the longest one needs */
   .qtable td.partno{white-space:nowrap; min-width:140px; font-weight:800; color:var(--cp-ink)}
@@ -1336,7 +1366,9 @@
       <td class="c-yellow val-c"><input id="custQuoteNo" type="text" placeholder="their RFQ / quote no."></td>
       <td class="lbl-r">Component or Assembly?</td>
       <td class="c-yellow val-c"><select id="quoteScope" title="COMPONENT: one part. ASSEMBLY: this part is built from a bill of material."><option value="">— PICK —</option><option>COMPONENT</option><option>ASSEMBLY</option></select></td>
-      <td></td><td></td><td></td><td></td>
+      <td class="lbl-r">Date Received</td>
+      <td class="c-yellow val-c"><input id="dateRecd" type="date" title="the day the RFQ came in from the customer — not the day it is quoted"></td>
+      <td></td><td></td>
     </tr>
   </table>
 
@@ -1550,6 +1582,12 @@ const CAMCO_LOGO='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZ0AAACgAgMAAACq
 const QUOTE_VALID_DAYS=90;
 const DEFAULT_FOB='FOB Origin';
 
+/* yyyy-mm-dd in LOCAL time. new Date().toISOString() is UTC, which puts a quote
+   started after 8pm Eastern on tomorrow's date. */
+function todayISO(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 /* "July 23, 2026 8:36pm" — one formatter so every quote date matches */
 function fmtWhen(v){
   if(!v) return '';
@@ -1892,6 +1930,8 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:199, date:"2026-10-12", note:"The PROPOSE ROUTING animation is stronger and it reaches the print. The pulse now carries the background and the border with it rather than only a ring, and beats at 1.25s instead of 1.6 \u2014 a ring fading in and out was too polite to read as activity from any distance. The banner sits above the grid and ends where the drawing pane starts, so on a wide screen the entire right half of the window showed no sign anything was happening; the drawing pane now breathes on the same beat with a scan line travelling down the page, which is also honest about what is going on \u2014 the print is the thing being read. The class is cleared in the finally block, so a failed or abandoned request stops the animation exactly like a successful one."},
+  {rev:198, date:"2026-10-12", note:"DATE RECEIVED. The sheet recorded when a quote was last touched and nothing at all about when the RFQ arrived, so turnaround could not be answered from the quote itself. It is a real header field: third in the tab order and the guided walk, straight after the part number, saved and restored with the quote like any other header value. A new quote starts at today because that is what it is nearly every time, and it is still walked so an older RFQ being caught up on can be corrected. The date is built in local time, not from toISOString, which would put a quote started after 8pm Eastern on tomorrow. On PAST QUOTES it appears as a second line under the quoted stamp in the same cell rather than as a new column \u2014 that table already runs off the right edge of the window, and rev 161 was the lesson about adding a column to a table without asking what falls off the end."},
   {rev:197, date:"2026-10-12", note:"On PAST QUOTES the clock time in the DATE QUOTED column is 30 percent smaller while the date keeps its height, because the date is what the eye is scanning for and the time was competing with it at the same size. The shrink sits on a span around the time alone rather than on the cell, which is what keeps the date where it was. fmtWhen is untouched and still returns plain text \u2014 it also feeds the trash list, where a span would print as literal angle brackets \u2014 so the markup version is a separate function. The PART # column is now bold in full-strength ink: it is the column actually being searched down, and it was rendering lighter than the customer name beside it."},
   {rev:196, date:"2026-10-12", note:"WHAT ARE WE QUOTING has a way out and is 30 percent larger. It was built deliberately inescapable in rev 147, on the reasoning that a quote with no scope on it is worse than no quote \u2014 true, but the conclusion was wrong: the answer is to discard the quote, not to trap the man in the dialog. The X in the corner, Escape and a click on the backdrop all throw the blank quote away and go back to the quote list. Nothing is lost, because a new quote is not written to storage until something is typed into it, and rev 147's actual rule still holds \u2014 no quote is ever left live without a scope. The panel went 640 to 832px with the heading, both choices and their explanations scaled to match."},
   {rev:195, date:"2026-10-12", note:"PROPOSE ROUTING shows that it is working. Until now a request in flight was a flat grey line of text with a seconds counter on the end, which looked identical to one that had died \u2014 the whole point of the counter added in rev 188 was to tell those apart, and a number ticking in small grey type does not do it. The box now turns violet with a 2px border that breathes, a progress stripe sweeps across the top edge, a rotor spins beside the message and three dots walk under it, with the elapsed seconds in 22px figures in their own chip. The message also says what to expect and changes as it runs: typical at the start, longer than usual past 45 seconds, still going past 100, and it still gives up at 180 and says why. Honours prefers-reduced-motion."},
@@ -2083,7 +2123,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 197;
+const APP_REV = 199;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -2883,7 +2923,7 @@ $('addOp').addEventListener('click', ()=>{
 });
 
 /* ---- recompute on any header input ---- */
-const HDR_FIELDS = ['jobType','qtyBrk1','qtyBrk2','qtyBrk3','qtyBrk4','qtyBrk5','qtyBrk6','customer','partNo','annualUsage','batchSize','minOrderQty','buyer','quotedBy','salesman',
+const HDR_FIELDS = ['jobType','qtyBrk1','qtyBrk2','qtyBrk3','qtyBrk4','qtyBrk5','qtyBrk6','customer','partNo','dateRecd','annualUsage','batchSize','minOrderQty','buyer','quotedBy','salesman',
  'material','priceLevel','stockForm','barForm','barOverride','difficulty','nreSep','barDia','partLength',
  'extraLength','chuckExtra','scrapPct','barLen','faiReq','faiDims','custQuoteNo','faiQty','margin','meCost','suCost',
  'soFee','coFee','sawCost'];
@@ -3375,6 +3415,7 @@ async function aiRouting(){
     const note = s>=100 ? 'Still going. It gives up at 180s and tells you why.'
                : s>=45  ? 'Longer than usual for this print \u2014 still working.'
                :          'Typically 20\u201340 seconds.';
+    document.body.classList.add('ai-thinking');
     say('<div class="ai-think-row">'
        +  '<div class="ai-rotor"></div>'
        +  '<div class="ai-think-txt">CLAUDE IS READING THE PRINT AND PROPOSING A ROUTING'
@@ -3501,6 +3542,7 @@ async function aiRouting(){
     try{ console.warn('PROPOSE ROUTING failed:', e, raw); }catch(e2){}
   }finally{
     clearInterval(tick); clearTimeout(killer);
+    document.body.classList.remove('ai-thinking');   /* always, success or failure */
   }
 }
 let aiRoutePending=null;
@@ -5531,7 +5573,7 @@ function renderSaved(){
               ? '<span class="scope-asm">\u{1F9E9} ASSEMBLY</span>'
               : (f.quoteScope==='COMPONENT' ? '<span class="scope-cmp">COMPONENT</span>' : '\u2014')}</td>
         <td>${esc(f.customer)||'—'}</td>
-        <td class="dt">${when}</td>
+        <td class="dt">${when}${f.dateRecd?'<span class="rcvd">RECEIVED '+fmtDay(f.dateRecd)+'</span>':''}</td>
         <td class="num">${annQty||'—'}</td>
         <td class="num money">${money(q.perPc)}</td>
         <td class="num money">${qty? money((q.perPc||0)*qty) : '—'}</td>
@@ -5857,6 +5899,9 @@ function startNewQuote(){
   setHdrMin(false);                     /* expand header for data entry */
   /* mandatory fields start BLANK; FAI and Difficulty must be actively picked */
   GUIDE_ORDER.forEach(id=>{ const el=$(id); if(el && el.tagName==='INPUT') el.value=''; });
+  /* the RFQ nearly always came in today; it is still walked so it can be corrected
+     when an older one is being caught up on */
+  if($('dateRecd')) $('dateRecd').value=todayISO();
   if($('faiReq')) $('faiReq').value='';
   if($('difficulty')){ $('difficulty').value=''; if(window.__paintDifficulty) __paintDifficulty(); }
   activeQuoteNo = nextNo(loadSaved());  /* fresh unique quote ID */
@@ -6866,7 +6911,7 @@ document.querySelectorAll('.vtab').forEach(t=>t.addEventListener('click',()=>swi
 
 /* ---- tab order: follows the sheet columns top-to-bottom, then next column (per user's flow) ---- */
 const TAB_ORDER = [
-  /* zone A: down */    'customer','partNo','annualUsage','jobType','quoteScope','buyer',
+  /* zone A: down */    'customer','partNo','dateRecd','annualUsage','jobType','quoteScope','buyer',
   /* zone B: down */    'material','priceLevel','barForm','barOverride','faiReq','difficulty',
   /* zone C: down */    'barDia','partLength','extraLength','chuckExtra','stockForm','faiDims',
   /* zone D: down */    'scrapPct','quotedBy','salesman','faiQty','nreSep',
@@ -6941,7 +6986,7 @@ $('matQuoteFile').addEventListener('change', async e=>{
 window.__openMaterialVerify=openMaterialVerify;
 
 /* ===== GUIDED INTAKE: New Quote walks every yellow mandatory field before the grid unlocks ===== */
-const GUIDE_ORDER=['customer','partNo','annualUsage','jobType','quoteScope','buyer',
+const GUIDE_ORDER=['customer','partNo','dateRecd','annualUsage','jobType','quoteScope','buyer',
                    'material','priceLevel','barForm','barOverride','faiReq','difficulty',
                    'barDia','partLength','extraLength','chuckExtra','stockForm','faiDims',
                    'scrapPct','quotedBy','salesman','faiQty','nreSep','barLen'];

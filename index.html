@@ -534,6 +534,23 @@
   .opgrid.show-drawing thead th:nth-child(n+18):nth-child(-n+33) *{display:none}
   /* drawing mode also drops: duplicate $ col (18), NRE (34), Est Leadtime (35) */
   .opgrid.show-drawing col.d2col{width:0 !important}
+  /* ===== MINIMISE the premium breakdown =====
+     Columns 25-36, LONG CYCLE TIME PREMIUM through ODD FEATURE COST PER PC: the
+     per-premium working behind the price. Useful when a number looks wrong, noise the
+     rest of the time, and 381px of the grid's 1487. Same hide-bands technique as
+     drawing mode \u2014 the cells stay in the DOM at zero width, so the footer colspans
+     and the totals alignment are untouched. Independent of drawing mode; both can be
+     on at once and the narrower wins. */
+  .opgrid.min-prem{width:1106px}
+  .opgrid.min-prem col:nth-child(n+25):nth-child(-n+36){width:0 !important}
+  .opgrid.min-prem tr:not(.foot)>td:nth-child(n+25):nth-child(-n+36),
+  .opgrid.min-prem thead th:nth-child(n+25):nth-child(-n+36){
+    width:0; max-width:0; min-width:0; padding:0 !important;
+    border-left:0 !important; border-right:0 !important;
+    overflow:hidden; white-space:nowrap; font-size:0; line-height:0;
+  }
+  .opgrid.min-prem thead th:nth-child(n+25):nth-child(-n+36) *{display:none}
+  #minPremBtn.on{background:#3b3486; color:#fff; border-color:#241f5c; font-weight:800}
   .opgrid.show-drawing tr:not(.foot)>td:nth-child(17),
   .opgrid.show-drawing tr:not(.foot)>td:nth-child(35),
   .opgrid.show-drawing tr:not(.foot)>td:nth-child(36),
@@ -1203,8 +1220,8 @@
     <input type="file" id="rfqFile" accept="image/*" hidden>
     <input type="file" id="matQuoteFile" accept="image/*" hidden>
     <button class="btn topbtn mailbtn" id="emailQuoteBtn" title="build an Outlook draft with the quote, drawing and customer quotation attached"><span class="mi"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" style="fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><rect x="2" y="4" width="20" height="16" rx="1.5"/><path d="m2 7 10 6 10-6"/></svg></span>E-mail</button>
-    <button class="btn topbtn ghost" id="quoteUndoBtn" title="undo the last change to this quote (Ctrl+Z). Header fields, operation rows, quantities \u2014 everything on the sheet." disabled>\u21b6 Undo</button>
-    <button class="btn topbtn ghost" id="quoteRedoBtn" title="redo (Ctrl+Y)" disabled>\u21b7 Redo</button>
+    <button class="btn topbtn ghost" id="quoteUndoBtn" title="undo the last change to this quote (Ctrl+Z). Header fields, operation rows, quantities — everything on the sheet." disabled>↶ Undo</button>
+    <button class="btn topbtn ghost" id="quoteRedoBtn" title="redo (Ctrl+Y)" disabled>↷ Redo</button>
     <button class="btn topbtn ghost" id="saveNowBtn" title="save this quote and push it to GitHub right now">⬇ Save</button>
     <button class="btn topbtn ghost" id="finalizeBtn" title="mark this quote finalized — it shows FINALIZED instead of IN PROGRESS in Past Quotes. Click again to reopen it.">✓ Finalize</button>
     <button class="btn topbtn ghost" id="addOp">+ Add Op Row</button>
@@ -1386,6 +1403,7 @@
     <button class="modebtn" id="modeDraw" type="button">📐 Drawing</button>
     <span style="flex:0 0 10px"></span>
     <button class="modebtn oddbtn" id="oddBtn" type="button" title="mark unusual features on this part — each adds a % to cycle time">🚩 Odd Features</button>
+    <button class="modebtn" id="minPremBtn" type="button" title="hide the premium breakdown columns — LONG CYCLE TIME through ODD FEATURE COST PER PC. The prices do not change; only the working is hidden.">◧ Minimize Premiums</button>
     <button class="modebtn" id="modeBom" type="button" hidden>🧩 Bill of Material</button>
     <span style="flex:0 0 14px"></span>
     <button class="modebtn airoute" id="aiRouteBtn" type="button" title="read the print and propose a routing — operations, setup and cycle times, subcontract costs">🤖 PROPOSE ROUTING</button>
@@ -1960,6 +1978,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:205, date:"2026-10-12", note:"MINIMIZE PREMIUMS collapses the premium breakdown \u2014 the twelve columns from LONG CYCLE TIME PREMIUM through ODD FEATURE COST PER PC, 381px of the grid's 1487. That block is the working behind the price: worth opening when a number looks wrong, noise the rest of the time, and it pushes the figures that matter off the right-hand side. The button is in the view bar beside ODD FEATURES and the choice is remembered on the device. Prices do not change, only the working is hidden. Built with the same hide-bands technique as drawing mode, cells kept in the DOM at zero width, so the footer colspans and the totals alignment are untouched, and the two can be on at once. Also fixes rev 204: the UNDO and REDO buttons shipped with their escape sequences printed as literal text instead of the arrows."},
   {rev:204, date:"2026-10-12", note:"The quote sheet has an UNDO. The drawing editor has had one since rev 180, but the sheet itself never did \u2014 a mistyped batch size, a wrong rate, a deleted operation row were all gone for good, with autosave writing the mistake away within half a second. UNDO and REDO sit in the top bar beside SAVE, with the number of steps available on the button, and Ctrl+Z and Ctrl+Y work. It is built on snapshot() and restore(), which already handle the whole quote, so it covers header fields, every operation row, quantities and scope rather than one widget. Capture rides on scheduleAutosave, the single funnel every edit passes through, and is debounced at half a second so a burst of typing is one step and not one per keystroke; identical states are dropped so a redraw does not fill the stack. The history is capped at 60 and reset on a new quote. Ctrl+Z inside a text box is left to the browser, where character-level undo is the more useful one; the button always undoes the whole quote."},
   {rev:203, date:"2026-10-12", note:"S/U COST PER PC goes red below $0.05. A setup cost of nothing on an operation that has a work centre picked means the quote is not paying for the setup, and at $0.00 in a column of ordinary-looking dollar figures it reads as a number rather than as a hole. White on a solid red cell, with the reason on the tooltip. Only rows that have an operation selected are tested \u2014 an empty row further down the ladder is unused, not wrong, and lighting those up would have turned the bottom of every short routing red. Note that a subcontract line with no in-house setup, SUB - HEAT TREAT for one, is genuinely $0.00 here and will show red too."},
   {rev:202, date:"2026-10-12", note:"A work centre added in Admin now appears in the operation dropdown where its name says it should. It was always in the list \u2014 what was wrong is that the operation table is held in the order it was built, which is alphabetical, and Add pushes the new row onto the END. So a new machine landed underneath every other entry in a list that reads as sorted, below SHIPPING and the SUB lines, where nobody would think to look. The dropdown sorts for itself now; Admin keeps insertion order so a row stays where it was typed. A value the table no longer knows is kept on the row and marked, rather than silently blanking the operation off an existing quote when a machine is renamed or deleted. Add also drops the cursor into the new row's name box: a work centre called New Operation is no use in a dropdown, and the row had to be hunted for. Option text is escaped."},
@@ -2158,7 +2177,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 204;
+const APP_REV = 205;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -2946,7 +2965,7 @@ function showOriginalSheet(rec){
   box.querySelector('#wbSheetClose').addEventListener('click', ()=>ov.remove());
   document.body.appendChild(ov);
 }
-function renderAll(){ renderOps(); renderSummary(); scheduleAutosave(); if(window.updateImportBanner) updateImportBanner(); }
+function renderAll(){ renderOps(); renderSummary(); if(window.applyMinPrem) applyMinPrem(); scheduleAutosave(); if(window.updateImportBanner) updateImportBanner(); }
 
 /* ---- add operation row ---- */
 $('addOp').addEventListener('click', ()=>{
@@ -3180,7 +3199,7 @@ function quoteRedo(){
 window.quoteUndo=quoteUndo; window.quoteRedo=quoteRedo;
 function updateUndoUI(){
   const u=document.getElementById('quoteUndoBtn'), r=document.getElementById('quoteRedoBtn');
-  if(u){ u.disabled=!undoStack.length; u.textContent='\u21b6 Undo'+(undoStack.length?' ('+undoStack.length+')':''); }
+  if(u){ u.disabled=!undoStack.length; u.textContent='↶ Undo'+(undoStack.length?' ('+undoStack.length+')':''); }
   if(r){ r.disabled=!redoStack.length; }
 }
 (function(){
@@ -8798,6 +8817,41 @@ document.addEventListener('keydown', e=>{
   document.addEventListener('focusout', e=>{
     if(e.target && e.target.matches && e.target.matches('#opsBody input, #opsBody select')) restoreCol();
   });
+})();
+
+/* ===== MINIMISE PREMIUMS: collapse the breakdown columns, remembered per device ===== */
+/* var, not let: renderAll() runs during startup and calls applyMinPrem(), which is
+   EARLIER in execution than this line. A let would still be in its temporal dead zone
+   at that moment and throw \u2014 the rev 137 failure, which node --check cannot see.
+   var hoists, and the value is read lazily the first time it is needed. */
+var MINPREM_LS='qs_minprem_v1';
+var minPrem=null;
+function minPremOn(){
+  if(minPrem===null){
+    try{ minPrem = localStorage.getItem(MINPREM_LS)==='1'; }catch(e){ minPrem=false; }
+  }
+  return minPrem;
+}
+function applyMinPrem(){
+  const on=minPremOn();
+  const t=document.getElementById('opSheet');
+  if(t) t.classList.toggle('min-prem', !!on);
+  const b=document.getElementById('minPremBtn');
+  if(b){
+    b.classList.toggle('on', !!on);
+    b.textContent = on ? '◨ Show Premiums' : '◧ Minimize Premiums';
+  }
+  if(window.__fitPage) setTimeout(window.__fitPage, 0);
+}
+window.applyMinPrem=applyMinPrem;
+(function(){
+  const b=document.getElementById('minPremBtn');
+  if(b) b.addEventListener('click', ()=>{
+    minPrem = !minPremOn();
+    try{ localStorage.setItem(MINPREM_LS, minPrem?'1':''); }catch(e){}
+    applyMinPrem();
+  });
+  applyMinPrem();
 })();
 
 /* ===== quote-screen zoom: Ctrl+wheel or buttons ===== */

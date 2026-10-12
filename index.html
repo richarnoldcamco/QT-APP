@@ -1718,11 +1718,35 @@ function saveTables(skipSync){
   if(!skipSync && typeof scheduleGhPush==='function') scheduleGhPush();
 }
 
-let MAT, OPS, CYC, matByName, opByName;
+let MAT, OPS, CYC, matByName, opByName, OPS_SORTED;
 function reindex(){
   MAT = TABLES.materials; OPS = TABLES.operations; CYC = TABLES.cycPremium;
   matByName = Object.fromEntries(MAT.map(m=>[m.name,m]));
   opByName  = Object.fromEntries(OPS.map(o=>[o.name,o]));
+  /* The operation list is kept in the order it was built, which happens to be
+     alphabetical \u2014 so a work centre added in Admin is pushed onto the END and lands
+     underneath every other entry in a list that reads as sorted. It is in the dropdown,
+     but nobody would ever find it there. The dropdown sorts for itself now, so a new
+     machine appears where its name says it should. Admin keeps insertion order, so a
+     row stays where it was typed. */
+  OPS_SORTED = OPS.slice().sort((a,b)=>
+    String(a.name||'').localeCompare(String(b.name||''), undefined, {sensitivity:'base'}));
+}
+/* The options for one operation cell. `cur` is kept even when no work centre by that
+   name exists any more \u2014 a renamed or deleted machine must not silently blank the
+   operation off an existing quote. */
+function opOptions(cur){
+  const sel=String(cur==null?'':cur);
+  const esc1=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  let out='<option value="">\u2014 op \u2014</option>';
+  let seen=false;
+  (OPS_SORTED||[]).forEach(o=>{
+    const n=String(o.name||'');
+    if(n===sel) seen=true;
+    out+='<option value="'+esc1(n)+'"'+(n===sel?' selected':'')+'>'+esc1(n)+'</option>';
+  });
+  if(sel && !seen) out+='<option value="'+esc1(sel)+'" selected>'+esc1(sel)+' (no longer a work centre)</option>';
+  return out;
 }
 loadTables();
 
@@ -1930,6 +1954,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:202, date:"2026-10-12", note:"A work centre added in Admin now appears in the operation dropdown where its name says it should. It was always in the list \u2014 what was wrong is that the operation table is held in the order it was built, which is alphabetical, and Add pushes the new row onto the END. So a new machine landed underneath every other entry in a list that reads as sorted, below SHIPPING and the SUB lines, where nobody would think to look. The dropdown sorts for itself now; Admin keeps insertion order so a row stays where it was typed. A value the table no longer knows is kept on the row and marked, rather than silently blanking the operation off an existing quote when a machine is renamed or deleted. Add also drops the cursor into the new row's name box: a work centre called New Operation is no use in a dropdown, and the row had to be hunted for. Option text is escaped."},
   {rev:201, date:"2026-10-12", note:"The thinking bar stops covering the print. Rev 200 stretched it to the full width and gave it a z-index, which is how it ended up painted across the top inch of the drawing \u2014 the print's box starts higher up the page than the bar does, so full width and drawn-on-top means it lands on the drawing. The z-index is gone and the print is pushed down by the exact overlap instead, measured and zoom-corrected, so the bar runs the whole width with the drawing beginning underneath it and nothing hidden. The push is padding-top rather than margin-top on purpose: applyDrawLift and liftDrawIntake both write the drawing's margin, and a third writer would have them fighting. Cleared on every non-thinking state along with the width."},
   {rev:200, date:"2026-10-12", note:"The thinking banner itself now runs the full width, across the drawing as well. Rev 199 pulsed the drawing PANE on the same beat, which was answering a different question \u2014 what Rich asked for was the violet bar to reach the right-hand side, and it still stopped dead where the print began. The cause: the bar sits above .ops-flex so its width is its parent's, while the drawing pane inside .ops-flex sticks out past that parent's right edge. It is measured now, taking the furthest right edge of the bar and the print and stretching to it, with the result divided by the sheet zoom before being written as a CSS length \u2014 the rects are post-zoom, and a fixed position would have hit the rev 57 failure. It re-measures on every state change, on resize and on a pane zoom, and any state other than thinking clears the width, so a finished or failed routing goes straight back to normal."},
   {rev:199, date:"2026-10-12", note:"The PROPOSE ROUTING animation is stronger and it reaches the print. The pulse now carries the background and the border with it rather than only a ring, and beats at 1.25s instead of 1.6 \u2014 a ring fading in and out was too polite to read as activity from any distance. The banner sits above the grid and ends where the drawing pane starts, so on a wide screen the entire right half of the window showed no sign anything was happening; the drawing pane now breathes on the same beat with a scan line travelling down the page, which is also honest about what is going on \u2014 the print is the thing being read. The class is cleared in the finally block, so a failed or abandoned request stops the animation exactly like a successful one."},
@@ -2125,7 +2150,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 201;
+const APP_REV = 202;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -2548,7 +2573,7 @@ function renderOps(){
       : `<td class="oddcell"></td>`;
     const descCell = locked
       ? `<input value="${row.desc}" disabled>`
-      : `<select data-i="${i}" data-k="desc"><option value="">— op —</option>${OPS.map(o=>`<option${o.name===row.desc?' selected':''}>${o.name}</option>`).join('')}</select>`;
+      : `<select data-i="${i}" data-k="desc">${opOptions(row.desc)}</select>`;
     const machPct = (locked||!row.desc)?'' : Math.round((d.mach||0)*100)+'%';
     const showRow = !!(row.desc||row.quote||locked);
     const calc = v => `<td class="calc">${v}</td>`;
@@ -6909,7 +6934,23 @@ function renderAdmin(){
       saveBtn.disabled=false; saveBtn.textContent=was;
     });
     const addBtn = pane.querySelector('#admAdd');
-    if(addBtn) addBtn.addEventListener('click',()=>{ built.add(); if(built.writeBack) built.writeBack(); renderAdmin(); commit(); });
+    if(addBtn) addBtn.addEventListener('click',()=>{
+      built.add();
+      if(built.writeBack) built.writeBack();
+      renderAdmin();
+      commit();                       /* saveTables + reindex + refreshChoosers + renderAll */
+      /* put the cursor in the new row's NAME box: a machine called "New Operation" is
+         no use in the dropdown, and the add used to leave him hunting for the row */
+      const pane2=document.querySelector('.adm-pane');
+      if(pane2){
+        const names=pane2.querySelectorAll('input[data-k="name"]');
+        const last=names[names.length-1];
+        if(last){
+          try{ last.scrollIntoView({block:'center'}); }catch(e){ }
+          last.focus(); try{ last.select(); }catch(e){ }
+        }
+      }
+    });
   }
   if(built.wire) built.wire(pane);
 }

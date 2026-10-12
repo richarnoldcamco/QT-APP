@@ -937,9 +937,12 @@
   .qtable td.num, .qtable th.num{text-align:right}
   .qtable td.money{font-weight:700; color:var(--cp-signal); font-variant-numeric:tabular-nums}
   .qtable td.dt{white-space:nowrap; color:var(--cp-dim); font-size:11.5px}
+  /* the clock time is the least useful half of the stamp: 30% down, and the date
+     keeps its own height because the shrink is on the time span alone */
+  .qtable td.dt .tm{font-size:70%; opacity:.85; margin-left:3px}
   .qtable td.qno{font-weight:400; font-size:9px; white-space:nowrap; color:var(--cp-dim)}
   /* part numbers never wrap — the column takes whatever width the longest one needs */
-  .qtable td.partno{white-space:nowrap; min-width:140px}
+  .qtable td.partno{white-space:nowrap; min-width:140px; font-weight:800; color:var(--cp-ink)}
   .qtable td:last-child, .qtable td.acts{white-space:nowrap}
   .qtable td.mat, .qtable th.mat{white-space:nowrap}
   .qtable td.acts{white-space:nowrap; text-align:left; padding-right:12px; width:1%}
@@ -1556,6 +1559,17 @@ function fmtWhen(v){
   const ap=hh>=12?'pm':'am'; hh=hh%12||12;
   return day+' '+hh+':'+mm+ap;
 }
+/* Same stamp, with the clock time in its own span so CSS can shrink it without
+   touching the date. Kept separate from fmtWhen because fmtWhen's output lands in
+   plain-text places too, where a span would print as literal angle brackets. */
+function fmtWhenHTML(v){
+  if(!v) return '';
+  const d=new Date(v); if(isNaN(d)) return '';
+  const day=d.toLocaleDateString('en-US',{month:'long', day:'numeric', year:'numeric'});
+  let hh=d.getHours(); const mm=String(d.getMinutes()).padStart(2,'0');
+  const ap=hh>=12?'pm':'am'; hh=hh%12||12;
+  return esc(day)+'<span class="tm">'+hh+':'+mm+ap+'</span>';
+}
 function fmtDay(v){
   if(!v) return '';
   const d=new Date(v); if(isNaN(d)) return '';
@@ -1878,6 +1892,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:197, date:"2026-10-12", note:"On PAST QUOTES the clock time in the DATE QUOTED column is 30 percent smaller while the date keeps its height, because the date is what the eye is scanning for and the time was competing with it at the same size. The shrink sits on a span around the time alone rather than on the cell, which is what keeps the date where it was. fmtWhen is untouched and still returns plain text \u2014 it also feeds the trash list, where a span would print as literal angle brackets \u2014 so the markup version is a separate function. The PART # column is now bold in full-strength ink: it is the column actually being searched down, and it was rendering lighter than the customer name beside it."},
   {rev:196, date:"2026-10-12", note:"WHAT ARE WE QUOTING has a way out and is 30 percent larger. It was built deliberately inescapable in rev 147, on the reasoning that a quote with no scope on it is worse than no quote \u2014 true, but the conclusion was wrong: the answer is to discard the quote, not to trap the man in the dialog. The X in the corner, Escape and a click on the backdrop all throw the blank quote away and go back to the quote list. Nothing is lost, because a new quote is not written to storage until something is typed into it, and rev 147's actual rule still holds \u2014 no quote is ever left live without a scope. The panel went 640 to 832px with the heading, both choices and their explanations scaled to match."},
   {rev:195, date:"2026-10-12", note:"PROPOSE ROUTING shows that it is working. Until now a request in flight was a flat grey line of text with a seconds counter on the end, which looked identical to one that had died \u2014 the whole point of the counter added in rev 188 was to tell those apart, and a number ticking in small grey type does not do it. The box now turns violet with a 2px border that breathes, a progress stripe sweeps across the top edge, a rotor spins beside the message and three dots walk under it, with the elapsed seconds in 22px figures in their own chip. The message also says what to expect and changes as it runs: typical at the start, longer than usual past 45 seconds, still going past 100, and it still gives up at 180 and says why. Honours prefers-reduced-motion."},
   {rev:194, date:"2026-10-12", note:"One type scale across the intake screen instead of three. The header fields were sitting at 26 and 28px against banner and mode-bar chrome at 11px \u2014 better than rev 192's 35/38 against 19, but still more than twice everything around them, which is what Rich kept seeing. Labels and fields now sit at 19 and 20px, the drawing toolbar at 20, and the banner, mode bar and view buttons come up to 14\u201315px, so the whole screen reads in one band rather than as a big form bolted to a small application. The DONE \u2014 UNLOCK GRID button went from 11px to 16px with a heavier border and a shadow: it is the way out of the guided intake and it was rendering smaller than the text telling you to press it. Narrowing the fields also narrows the panel, 880 to 680px, which hands the difference straight to the print."},
@@ -2068,7 +2083,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 196;
+const APP_REV = 197;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -5503,7 +5518,7 @@ function renderSaved(){
     </tr></thead>
     <tbody>` + rows.map(q=>{
       const f=q.fields||{};
-      const when=fmtWhen(q.updated);
+      const when=fmtWhenHTML(q.updated);
       const isActive=q.no==activeQuoteNo;
       const annQty=parseFloat(f.annualUsage)||0;
       const qty=parseFloat(f.batchSize)||0;      /* still what BATCH $ is worked out on */

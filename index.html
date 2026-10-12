@@ -330,7 +330,7 @@
   .ai-route-out.thinking{
     background:linear-gradient(180deg,#efecfb,#e4e0f7);
     border:3px solid #5b4fc7; color:#231d57;
-    position:relative; overflow:hidden; box-sizing:border-box; z-index:6;
+    position:relative; overflow:hidden; box-sizing:border-box;
     padding:16px 18px; font-size:19px; font-weight:800; letter-spacing:.01em;
     animation:aiBreathe 1.25s ease-in-out infinite;
   }
@@ -1930,6 +1930,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:201, date:"2026-10-12", note:"The thinking bar stops covering the print. Rev 200 stretched it to the full width and gave it a z-index, which is how it ended up painted across the top inch of the drawing \u2014 the print's box starts higher up the page than the bar does, so full width and drawn-on-top means it lands on the drawing. The z-index is gone and the print is pushed down by the exact overlap instead, measured and zoom-corrected, so the bar runs the whole width with the drawing beginning underneath it and nothing hidden. The push is padding-top rather than margin-top on purpose: applyDrawLift and liftDrawIntake both write the drawing's margin, and a third writer would have them fighting. Cleared on every non-thinking state along with the width."},
   {rev:200, date:"2026-10-12", note:"The thinking banner itself now runs the full width, across the drawing as well. Rev 199 pulsed the drawing PANE on the same beat, which was answering a different question \u2014 what Rich asked for was the violet bar to reach the right-hand side, and it still stopped dead where the print began. The cause: the bar sits above .ops-flex so its width is its parent's, while the drawing pane inside .ops-flex sticks out past that parent's right edge. It is measured now, taking the furthest right edge of the bar and the print and stretching to it, with the result divided by the sheet zoom before being written as a CSS length \u2014 the rects are post-zoom, and a fixed position would have hit the rev 57 failure. It re-measures on every state change, on resize and on a pane zoom, and any state other than thinking clears the width, so a finished or failed routing goes straight back to normal."},
   {rev:199, date:"2026-10-12", note:"The PROPOSE ROUTING animation is stronger and it reaches the print. The pulse now carries the background and the border with it rather than only a ring, and beats at 1.25s instead of 1.6 \u2014 a ring fading in and out was too polite to read as activity from any distance. The banner sits above the grid and ends where the drawing pane starts, so on a wide screen the entire right half of the window showed no sign anything was happening; the drawing pane now breathes on the same beat with a scan line travelling down the page, which is also honest about what is going on \u2014 the print is the thing being read. The class is cleared in the finally block, so a failed or abandoned request stops the animation exactly like a successful one."},
   {rev:198, date:"2026-10-12", note:"DATE RECEIVED. The sheet recorded when a quote was last touched and nothing at all about when the RFQ arrived, so turnaround could not be answered from the quote itself. It is a real header field: third in the tab order and the guided walk, straight after the part number, saved and restored with the quote like any other header value. A new quote starts at today because that is what it is nearly every time, and it is still walked so an older RFQ being caught up on can be corrected. The date is built in local time, not from toISOString, which would put a quote started after 8pm Eastern on tomorrow. On PAST QUOTES it appears as a second line under the quoted stamp in the same cell rather than as a new column \u2014 that table already runs off the right edge of the window, and rev 161 was the lesson about adding a column to a table without asking what falls off the end."},
@@ -2124,7 +2125,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 200;
+const APP_REV = 201;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -4290,19 +4291,37 @@ window.addEventListener('resize', ()=>sizeIntakePanel());
 function sizeThinkBar(){
   const el=document.getElementById('aiRouteOut');
   if(!el) return;
+  const dw=document.querySelector('.drawwrap');
+  /* always reset first, so every non-thinking state leaves no trace */
   el.style.width='';
+  if(dw) dw.style.paddingTop='';
   if(el.hidden || !el.classList.contains('thinking')) return;
   if(el.offsetParent===null) return;
   const z=(typeof sheetZoom!=='undefined' && sheetZoom)||1.2;
+  const live = dw && !dw.hidden && dw.offsetParent!==null;
+
+  /* 1. stretch the bar to the furthest right edge of the two */
   const a=el.getBoundingClientRect();
   let right=a.right;
-  const dw=document.querySelector('.drawwrap');
-  if(dw && !dw.hidden && dw.offsetParent!==null){
+  if(live){
     const d=dw.getBoundingClientRect();
     if(d.right>right) right=d.right;
   }
   const w=(right-a.left)/z;
   if(w>120) el.style.width=w+'px';
+
+  /* 2. then make ROOM for it. The print's box starts higher up the page than the
+     bar does, so a full-width bar lands on top of the drawing and hides the first
+     inch of it. Pushing the print down is the honest fix \u2014 stacking the bar over
+     it with a z-index just hides the problem behind the thing it is covering.
+     padding-top, not margin-top: applyDrawLift and liftDrawIntake both own the
+     drawing's margin and would fight over it. */
+  if(live){
+    const barB=el.getBoundingClientRect().bottom;
+    const dTop=dw.getBoundingClientRect().top;
+    const over=(barB-dTop)/z;
+    if(over>0) dw.style.paddingTop=(over+6)+'px';
+  }
 }
 window.sizeThinkBar=sizeThinkBar;
 window.addEventListener('resize', ()=>sizeThinkBar());

@@ -170,6 +170,10 @@
   .opgrid th .rot{writing-mode:vertical-rl; transform:rotate(180deg); margin:0 auto; max-height:140px}
   .opgrid th.flat{writing-mode:horizontal-tb; height:auto; vertical-align:middle; white-space:normal; min-width:70px}
   .opgrid td{border:1px solid var(--grid); padding:0; height:24px; font-size:13px; text-align:center; background:#fff; overflow:hidden}
+  /* S/U COST PER PC under $0.05 on an operation that HAS a work centre picked: a setup
+     cost of nothing is a quote that will not pay for the setup. Only rows with an
+     operation on them light up \u2014 an empty row is unused, not wrong. */
+  .opgrid td.su-low{background:#d61f1f !important; color:#fff; font-weight:800}
   .opgrid td.op{background:#fff; font-weight:700; text-align:center; white-space:nowrap}
   .opgrid .rowbtns{display:inline-flex; gap:2px; margin-left:4px; vertical-align:middle}
   .opgrid .rb{
@@ -1954,6 +1958,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:203, date:"2026-10-12", note:"S/U COST PER PC goes red below $0.05. A setup cost of nothing on an operation that has a work centre picked means the quote is not paying for the setup, and at $0.00 in a column of ordinary-looking dollar figures it reads as a number rather than as a hole. White on a solid red cell, with the reason on the tooltip. Only rows that have an operation selected are tested \u2014 an empty row further down the ladder is unused, not wrong, and lighting those up would have turned the bottom of every short routing red. Note that a subcontract line with no in-house setup, SUB - HEAT TREAT for one, is genuinely $0.00 here and will show red too."},
   {rev:202, date:"2026-10-12", note:"A work centre added in Admin now appears in the operation dropdown where its name says it should. It was always in the list \u2014 what was wrong is that the operation table is held in the order it was built, which is alphabetical, and Add pushes the new row onto the END. So a new machine landed underneath every other entry in a list that reads as sorted, below SHIPPING and the SUB lines, where nobody would think to look. The dropdown sorts for itself now; Admin keeps insertion order so a row stays where it was typed. A value the table no longer knows is kept on the row and marked, rather than silently blanking the operation off an existing quote when a machine is renamed or deleted. Add also drops the cursor into the new row's name box: a work centre called New Operation is no use in a dropdown, and the row had to be hunted for. Option text is escaped."},
   {rev:201, date:"2026-10-12", note:"The thinking bar stops covering the print. Rev 200 stretched it to the full width and gave it a z-index, which is how it ended up painted across the top inch of the drawing \u2014 the print's box starts higher up the page than the bar does, so full width and drawn-on-top means it lands on the drawing. The z-index is gone and the print is pushed down by the exact overlap instead, measured and zoom-corrected, so the bar runs the whole width with the drawing beginning underneath it and nothing hidden. The push is padding-top rather than margin-top on purpose: applyDrawLift and liftDrawIntake both write the drawing's margin, and a third writer would have them fighting. Cleared on every non-thinking state along with the width."},
   {rev:200, date:"2026-10-12", note:"The thinking banner itself now runs the full width, across the drawing as well. Rev 199 pulsed the drawing PANE on the same beat, which was answering a different question \u2014 what Rich asked for was the violet bar to reach the right-hand side, and it still stopped dead where the print began. The cause: the bar sits above .ops-flex so its width is its parent's, while the drawing pane inside .ops-flex sticks out past that parent's right edge. It is measured now, taking the furthest right edge of the bar and the print and stretching to it, with the result divided by the sheet zoom before being written as a CSS length \u2014 the rects are post-zoom, and a fixed position would have hit the rev 57 failure. It re-measures on every state change, on resize and on a pane zoom, and any state other than thinking clears the width, so a finished or failed routing goes straight back to normal."},
@@ -2150,7 +2155,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 202;
+const APP_REV = 203;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -2624,7 +2629,7 @@ function renderOps(){
       <td class="yellow">${num('subPc','0.01')}</td>
       <td class="yellow">${num('subBatch','1')}</td>
       <td class="yellow">${num('subCostBatch','0.01')}</td>
-      <td>${d.suPc?('$'+d.suPc.toFixed(2)):(showRow?'$0.00':'')}</td>
+      <td${(showRow && row.desc && (d.suPc||0) < 0.05) ? ' class="su-low" title="S/U COST PER PC is under $0.05 \u2014 this operation has no setup cost on it"' : ''}>${d.suPc?('$'+d.suPc.toFixed(2)):(showRow?'$0.00':'')}</td>
       ${oddCell}
       ${calc(showRow?m2(d.base||0):'$0.00')}
       ${calc(d.perShift!==''&&d.perShift!=null?('$'+Number(d.perShift).toFixed(2)):'')}

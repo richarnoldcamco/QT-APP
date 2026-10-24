@@ -230,6 +230,26 @@
     box-shadow:0 2px 8px rgba(90,20,20,.3);
   }
   .guide-cur{outline:3px solid var(--cp-signal) !important; outline-offset:-1px; background:#fff8c4 !important}
+  /* The field the walk cannot get past. A line in the banner was not enough: the banner
+     is at the top of the screen and the field blocking it can be most of a panel below,
+     out of sight. This is the field itself. */
+  .guide-block{
+    outline:4px solid #d61f1f !important; outline-offset:-2px;
+    background:#d61f1f !important; color:#fff !important; font-weight:800 !important;
+    animation:guideBlockPulse 1s ease-in-out infinite;
+  }
+  @keyframes guideBlockPulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(214,31,31,.75)}
+    50%    {box-shadow:0 0 0 10px rgba(214,31,31,0)}
+  }
+  .guide-block option{background:#fff; color:#000; font-weight:600}
+  .guide-miss{
+    margin-left:14px; padding:6px 16px; border-radius:8px; border:2px solid #7a1010;
+    background:#d61f1f; color:#fff; font:800 15px var(--ui); letter-spacing:.04em; cursor:pointer;
+  }
+  .guide-miss:hover{filter:brightness(1.15)}
+  body.intake-panel-on .guide-miss{padding:5px 14px; font-size:14px}
+  @media (prefers-reduced-motion:reduce){ .guide-block{animation:none} }
   /* an explicit way out of the guided intake. TAB off the last field still ends it,
      but a walk you can only leave by guessing the right key is a trap. */
   .guide-done{margin-left:18px; padding:7px 20px; border-radius:8px; border:2px solid #0d4a1c;
@@ -2029,6 +2049,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:208, date:"24/10/2026", note:"The guided intake can no longer strand you. Tabbing down the header stops dead at FAI or PART PROCESSING DIFFICULTY while they read PICK, which is correct \u2014 rev 143 made them mandatory \u2014 but the only sign of it was one line in a banner at the top of the screen while the field doing the blocking sat most of a panel below, out of view, and the next redraw wiped that line. What was left was a TAB key that did nothing. Now the blocking field itself is scrolled to, focused and painted solid red with a pulse, the banner names it and says how many are left, and a red button in the banner jumps straight to the first one from anywhere in the walk. DONE no longer unlocks the grid over the top of a blank mandatory field \u2014 it takes you to the first one and names it. JOB TYPE joins the gate: it was declared mandatory in rev 143 and never added, so it could be tabbed straight past while the other two could not. The red clears the moment a value is chosen."},
   {rev:207, date:"2026-10-12", note:"PER SHIFT OUTPUT, PCS/SHIFT SMELL TEST, C/T COST and NRE collapse with the premiums. Sixteen columns hidden instead of twelve, freeing 554px rather than 381, and all of it is spent on what is left: DESCRIPTION goes 130 to 334px and QUOTE 30 to 155, every figure column widens, and the type goes from 13px to 19px on 32px rows. The visible columns still total exactly 1487px, so the sheet is the same size in both states. The hidden set is no longer one contiguous run of columns, so the selectors are generated from it rather than written by hand, and the build asserts that the widths total 1487, that no override lands on a hidden column, and that no visible column was made narrower."},
   {rev:206, date:"2026-10-12", note:"Minimising the premiums now makes the sheet easier to read rather than merely narrower. Rev 205 collapsed the twelve breakdown columns and left everything else at its cramped size, so the 381px came back as empty space. That width is spent now: DESCRIPTION goes 130 to 230px and QUOTE 30 to 118, which stops work-centre names truncating to INSPECT - GENE, the figure columns widen, and the type goes from 13px to 17px on 30px rows with the rotated headers shortened to match. The widened columns total 1487px, exactly the full grid's width, so the sheet takes the same room in both states and nothing reflows around it. The focus-grow that widens the column you are typing in carried a hard-coded base width per mode and knew only two; it knows this one now, so clicking into a cell no longer snaps the table back to the full-grid width."},
   {rev:205, date:"2026-10-12", note:"MINIMIZE PREMIUMS collapses the premium breakdown \u2014 the twelve columns from LONG CYCLE TIME PREMIUM through ODD FEATURE COST PER PC, 381px of the grid's 1487. That block is the working behind the price: worth opening when a number looks wrong, noise the rest of the time, and it pushes the figures that matter off the right-hand side. The button is in the view bar beside ODD FEATURES and the choice is remembered on the device. Prices do not change, only the working is hidden. Built with the same hide-bands technique as drawing mode, cells kept in the DOM at zero width, so the footer colspans and the totals alignment are untouched, and the two can be on at once. Also fixes rev 204: the UNDO and REDO buttons shipped with their escape sequences printed as literal text instead of the arrows."},
@@ -2230,7 +2251,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 207;
+const APP_REV = 208;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -7298,6 +7319,42 @@ function startGuide(){
   b.hidden=false;
   guideFocus();
 }
+/* The fields Rich said must be picked on every quote, with the names the sheet uses.
+   JOB TYPE was declared mandatory in rev 143 but never added to this gate, so it could
+   be tabbed straight past while FAI and DIFFICULTY could not.
+   var and function declarations only: guideDoneBtn() calls missingMandatory() and is
+   itself reachable from guideMsg(), which runs earlier than this line \u2014 a const
+   would still be in its temporal dead zone (the rev 137 and rev 205 failure). */
+var MUST_PICK = {jobType:'JOB TYPE', faiReq:'FAI', difficulty:'PART PROCESSING DIFFICULTY'};
+function missingMandatory(){
+  if(typeof guideList!=='function') return [];
+  return guideList().filter(id=>MUST_PICK[id] && !String(($(id)&&$(id).value)||'').trim());
+}
+/* Put him ON the field that is blocking: scrolled to, focused, and painted red. */
+function guideBlockOn(id){
+  document.querySelectorAll('.guide-block').forEach(x=>x.classList.remove('guide-block'));
+  const el=$(id); if(!el) return;
+  const k=guideList().indexOf(id);
+  if(k>=0) guideIdx=k;
+  document.querySelectorAll('.guide-cur').forEach(x=>x.classList.remove('guide-cur'));
+  el.classList.add('guide-cur','guide-block');
+  try{ el.scrollIntoView({block:'center'}); }catch(e){}
+  el.focus();
+  const miss=missingMandatory();
+  const b=$('guideBanner');
+  if(b){
+    b.textContent='\u26d4 '+MUST_PICK[id]+' MUST BE PICKED \u2014 choose a value to continue.'
+      + (miss.length>1 ? '  ('+miss.length+' still to pick: '+miss.map(x=>MUST_PICK[x]).join(', ')+')' : '');
+    guideDoneBtn(b);
+  }
+  /* the red clears itself the moment a value is chosen */
+  el.addEventListener('change', function once(){
+    el.classList.remove('guide-block');
+    el.removeEventListener('change', once);
+    guideMsg();
+  });
+}
+window.__guideBlockOn=guideBlockOn;
 function guideMsg(){
   const b=$('guideBanner'); if(!b) return;
   b.textContent='📝 New quote — fill or TAB through the header fields (step '+(guideIdx+2)+' of '+(guideList().length+1)+'). TAB off the last field, or press DONE, to unlock the calculation grid.';
@@ -7311,9 +7368,27 @@ function guideDoneBtn(b){
     d=document.createElement('button');
     d.id='guideDoneBtn'; d.type='button'; d.className='guide-done';
     d.textContent='✔ DONE — UNLOCK GRID';
-    d.addEventListener('click', ()=>{ endGuide(); });
+    /* DONE no longer unlocks over the top of a blank mandatory field. It takes him to
+       the first one and names it, which is the difference between a dead end and a door. */
+    d.addEventListener('click', ()=>{
+      const miss=missingMandatory();
+      if(miss.length){ guideBlockOn(miss[0]); return; }
+      endGuide();
+    });
   }
   b.appendChild(d);
+  /* a direct way to the first unfilled mandatory field, from anywhere in the walk */
+  let m=document.getElementById('guideMissBtn');
+  const miss=missingMandatory();
+  if(!m){
+    m=document.createElement('button');
+    m.id='guideMissBtn'; m.type='button'; m.className='guide-miss';
+    m.addEventListener('click', ()=>{ const q=missingMandatory(); if(q.length) guideBlockOn(q[0]); });
+  }
+  if(miss.length){
+    m.textContent='⚠ '+miss.length+' TO PICK: '+miss.map(x=>MUST_PICK[x]).join(', ');
+    b.appendChild(m);
+  }else if(m.parentNode){ m.parentNode.removeChild(m); }
 }
 
 /* ===== INTAKE FIELD PANEL (rev 73) =====
@@ -7394,6 +7469,7 @@ function guideFocus(){
   guideMsg();
 }
 function endGuide(){
+  document.querySelectorAll('.guide-block').forEach(x=>x.classList.remove('guide-block'));
   teardownIntakePanel();
   guideIdx=-1;
   intakePending=false;
@@ -7430,6 +7506,7 @@ function resumeGuide(){
   guideFocus();
 }
 function cancelGuide(){
+  document.querySelectorAll('.guide-block').forEach(x=>x.classList.remove('guide-block'));
   teardownIntakePanel();
   guideIdx=-1;
   intakePending=false;
@@ -7463,10 +7540,8 @@ document.addEventListener('keydown', e=>{
     }
   }
   e.preventDefault();
-  const mustPick = (cur.id==='faiReq'||cur.id==='difficulty');
-  if(mustPick && !cur.value && !(e.shiftKey&&e.key==='Tab')){
-    const b=$('guideBanner');
-    if(b){ b.textContent='⛔ '+(cur.id==='faiReq'?'FAI':'PART PROCESSING DIFFICULTY')+' MUST BE PICKED — choose a value to continue.'; }
+  if(MUST_PICK[cur.id] && !String(cur.value||'').trim() && !(e.shiftKey&&e.key==='Tab')){
+    guideBlockOn(cur.id);     /* red, scrolled to, focused, and named in the banner */
     return;
   }
   const leavingMaterial = (cur.id==='material') && !(e.shiftKey && e.key==='Tab');

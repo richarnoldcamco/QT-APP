@@ -229,6 +229,23 @@
     background:linear-gradient(180deg,#8a1c1c,var(--cp-signal));
     box-shadow:0 2px 8px rgba(90,20,20,.3);
   }
+  /* ===== running from a file on disk =====
+     A downloaded copy keeps its own localStorage origin, so it has no GitHub token and
+     the auto-updater can never reach the repo \u2014 it will sit on whatever rev it was
+     downloaded at, for ever, saying nothing. Rich lost two sessions to a REV 142 file in
+     his Downloads folder before the address bar gave it away. This bar is the fix: a
+     local copy now says what it is and what rev it is, every time it opens. */
+  .filewarn{
+    position:sticky; top:0; z-index:9999;
+    background:#b30d0d; color:#fff; font:800 15px var(--ui); letter-spacing:.02em;
+    padding:10px 16px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    box-shadow:0 2px 10px rgba(0,0,0,.4);
+  }
+  .filewarn a{color:#fff; background:#000; padding:6px 14px; border-radius:7px;
+    text-decoration:none; border:2px solid #fff; white-space:nowrap}
+  .filewarn a:hover{background:#333}
+  .filewarn .fw-x{margin-left:auto; background:transparent; border:2px solid #fff;
+    color:#fff; border-radius:7px; padding:5px 12px; font:800 14px var(--ui); cursor:pointer}
   .guide-cur{outline:3px solid var(--cp-signal) !important; outline-offset:-1px; background:#fff8c4 !important}
   /* The field the walk cannot get past. A line in the banner was not enough: the banner
      is at the top of the screen and the field blocking it can be most of a panel below,
@@ -2049,6 +2066,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:210, date:"02/11/2026", note:"A copy opened from disk now says so. file:// gets its own localStorage origin, so a downloaded copy has no saved GitHub config, which means no auto-update and no sync \u2014 it sits on whatever rev it was downloaded at, for ever, and says nothing about it. That cost two sessions chasing a guided-intake fault that had been fixed sixty revisions earlier, on a REV 142 file in the Downloads folder; the address bar was the only clue. A red bar across the top of any file:// copy now names the rev it actually is, says it cannot update itself and does not share the saved quotes, and links to the live app. It is dismissible but it is back on the next open. It costs nothing on the real site, where the check fails immediately."},
   {rev:209, date:"02/11/2026", note:"The guided intake no longer has to be finished before the calculation grid can be used. Rev 208 put the mandatory-field gate at data entry \u2014 TAB stopped dead at JOB TYPE, FAI or PART PROCESSING DIFFICULTY and DONE refused to unlock over a blank one. That was the wrong place to stand. A quote is not finished at data entry, it is finished at FINALIZE, and a header that is only half known partway through pricing is a normal state, not an error. DONE now always unlocks. TAB marks an unpicked field and carries on. The marks are the whole point: every unpicked mandatory field stays solid red wherever it sits, on the intake panel and on the header afterwards, repainted on every redraw, and the banner keeps its count. FINALIZE is where it is enforced \u2014 it refuses while any are blank, names them, and jumps to the first. Rev 143's rule still holds, at the point where it means something."},
   {rev:208, date:"24/10/2026", note:"The guided intake can no longer strand you. Tabbing down the header stops dead at FAI or PART PROCESSING DIFFICULTY while they read PICK, which is correct \u2014 rev 143 made them mandatory \u2014 but the only sign of it was one line in a banner at the top of the screen while the field doing the blocking sat most of a panel below, out of view, and the next redraw wiped that line. What was left was a TAB key that did nothing. Now the blocking field itself is scrolled to, focused and painted solid red with a pulse, the banner names it and says how many are left, and a red button in the banner jumps straight to the first one from anywhere in the walk. DONE no longer unlocks the grid over the top of a blank mandatory field \u2014 it takes you to the first one and names it. JOB TYPE joins the gate: it was declared mandatory in rev 143 and never added, so it could be tabbed straight past while the other two could not. The red clears the moment a value is chosen."},
   {rev:207, date:"2026-10-12", note:"PER SHIFT OUTPUT, PCS/SHIFT SMELL TEST, C/T COST and NRE collapse with the premiums. Sixteen columns hidden instead of twelve, freeing 554px rather than 381, and all of it is spent on what is left: DESCRIPTION goes 130 to 334px and QUOTE 30 to 155, every figure column widens, and the type goes from 13px to 19px on 32px rows. The visible columns still total exactly 1487px, so the sheet is the same size in both states. The hidden set is no longer one contiguous run of columns, so the selectors are generated from it rather than written by hand, and the build asserts that the widths total 1487, that no override lands on a hidden column, and that no visible column was made narrower."},
@@ -2252,7 +2270,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 209;
+const APP_REV = 210;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -9157,6 +9175,33 @@ suspendAutosave = false;                 /* from here on, every edit autosaves *
 updateDrawModeBtn();
 switchView('menu');                      /* land on the main menu */
 if(ghEnabled()){ ghStatus('Connecting to GitHub…', true); ghPull(false); }
+
+/* ===== A COPY ON DISK CANNOT UPDATE ITSELF =====
+   file:// gets its own localStorage origin, so no saved GitHub config, so no auto-update
+   and no sync \u2014 the copy stays on its download-day rev silently. Say so, loudly, with
+   the rev it actually is and a link to the live app. */
+(function(){
+  if(location.protocol!=='file:') return;
+  function bar(){
+    if(document.getElementById('fileWarnBar')) return;
+    const LIVE='https://richarnoldcamco.github.io/QT-APP/';
+    const d=document.createElement('div');
+    d.id='fileWarnBar'; d.className='filewarn';
+    const msg=document.createElement('span');
+    const rev=(typeof APP_REV!=='undefined')?APP_REV:'?';
+    msg.textContent='\u26a0 THIS IS A DOWNLOADED COPY \u2014 REV '+rev
+      +'. It cannot update itself and it does not share your saved quotes.';
+    const a=document.createElement('a');
+    a.href=LIVE; a.textContent='OPEN THE LIVE APP';
+    const x=document.createElement('button');
+    x.type='button'; x.className='fw-x'; x.textContent='DISMISS';
+    x.addEventListener('click', ()=>d.remove());
+    d.appendChild(msg); d.appendChild(a); d.appendChild(x);
+    document.body.insertBefore(d, document.body.firstChild);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bar);
+  else bar();
+})();
 
 /* ===== APP AUTO-UPDATE (CP pattern): the data repo holds quote_app.html; every device
    checks its APP_REV and applies newer code in place. Never-downgrade guard on pushes. ===== */

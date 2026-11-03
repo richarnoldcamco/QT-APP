@@ -2049,6 +2049,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:209, date:"02/11/2026", note:"The guided intake no longer has to be finished before the calculation grid can be used. Rev 208 put the mandatory-field gate at data entry \u2014 TAB stopped dead at JOB TYPE, FAI or PART PROCESSING DIFFICULTY and DONE refused to unlock over a blank one. That was the wrong place to stand. A quote is not finished at data entry, it is finished at FINALIZE, and a header that is only half known partway through pricing is a normal state, not an error. DONE now always unlocks. TAB marks an unpicked field and carries on. The marks are the whole point: every unpicked mandatory field stays solid red wherever it sits, on the intake panel and on the header afterwards, repainted on every redraw, and the banner keeps its count. FINALIZE is where it is enforced \u2014 it refuses while any are blank, names them, and jumps to the first. Rev 143's rule still holds, at the point where it means something."},
   {rev:208, date:"24/10/2026", note:"The guided intake can no longer strand you. Tabbing down the header stops dead at FAI or PART PROCESSING DIFFICULTY while they read PICK, which is correct \u2014 rev 143 made them mandatory \u2014 but the only sign of it was one line in a banner at the top of the screen while the field doing the blocking sat most of a panel below, out of view, and the next redraw wiped that line. What was left was a TAB key that did nothing. Now the blocking field itself is scrolled to, focused and painted solid red with a pulse, the banner names it and says how many are left, and a red button in the banner jumps straight to the first one from anywhere in the walk. DONE no longer unlocks the grid over the top of a blank mandatory field \u2014 it takes you to the first one and names it. JOB TYPE joins the gate: it was declared mandatory in rev 143 and never added, so it could be tabbed straight past while the other two could not. The red clears the moment a value is chosen."},
   {rev:207, date:"2026-10-12", note:"PER SHIFT OUTPUT, PCS/SHIFT SMELL TEST, C/T COST and NRE collapse with the premiums. Sixteen columns hidden instead of twelve, freeing 554px rather than 381, and all of it is spent on what is left: DESCRIPTION goes 130 to 334px and QUOTE 30 to 155, every figure column widens, and the type goes from 13px to 19px on 32px rows. The visible columns still total exactly 1487px, so the sheet is the same size in both states. The hidden set is no longer one contiguous run of columns, so the selectors are generated from it rather than written by hand, and the build asserts that the widths total 1487, that no override lands on a hidden column, and that no visible column was made narrower."},
   {rev:206, date:"2026-10-12", note:"Minimising the premiums now makes the sheet easier to read rather than merely narrower. Rev 205 collapsed the twelve breakdown columns and left everything else at its cramped size, so the 381px came back as empty space. That width is spent now: DESCRIPTION goes 130 to 230px and QUOTE 30 to 118, which stops work-centre names truncating to INSPECT - GENE, the figure columns widen, and the type goes from 13px to 17px on 30px rows with the rotated headers shortened to match. The widened columns total 1487px, exactly the full grid's width, so the sheet takes the same room in both states and nothing reflows around it. The focus-grow that widens the column you are typing in carried a hard-coded base width per mode and knew only two; it knows this one now, so clicking into a cell no longer snaps the table back to the full-grid width."},
@@ -2251,7 +2252,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 208;
+const APP_REV = 209;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -3039,7 +3040,7 @@ function showOriginalSheet(rec){
   box.querySelector('#wbSheetClose').addEventListener('click', ()=>ov.remove());
   document.body.appendChild(ov);
 }
-function renderAll(){ renderOps(); renderSummary(); if(window.applyMinPrem) applyMinPrem(); scheduleAutosave(); if(window.updateImportBanner) updateImportBanner(); }
+function renderAll(){ renderOps(); renderSummary(); if(window.applyMinPrem) applyMinPrem(); if(window.markMandatory) markMandatory(); scheduleAutosave(); if(window.updateImportBanner) updateImportBanner(); }
 
 /* ---- add operation row ---- */
 $('addOp').addEventListener('click', ()=>{
@@ -6185,6 +6186,19 @@ function updateFinalizeBtn(){
 window.updateFinalizeBtn=updateFinalizeBtn;
 const _fb=$('finalizeBtn');
 if(_fb) _fb.addEventListener('click', ()=>{
+  /* Rev 209: the mandatory-field gate lives HERE now, not at data entry. A quote can
+     be priced with a half-known header; it cannot be called FINALIZED with one. */
+  if(!quoteFinalized && typeof missingMandatory==='function'){
+    const miss=missingMandatory();
+    if(miss.length){
+      if(window.markMandatory) markMandatory();
+      const names=miss.map(x=>MUST_PICK[x]).join(', ');
+      if(window.updateToast) updateToast('\u26d4 Cannot finalize \u2014 still to pick: '+names);
+      const first=$(miss[0]);
+      if(first){ try{ first.scrollIntoView({block:'center'}); }catch(e){} first.focus(); }
+      return;
+    }
+  }
   quoteFinalized=!quoteFinalized;
   updateFinalizeBtn();
   autosaveNow();
@@ -7330,6 +7344,20 @@ function missingMandatory(){
   if(typeof guideList!=='function') return [];
   return guideList().filter(id=>MUST_PICK[id] && !String(($(id)&&$(id).value)||'').trim());
 }
+/* Paint every unpicked mandatory field red, wherever it is, and clear the ones that
+   have been answered. Runs on every render, so the marks survive leaving the guided
+   walk and stay visible on the header itself. */
+function markMandatory(){
+  const miss=missingMandatory();
+  Object.keys(MUST_PICK).forEach(id=>{
+    const el=$(id); if(!el) return;
+    el.classList.toggle('guide-block', miss.indexOf(id)>=0);
+  });
+  const b=$('guideBanner');
+  if(b && !b.hidden && typeof guideDoneBtn==='function') guideDoneBtn(b);
+  return miss;
+}
+window.markMandatory=markMandatory;
 /* Put him ON the field that is blocking: scrolled to, focused, and painted red. */
 function guideBlockOn(id){
   document.querySelectorAll('.guide-block').forEach(x=>x.classList.remove('guide-block'));
@@ -7368,13 +7396,13 @@ function guideDoneBtn(b){
     d=document.createElement('button');
     d.id='guideDoneBtn'; d.type='button'; d.className='guide-done';
     d.textContent='✔ DONE — UNLOCK GRID';
-    /* DONE no longer unlocks over the top of a blank mandatory field. It takes him to
-       the first one and names it, which is the difference between a dead end and a door. */
-    d.addEventListener('click', ()=>{
-      const miss=missingMandatory();
-      if(miss.length){ guideBlockOn(miss[0]); return; }
-      endGuide();
-    });
+    d.title='Unlock the calculation grid now. Anything still to pick stays marked in red and is checked again at FINALIZE.';
+    /* Rev 209: DONE always unlocks. Rev 208 made it refuse over a blank mandatory
+       field, which was the wrong place to stand: a quote is not finished at data
+       entry, it is finished at FINALIZE, and Rich needs the grid while a header is
+       still half known. The blanks stay marked and FINALIZE is where they are
+       enforced. */
+    d.addEventListener('click', ()=>{ endGuide(); });
   }
   b.appendChild(d);
   /* a direct way to the first unfilled mandatory field, from anywhere in the walk */
@@ -7540,9 +7568,11 @@ document.addEventListener('keydown', e=>{
     }
   }
   e.preventDefault();
+  /* Rev 209: an unpicked mandatory field is MARKED, not a wall. It stays red until
+     something is chosen and FINALIZE refuses while any are blank, but TAB carries on
+     \u2014 a half-known header is a normal state partway through a quote. */
   if(MUST_PICK[cur.id] && !String(cur.value||'').trim() && !(e.shiftKey&&e.key==='Tab')){
-    guideBlockOn(cur.id);     /* red, scrolled to, focused, and named in the banner */
-    return;
+    markMandatory();
   }
   const leavingMaterial = (cur.id==='material') && !(e.shiftKey && e.key==='Tab');
   guideIdx += (e.shiftKey && e.key==='Tab') ? -1 : 1;

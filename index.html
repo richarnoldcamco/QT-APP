@@ -2081,6 +2081,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:216, date:"12/11/2026", note:"ROUGHING AND FINISHING DO NOT COST THE SAME MINUTE. Rev 215 let a quote carry one rate for all of it, which is still one rate too few: on the AMCOM spur gear the first two lathe operations are blanking work and the finish mill, the hobber and the hone are not. Every operation row now has its own $/Min This Op column, beside Cycle Time. Leave it at 0 and nothing changes. Put a number in it and THAT operation bills at that number. Three places a rate can come from now, most specific wins: the row, then the quote $/Min Override, then the shared Admin operations table. First use is 1374194B - $4.00/min on the two lathe operations, $8.00/min on the finishing."},
   {rev:215, date:"12/11/2026", note:"A RATE THAT IS RIGHT FOR ONE PART IS WRONG FOR THE OTHER FORTY-SIX. The $/min rates live in the Admin operations table, which every quote in the file reads, so raising a rate for one hard job quietly re-prices every other job too - that is what happened the day $3.00/min went global. A quote now carries its own $/Min Override, next to Weight Of Slug on the header. Leave it at 0 and nothing changes: the operation reads its rate from the table exactly as before. Put a number in it and every operation on THAT quote bills at that number, and no other quote moves. The first use is 1374194B, the AMCOM spur gear, at $8.00/min."},
   {rev:214, date:"12/11/2026", note:"A FIRST RUN IS NOT A REPEAT JOB, and this app had been pricing both the same way. Quotes carry no setup by standing rule, which is right for a part that has run a hundred times and wrong for one that has never been cut: the program has to be proved, the first article written, the paperwork done, and on a short order that work is most of the cost. The brain now carries the rule \u2014 $500 an operation for prove-out and paperwork on a first run, entered as setup hours on each operation that actually runs, 4.0 hr at the $125/hr setup rate. Material and a bar-fed Saw are not operations and carry none; a repeat job carries none at all. Nothing in the engine changed, because the setup column already did this arithmetic \u2014 what was missing was anyone saying when to use it."},
   {rev:213, date:"12/11/2026", note:"The brain was repeating the machine rates as typed prose when Machine Rates & Leadtime already defines a dollars-per-minute for every work centre. Two places to state the same number is one place to be wrong, so the rate rule is now LIVE: it has no text of its own and reads the rates table every time the screen draws, grouping the work centres by rate. Change a rate in the table and the rule changes with it; it cannot drift. The setup-and-shipping rule has been taken out \u2014 that is a decision per quote, not a standing rule. A brain seeded by rev 212 migrates itself on load, and only exact seeded wording is touched, so anything typed by hand is left alone."},
@@ -2290,7 +2291,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 215;
+const APP_REV = 216;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -2303,7 +2304,7 @@ const OP_NUMS = [5,10,15,20,30,40,50,60,70,80];
 let opRows = [];
 function makeRow(opnum, preset){
   return Object.assign({op:opnum, desc:'', quote:'', fix1:0, fix2:0, extraInsp:0, setup:0, cycle:0,
-    load:0, insp:0, pcsReload:0, tol001:0, tol0005:0, tol0002:0, tolLen:0,
+    load:0, insp:0, rate:0, pcsReload:0, tol001:0, tol0005:0, tol0002:0, tolLen:0,
     subPc:0, subBatch:0, subCostBatch:0}, preset||{});
 }
 function seedOps(){
@@ -2446,8 +2447,13 @@ function compute(){
          quote in the file, so editing a rate there moves all of them at once - which is
          exactly what went wrong the day $3.00/min went global. rateOvr greater than zero
          bills this quote's operations at that rate and leaves the table untouched. */
+      /* rev 216: three places a rate can come from, most specific first.
+         THIS ROW's $/Min beats the quote's $/Min Override, which beats the shared
+         operations table. Roughing and finishing do not cost the same minute, and
+         on a job like the AMCOM gear they are not even close. */
+      const rowRate = parseFloat(r.rate)||0;
       const rateOvr = num('rateOvr');
-      const rate = rateOvr>0 ? rateOvr : (o ? o.prodMin : 2);
+      const rate = rowRate>0 ? rowRate : (rateOvr>0 ? rateOvr : (o ? o.prodMin : 2));
       const rowOdd = Array.isArray(r.odd)? r.odd : [];   /* odd features live ON THE OPERATION now */
       const oddPct = (TABLES.oddFeatures||[]).reduce((s2,f)=>s2+(rowOdd.includes(f.name)?(parseFloat(f.pct)||0):0),0);
       const effCycle = r.cycle * (1 + oddPct/100);                 // odd features: +% on cycle time
@@ -2772,6 +2778,7 @@ const OP_COLS = [
   {h:'Extra Inspection Items to purchase', rot:true},
   {h:'S/U (Hrs)'},
   {h:'Cycle Time (Mins)'},
+  {h:'$/Min This Op'},
   {h:'Extra Load Time Per Piece (Min)'},
   {h:'Extra Insp Time /Piece (Min)'},
   {h:'# Pcs Before Operator Load'},
@@ -2853,13 +2860,13 @@ function renderOps(){
       /* Material (op5) & Saw (op15): black input band, cost only in calc columns */
       const ovrOn = matOverride==='Yes';
       const ovrCells = row.locked==='mat'
-        ? `${blk.repeat(5)}
+        ? `${blk.repeat(6)}
            ${ovrOn ? '<td class="ovrlbl" colspan="3">Cost/Pc Over-Ride</td>' : blk.repeat(3)}
            <td class="ovrcell" title="set Yes to type the material cost per piece directly — replaces the cost/lb calculation entirely"><select id="matOvr"><option${matOverride==='No'?' selected':''}>No</option><option${matOverride==='Yes'?' selected':''}>Yes</option></select></td>
            ${ovrOn ? '<td class="ovrlbl" colspan="2">Mat\'l $ Over-ride</td>' : blk.repeat(2)}
            ${ovrOn ? `<td class="ovrcell" colspan="3"><input id="matOvrVal" type="text" inputmode="decimal" data-i="mat" data-k="ovrVal" value="${matOverrideVal||''}" placeholder="$"></td>` : blk.repeat(3)}
            ${blk.repeat(2)}`
-        : blk.repeat(16);
+        : blk.repeat(17);
       return `<tr>
         <td class="op">${row.op}<span class="rowbtns"><button class="rb rb-add" data-i="${i}" title="insert row below">+</button></span></td>
         <td class="desc"><input value="${row.desc}" disabled></td>
@@ -2884,6 +2891,7 @@ function renderOps(){
       <td class="yellow">${num('extraInsp','1')}</td>
       <td class="yellow">${num('setup','0.1')}</td>
       <td class="yellow">${num('cycle','0.1',1)}</td>
+      <td class="yellow">${num('rate','0.01',2)}</td>
       <td class="yellow">${num('load','0.1',1)}</td>
       <td class="yellow">${num('insp','0.1',1)}</td>
       <td class="yellow">${num('pcsReload','1')}</td>
@@ -2920,12 +2928,12 @@ function renderOps(){
   }).join('')
   /* ===== footer: totals aligned bottom-right, exactly like the sheet ===== */
   + `
-  <tr class="foot"><td class="void" colspan="36"></td><td class="calc bold dbltop" id="tPrice"></td><td class="flbl"></td><td class="lead bold dbltop" id="leadEst"></td></tr>
-  <tr class="foot"><td class="void" colspan="36"></td><td class="calc" id="tMatlPrem"></td><td class="flbl">Material Cost Premium</td><td class="void"></td></tr>
-  <tr class="foot"><td class="void" colspan="36"></td><td class="calc" id="tSalesPrem"></td><td class="flbl">Salesman Premium</td><td class="void"></td></tr>
-  <tr class="foot"><td class="void" colspan="36"></td><td class="calc" id="tLeadPrem"></td><td class="flbl" id="leadPremLbl">Leadtime Premium</td><td class="lead yellow"><input id="reqLead" type="text" inputmode="numeric" value="${reqLeadVal}" title="REQUESTED LEADTIME \u2014 calendar days the customer is asking for. Leave blank if they did not ask for one."></td></tr>
-  <tr class="foot"><td class="void" colspan="36"></td><td class="redc" id="tFai"></td><td class="flbl">FAI</td><td class="void"></td></tr>
-  <tr class="foot trow"><td class="void" colspan="36"></td><td class="calc bold" id="totalPerPc"></td><td class="flbl big">TOTAL PRICE</td><td class="void"></td></tr>`;
+  <tr class="foot"><td class="void" colspan="37"></td><td class="calc bold dbltop" id="tPrice"></td><td class="flbl"></td><td class="lead bold dbltop" id="leadEst"></td></tr>
+  <tr class="foot"><td class="void" colspan="37"></td><td class="calc" id="tMatlPrem"></td><td class="flbl">Material Cost Premium</td><td class="void"></td></tr>
+  <tr class="foot"><td class="void" colspan="37"></td><td class="calc" id="tSalesPrem"></td><td class="flbl">Salesman Premium</td><td class="void"></td></tr>
+  <tr class="foot"><td class="void" colspan="37"></td><td class="calc" id="tLeadPrem"></td><td class="flbl" id="leadPremLbl">Leadtime Premium</td><td class="lead yellow"><input id="reqLead" type="text" inputmode="numeric" value="${reqLeadVal}" title="REQUESTED LEADTIME \u2014 calendar days the customer is asking for. Leave blank if they did not ask for one."></td></tr>
+  <tr class="foot"><td class="void" colspan="37"></td><td class="redc" id="tFai"></td><td class="flbl">FAI</td><td class="void"></td></tr>
+  <tr class="foot trow"><td class="void" colspan="37"></td><td class="calc bold" id="totalPerPc"></td><td class="flbl big">TOTAL PRICE</td><td class="void"></td></tr>`;
   b.querySelectorAll('input,select').forEach(el=>{
     if(el.disabled || !el.dataset.k) return;
     const ev = el.tagName==='SELECT' ? 'change':'input';

@@ -1394,8 +1394,8 @@
       <td class="c-yellow"><select id="quotedBy"></select></td>
       <td class="lbl-r">Weight Of Slug</td>
       <td class="c-blue" id="mSlugWt">—</td>
-      <td></td>
-      <td><input id="meCost" type="number" value="120" hidden></td>
+      <td class="lbl-r">$/Min Override</td>
+      <td class="c-yellow val-c"><input id="rateOvr" type="number" step="0.01" value="0" title="Per-quote machining rate. 0 = use the Admin operations table. Any other number bills EVERY operation on THIS quote at that rate and leaves every other quote alone."><input id="meCost" type="number" value="120" hidden></td>
       <td id="hMeMetric" class="hushed"></td>
     </tr>
 
@@ -2081,6 +2081,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:215, date:"12/11/2026", note:"A RATE THAT IS RIGHT FOR ONE PART IS WRONG FOR THE OTHER FORTY-SIX. The $/min rates live in the Admin operations table, which every quote in the file reads, so raising a rate for one hard job quietly re-prices every other job too - that is what happened the day $3.00/min went global. A quote now carries its own $/Min Override, next to Weight Of Slug on the header. Leave it at 0 and nothing changes: the operation reads its rate from the table exactly as before. Put a number in it and every operation on THAT quote bills at that number, and no other quote moves. The first use is 1374194B, the AMCOM spur gear, at $8.00/min."},
   {rev:214, date:"12/11/2026", note:"A FIRST RUN IS NOT A REPEAT JOB, and this app had been pricing both the same way. Quotes carry no setup by standing rule, which is right for a part that has run a hundred times and wrong for one that has never been cut: the program has to be proved, the first article written, the paperwork done, and on a short order that work is most of the cost. The brain now carries the rule \u2014 $500 an operation for prove-out and paperwork on a first run, entered as setup hours on each operation that actually runs, 4.0 hr at the $125/hr setup rate. Material and a bar-fed Saw are not operations and carry none; a repeat job carries none at all. Nothing in the engine changed, because the setup column already did this arithmetic \u2014 what was missing was anyone saying when to use it."},
   {rev:213, date:"12/11/2026", note:"The brain was repeating the machine rates as typed prose when Machine Rates & Leadtime already defines a dollars-per-minute for every work centre. Two places to state the same number is one place to be wrong, so the rate rule is now LIVE: it has no text of its own and reads the rates table every time the screen draws, grouping the work centres by rate. Change a rate in the table and the rule changes with it; it cannot drift. The setup-and-shipping rule has been taken out \u2014 that is a decision per quote, not a standing rule. A brain seeded by rev 212 migrates itself on load, and only exact seeded wording is touched, so anything typed by hand is left alone."},
   {rev:212, date:"12/11/2026", note:"THE BRAIN. The rules that decide how a quote gets built have been living in conversations and in my head, which is no use to anyone opening this app on a Monday. They are now the first screen in Admin, eleven of them, each marked GENERAL (a rule), METHOD (a procedure) or SPECIFIC (one part, customer or machine), with the date it was set. They sit in the table data, so they sync to every device and travel with the quote records rather than with the code. Every line is editable and you can add your own. What is in there to start: $3.00 a minute for turning and milling and $1.50 for deburr and inspection; copper scrap back at 50% of what you paid; no setup and no shipping operation on a quote; gross material on the material line with the scrap refund separate at the foot; 12 ft bar sawn to the 40 inch feeder limit with the pieces-per-bar formula written out; no cut tapping on copper because the chips break the taps, with the form-tap bore expression; and the yellow-highlight rule for tolerances of \u00b1.002\" or tighter and for threads."},
@@ -2289,7 +2290,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 214;
+const APP_REV = 215;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -2441,7 +2442,12 @@ function compute(){
     else if(r.locked==='saw'){ pc = sawPc; const so=opByName['Saw']; if(so&&so.leadDays){ maxLead+=so.leadDays; det.lead=so.leadDays; } }
     else if(r.desc){
       const o = opByName[r.desc];
-      const rate = o ? o.prodMin : 2;
+      /* rev 215: a PER-QUOTE $/min override. The operations table is shared by every
+         quote in the file, so editing a rate there moves all of them at once - which is
+         exactly what went wrong the day $3.00/min went global. rateOvr greater than zero
+         bills this quote's operations at that rate and leaves the table untouched. */
+      const rateOvr = num('rateOvr');
+      const rate = rateOvr>0 ? rateOvr : (o ? o.prodMin : 2);
       const rowOdd = Array.isArray(r.odd)? r.odd : [];   /* odd features live ON THE OPERATION now */
       const oddPct = (TABLES.oddFeatures||[]).reduce((s2,f)=>s2+(rowOdd.includes(f.name)?(parseFloat(f.pct)||0):0),0);
       const effCycle = r.cycle * (1 + oddPct/100);                 // odd features: +% on cycle time
@@ -3218,7 +3224,7 @@ $('addOp').addEventListener('click', ()=>{
 /* ---- recompute on any header input ---- */
 const HDR_FIELDS = ['jobType','qtyBrk1','qtyBrk2','qtyBrk3','qtyBrk4','qtyBrk5','qtyBrk6','customer','partNo','dateRecd','annualUsage','batchSize','minOrderQty','buyer','quotedBy','salesman',
  'material','priceLevel','stockForm','barForm','barOverride','difficulty','nreSep','barDia','partLength',
- 'extraLength','chuckExtra','scrapPct','barLen','faiReq','faiDims','custQuoteNo','faiQty','margin','meCost','suCost',
+ 'extraLength','chuckExtra','scrapPct','barLen','faiReq','faiDims','custQuoteNo','faiQty','margin','meCost','rateOvr','suCost',
  'soFee','coFee','sawCost'];
 HDR_FIELDS.forEach(id=>{ const el=$(id); if(!el) return; el.addEventListener('input',renderAll); el.addEventListener('change',renderAll); });
 
@@ -6171,7 +6177,7 @@ function blankOps(){
 const FIELD_DEFAULTS = {
   customer:'', partNo:'', buyer:'', annualUsage:'', batchSize:'', minOrderQty:'',
   barDia:'', partLength:'', extraLength:'', chuckExtra:'', scrapPct:'5', barLen:'144',
-  barOverride:'', faiDims:'', faiQty:'0', margin:'0',
+  barOverride:'', faiDims:'', faiQty:'0', margin:'0', rateOvr:'0',
   material:'304 SS', priceLevel:'Distributor Qty', barForm:'36 Inch Bar',
   stockForm:'Bar Stock', faiReq:'no', difficulty:'Medium', nreSep:'Yes',
   salesman:'NONE'

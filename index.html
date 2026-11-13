@@ -1697,7 +1697,7 @@ const ADMINDATA = {"custPremium": [{"name": "ADVANTAGE METALWORK AND FINISHING",
   {"rule":"PCS/SHIFT is worked out from PRODUCING MIN / 8-HR SHIFT in Global Settings, which is 220, not the 480 clock minutes and not the 300 this app assumed before rev 211.","kind":"METHOD","date":"12/11/2026"},
   {"rule":"A FIRST RUN carries $500 an operation for prove-out and paperwork, on top of the piece price. Put it in as setup hours on each operation that actually runs \u2014 at the $125/hr setup rate that is 4.0 hr an operation. Material and a bar-fed Saw are not operations and carry none. A repeat job carries none at all.","kind":"GENERAL","date":"12/11/2026"}
  ],
- "settings": {"margin": 0, "meCost": 85, "suCost": 125, "soFee": 75, "coFee": 25, "adminFee": 75, "matlPrem": 0, "sawCostInch": 0.5, "tol001Rate": 5, "tol0005Rate": 10, "tol0002Rate": 20, "shiftMins": 220, "millBarLen": 144, "feedMax": 40}, "revs": [{"rev": 2, "date": "2019-06-13", "page": "Quote Sheet", "change": "Efficiencies Column set to read correct line", "loc": "J16-J21"}, {"rev": null, "date": "", "page": "Material Cost", "change": "Added variable to account for remnant left in chuck", "loc": "B34 added, B37, B39"}, {"rev": 3, "date": "2019-06-14", "page": "Quote Sheet", "change": "Made remnant size enterable on quote page", "loc": "J7 added,"}, {"rev": null, "date": "2019-06-14", "page": "Quote Sheet", "change": "Moved some info boxes from column J to column Y", "loc": null}, {"rev": 4, "date": "", "page": "Quote Sheet", "change": "pieces per bar", "loc": "J8"}, {"rev": null, "date": "", "page": "Quote Sheet", "change": "-35% cap on pieces run before operator percentage ", "loc": "P16 - P31"}, {"rev": 5, "date": "2019-06-14", "page": "Quote Sheet", "change": "Moved some info boxes from column J & Y to column T", "loc": "T1 - T5"}, {"rev": null, "date": "", "page": "Future Ideas", "change": "Tab added", "loc": null}, {"rev": null, "date": "", "page": "Rev Level", "change": "Tab added", "loc": null}, {"rev": null, "date": "", "page": "Quote Sheet", "change": "Multiplier box added for calculating depreciation costs", "loc": "A4, A5 added, D4,D5"}, {"rev": null, "date": "", "page": "Quote Sheet", "change": "35% cap on tolerance percentage percentage ", "loc": "Q16 - Q31"}, {"rev": null, "date": "", "page": "Part Weight", "change": "added id sizes to part weight (subtracted from od's)", "loc": "A10 - G15"}, {"rev": 6, "date": "2019-06-16", "page": "Quote Sheet", "change": "Added C.O. Administrative Fee & Altered Part Weight Premium Formula", "loc": "Y7, T17 to T32"}, {"rev": 7, "date": "2019-06-16", "page": "Quote Sheet", "change": "The subcontract cost/batch size was using SO batch size not subcontract batch size", "loc": "Y19"}, {"rev": 8, "date": "2019-06-16", "page": "Quote Sheet", "change": "Corrected the NRE total formula", "loc": "AF12"}, {"rev": 9, "date": "2019-06-17", "page": "Quote Sheet", "change": "Added a few more workcenters", "loc": "Cost Per Min Worksheet"}, {"rev": 10, "date": "2019-06-17", "page": "cost per minute", "change": "added lathe hard turn", "loc": null}, {"rev": 11, "date": "2019-06-17", "page": "quote sheet", "change": "fixed price formula for new work center table ", "loc": "w17 - w32"}, {"rev": 48, "date": "2021-02-26", "page": "Hardness Conversion", "change": "Added Rc to Ra hardness conversion table", "loc": null}, {"rev": 49, "date": "", "page": null, "change": null, "loc": null}, {"rev": 50, "date": "2021-03-12", "page": "Quote Sheet", "change": "Lots of Adjustments for highlighting the background Red when something is out of ordinary", "loc": null}, {"rev": 51, "date": "", "page": null, "change": null, "loc": null}, {"rev": 52, "date": "", "page": null, "change": null, "loc": null}, {"rev": 53, "date": "", "page": null, "change": null, "loc": null}, {"rev": 54, "date": "", "page": null, "change": null, "loc": null}, {"rev": 55, "date": "", "page": null, "change": null, "loc": null}, {"rev": 56, "date": "2023-11-13", "page": "Turnings", "change": "Multiplied the scrap cost/lb by 0.66 because it wasn\u2019t reducing for scrap reduction", "loc": null}, {"rev": 57, "date": "", "page": null, "change": null, "loc": null}], "ideas": ["stock shape", "transport costs - outsourcing", "transport costs - material (some already in)", "packaging costs", "for low quantities extra material will be more than a %"]};
+ "settings": {"margin": 0, "meCost": 85, "suCost": 125, "soFee": 75, "coFee": 25, "adminFee": 75, "matlPrem": 0, "sawCostInch": 0.5, "sawIpm": 2, "sawBarUsable": 36, "sawBarSec": 30, "sawLiftSec": 60, "sawLiftEvery": 4, "tol001Rate": 5, "tol0005Rate": 10, "tol0002Rate": 20, "shiftMins": 220, "millBarLen": 144, "feedMax": 40}, "revs": [{"rev": 2, "date": "2019-06-13", "page": "Quote Sheet", "change": "Efficiencies Column set to read correct line", "loc": "J16-J21"}, {"rev": null, "date": "", "page": "Material Cost", "change": "Added variable to account for remnant left in chuck", "loc": "B34 added, B37, B39"}, {"rev": 3, "date": "2019-06-14", "page": "Quote Sheet", "change": "Made remnant size enterable on quote page", "loc": "J7 added,"}, {"rev": null, "date": "2019-06-14", "page": "Quote Sheet", "change": "Moved some info boxes from column J to column Y", "loc": null}, {"rev": 4, "date": "", "page": "Quote Sheet", "change": "pieces per bar", "loc": "J8"}, {"rev": null, "date": "", "page": "Quote Sheet", "change": "-35% cap on pieces run before operator percentage ", "loc": "P16 - P31"}, {"rev": 5, "date": "2019-06-14", "page": "Quote Sheet", "change": "Moved some info boxes from column J & Y to column T", "loc": "T1 - T5"}, {"rev": null, "date": "", "page": "Future Ideas", "change": "Tab added", "loc": null}, {"rev": null, "date": "", "page": "Rev Level", "change": "Tab added", "loc": null}, {"rev": null, "date": "", "page": "Quote Sheet", "change": "Multiplier box added for calculating depreciation costs", "loc": "A4, A5 added, D4,D5"}, {"rev": null, "date": "", "page": "Quote Sheet", "change": "35% cap on tolerance percentage percentage ", "loc": "Q16 - Q31"}, {"rev": null, "date": "", "page": "Part Weight", "change": "added id sizes to part weight (subtracted from od's)", "loc": "A10 - G15"}, {"rev": 6, "date": "2019-06-16", "page": "Quote Sheet", "change": "Added C.O. Administrative Fee & Altered Part Weight Premium Formula", "loc": "Y7, T17 to T32"}, {"rev": 7, "date": "2019-06-16", "page": "Quote Sheet", "change": "The subcontract cost/batch size was using SO batch size not subcontract batch size", "loc": "Y19"}, {"rev": 8, "date": "2019-06-16", "page": "Quote Sheet", "change": "Corrected the NRE total formula", "loc": "AF12"}, {"rev": 9, "date": "2019-06-17", "page": "Quote Sheet", "change": "Added a few more workcenters", "loc": "Cost Per Min Worksheet"}, {"rev": 10, "date": "2019-06-17", "page": "cost per minute", "change": "added lathe hard turn", "loc": null}, {"rev": 11, "date": "2019-06-17", "page": "quote sheet", "change": "fixed price formula for new work center table ", "loc": "w17 - w32"}, {"rev": 48, "date": "2021-02-26", "page": "Hardness Conversion", "change": "Added Rc to Ra hardness conversion table", "loc": null}, {"rev": 49, "date": "", "page": null, "change": null, "loc": null}, {"rev": 50, "date": "2021-03-12", "page": "Quote Sheet", "change": "Lots of Adjustments for highlighting the background Red when something is out of ordinary", "loc": null}, {"rev": 51, "date": "", "page": null, "change": null, "loc": null}, {"rev": 52, "date": "", "page": null, "change": null, "loc": null}, {"rev": 53, "date": "", "page": null, "change": null, "loc": null}, {"rev": 54, "date": "", "page": null, "change": null, "loc": null}, {"rev": 55, "date": "", "page": null, "change": null, "loc": null}, {"rev": 56, "date": "2023-11-13", "page": "Turnings", "change": "Multiplied the scrap cost/lb by 0.66 because it wasn\u2019t reducing for scrap reduction", "loc": null}, {"rev": 57, "date": "", "page": null, "change": null, "loc": null}], "ideas": ["stock shape", "transport costs - outsourcing", "transport costs - material (some already in)", "packaging costs", "for low quantities extra material will be more than a %"]};
 </script>
 <script>
 /* ============ Machining Quote Sheet — logic ============ */
@@ -2081,6 +2081,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:218, date:"11/13/2026", note:"THE SAW WAS COSTED ON A CURVE, NOT ON TIME. The old line took a cost per inch, multiplied it by the bar diameter and two premium factors, then gave most of it back again through an amortisation term - which returned three cents a piece on an 0.875 copper bar that really takes half a minute to cut through. The saw is now costed the way every other operation is: a blade feeding through the bar at Saw Feed inches a minute, so one cut is diameter divided by that feed; plus the handling, which is one touch per usable bar length and a further touch every N bars, both spread over the pieces that come off a bar. All five figures are on the Admin settings page - Saw Feed, Usable Bar Length, Handling per Bar, Extra Handling and how often it applies. Set Saw Feed to 0 and the old curve comes back untouched. The saw row now reports a real cycle time, so it prints a cycle and a dollars per minute like any other line instead of two dashes. The rate follows the same chain as every other row: this row's $/Min, then the quote override, then the Saw line in the operations table. First use is Eaton 1093-1105 at 2 in/min through copper, 36 in usable, 30 seconds a bar and 60 seconds every fourth bar."},
   {rev:217, date:"12/11/2026", note:"NOT EVERY OPERATION IS PRICED BY THE MINUTE. A final inspection that costs $10 a piece costs $10 a piece whether it takes twenty minutes or two, and no rate times no cycle time will land on that number once the premium columns have had their say. Every operation row now has a Flat $/Pc This Op column beside $/Min This Op. Leave it at 0 and nothing changes. Put a number in it and THAT is the operation cost - rate, cycle time and every premium column bypassed. The setup column is left alone on purpose, so the $500 first-run prove-out still lands on the row: an operation set to $10 flat reads $11.67 with the prove-out on it. Cycle time stays on the row because the traveler, the shift output and the leadtime still need it. First use is 1374194B - OP 100 in-process inspection at $15.00 a piece, OP 120 final inspection at $10.00 a piece."},
   {rev:216, date:"12/11/2026", note:"ROUGHING AND FINISHING DO NOT COST THE SAME MINUTE. Rev 215 let a quote carry one rate for all of it, which is still one rate too few: on the AMCOM spur gear the first two lathe operations are blanking work and the finish mill, the hobber and the hone are not. Every operation row now has its own $/Min This Op column, beside Cycle Time. Leave it at 0 and nothing changes. Put a number in it and THAT operation bills at that number. Three places a rate can come from now, most specific wins: the row, then the quote $/Min Override, then the shared Admin operations table. First use is 1374194B - $4.00/min on the two lathe operations, $8.00/min on the finishing."},
   {rev:215, date:"12/11/2026", note:"A RATE THAT IS RIGHT FOR ONE PART IS WRONG FOR THE OTHER FORTY-SIX. The $/min rates live in the Admin operations table, which every quote in the file reads, so raising a rate for one hard job quietly re-prices every other job too - that is what happened the day $3.00/min went global. A quote now carries its own $/Min Override, next to Weight Of Slug on the header. Leave it at 0 and nothing changes: the operation reads its rate from the table exactly as before. Put a number in it and every operation on THAT quote bills at that number, and no other quote moves. The first use is 1374194B, the AMCOM spur gear, at $8.00/min."},
@@ -2292,7 +2293,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 217;
+const APP_REV = 218;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -2427,7 +2428,44 @@ function compute(){
   const machPrem = 6/(4+(mat.mach||1));                     // B10
   const slugWtPrem = 1+(slugWeight/100);                    // B11
   const costCut  = sawIn*dia*machPrem*slugWtPrem;           // B12
-  const sawPc    = pcsBar>0 ? costCut - costCut*(pcsBar/(3+pcsBar)) : costCut; // B13
+  const sawLegacy= pcsBar>0 ? costCut - costCut*(pcsBar/(3+pcsBar)) : costCut; // B13
+
+  /* rev 218: the saw costed on TIME rather than on the B13 amortisation curve,
+     which was returning three cents a piece on a cut that really takes half a
+     minute. The blade feeds through at sawIpm inches a minute, so one cut is
+     dia/sawIpm. Each usable bar length is handled once (sawBarSec) and every
+     sawLiftEvery bars takes a further lift onto the saw (sawLiftSec); both are
+     spread over the pieces that come off one bar. Set sawIpm to 0 to go back
+     to the old curve. */
+  const ST       = (TABLES && TABLES.settings) || {};
+  /* A setting saved before this rev is ABSENT, which must fall back to the
+     factory figure - but an explicit 0 on sawIpm is the escape hatch back to
+     the old curve, so setNum() is no use here: it turns 0 into the default. */
+  const _sset = function(k,d){ const v=ST[k];
+    if(v===undefined||v===null||v==='') return d;
+    const n=parseFloat(v); return isNaN(n)?d:n; };
+  const sawIpm   = _sset('sawIpm', 2);
+  let sawPc = sawLegacy, sawMin = 0, sawPcsBar = 0;
+  if(sawIpm > 0 && dia > 0 && totLenPc > 0){
+    const usable   = _sset('sawBarUsable', 36) || 36;
+    const barSec   = _sset('sawBarSec', 30);
+    const liftSec  = _sset('sawLiftSec', 60);
+    const liftEvery= _sset('sawLiftEvery', 4) || 4;
+    sawPcsBar = Math.max(1, Math.floor(usable / totLenPc));
+    sawMin = dia/sawIpm + barSec/60/sawPcsBar + liftSec/60/(liftEvery*sawPcsBar);
+    /* to the hundredth of a minute, which is six tenths of a second - finer than
+       a saw can be planned to, and it makes the printed row reconcile: the cycle
+       prints at 2 dp, so costing the unrounded figure put the quote sheet's
+       dollars-per-minute a cent either side of the rate. */
+    sawMin = Math.round(sawMin*100)/100;
+    /* same rate chain as any other row: this row's $/Min, then the quote
+       override, then the shared Saw line in the operations table. */
+    const _sr = opRows.find(x=>x && x.locked==='saw') || {};
+    const sawRate = (parseFloat(_sr.rate)||0) > 0 ? parseFloat(_sr.rate)
+                  : ((num('rateOvr')||0) > 0 ? num('rateOvr')
+                  : ((opByName['Saw']||{}).prodMin || 2));
+    sawPc = sawMin * sawRate;
+  }
 
   /* --- operation costs --- */
   let opCostSum = 0, setupSum = 0, cycleCostSum = 0, maxLead = 0, baseCostSum = 0;
@@ -2441,7 +2479,8 @@ function compute(){
                  machP:0, wtP:0, diffP:0, suPc:0, subPc:0, subBatchPc:0, lead:0};
     if(r.locked==='so'){ pc = soFee/batch; }
     else if(r.locked==='mat'){ pc = matlPc; matBucket += pc; }
-    else if(r.locked==='saw'){ pc = sawPc; const so=opByName['Saw']; if(so&&so.leadDays){ maxLead+=so.leadDays; det.lead=so.leadDays; } }
+    else if(r.locked==='saw'){ pc = sawPc; det.ct = sawMin; det.ctCost = sawPc;
+      const so=opByName['Saw']; if(so&&so.leadDays){ maxLead+=so.leadDays; det.lead=so.leadDays; } }
     else if(r.desc){
       const o = opByName[r.desc];
       /* rev 215: a PER-QUOTE $/min override. The operations table is shared by every
@@ -6952,7 +6991,12 @@ const ADMIN_SECTIONS = {
         ${f('soFee','S. O. Admin. Fee ($)','1')}
         ${f('coFee','C. O. Admin. Fee ($)','1')}
         ${f('matlPrem','Material Cost Premium (0–1)','0.01')}
-        ${f('sawCostInch','Saw Cost / Inch','0.05')}
+        ${f('sawCostInch','Saw Cost / Inch (legacy, used when Saw In/Min is 0)','0.05')}
+        ${f('sawIpm','Saw Feed (in/min through the bar) — 0 = legacy curve','0.1')}
+        ${f('sawBarUsable','Saw Usable Bar Length (in)','1')}
+        ${f('sawBarSec','Saw Handling / Bar (sec)','5')}
+        ${f('sawLiftSec','Saw Extra Handling (sec)','5')}
+        ${f('sawLiftEvery','...applied every N bars','1')}
         ${f('shiftMins','Producing Min / 8-Hr Shift','5')}
         ${f('millBarLen','Mill Bar Length (in)','1')}
         ${f('feedMax','Bar Feeder Max Length (in)','1')}

@@ -1089,6 +1089,12 @@
   .qtable td{border-bottom:1px solid var(--cp-line); padding:7px 10px; vertical-align:middle}
   .qtable td.num, .qtable th.num{text-align:right}
   .qtable td.money{font-weight:700; color:var(--cp-signal); font-variant-numeric:tabular-nums}
+  /* 11/15/2026 the PACKAGE column. A tag rather than plain text, so a glance down
+     the list separates the quotes that belong to a job from the standalone ones. */
+  .qtable td.pkgcell{white-space:nowrap}
+  .qtable .pkgtag{display:inline-block; background:#efe7d9; border:1px solid #c6b795;
+       border-radius:3px; padding:1px 7px; font-weight:800; font-size:11.5px;
+       letter-spacing:.2px; color:#4e3a12}
   .qtable td.dt{white-space:nowrap; color:var(--cp-dim); font-size:11.5px}
   /* the clock time is the least useful half of the stamp: 30% down, and the date
      keeps its own height because the shrink is on the time span alone */
@@ -2143,6 +2149,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:223, date:"11/15/2026", note:"PAST QUOTES HAS A PACKAGE COLUMN. Richard: \u201cshould we add another column that shows if its got a package ID?\u201d It sits between TYPE and CUSTOMER, prints the package name as a tag so a glance down the list separates the quotes that belong to a job from the standalone ones, and sorts and filters like every other column \u2014 so the filter arrow on it pulls up one package, or everything with no package at all. A quote with none shows a dash, and blanks sort to the bottom either way so the packaged quotes group together instead of being split by a run of empties."},
   {rev:222, date:"11/15/2026", note:"TEXT 20 PERCENT SMALLER ON THE QUOTE SHEET, PAST QUOTES AND ADMIN. Those three views carried zoom:1.2, so everything on them printed a fifth larger than the rest of the app - Richard, looking at the GitHub Sync screen: \u201cREDUCE TEXT SIZE BY 20%\u201d. 1.2 x 0.8 = 0.96. Ctrl+wheel still zooms on top of it. Also killed a lie on that same screen: with the boxes empty, TEST CONNECTION printed \u201cNETWORK ERROR: CANNOT READ PROPERTIES OF NULL (READING \u2018OWNER\u2019)\u201d in red. There was no network error - ghCfg() returns null when nothing is saved and c.owner threw. It now names which boxes are empty and tells you to press SAVE SETTINGS first."},
   {rev:221, date:"11/15/2026", note:"THE SCRAP % IS A SWITCH ON THE QUOTE NOW, NOT A RULE FOR THE WHOLE BOOK. Rev 219 made the scrap allowance ride the whole quote instead of only the bar. Richard: \u201cthese were only for the eaton quote package; they are not permanent changes; scrap % is a field entry per quote.\u201d Measured against the live site it was not contained at all \u2014 it moved 37 of 47 quotes, because it changed the FORMULA and the percentage box cannot scope a formula: the AMCOM gear 1374194B went up $113.90 a piece, L3Harris Mason 19.7 percent, the Coldfinger $116.89, and the quotes outside the Eaton package carried $214,378 a year of increase between them. There is a MATERIAL ONLY / WHOLE QUOTE picker beside the Scrap % box now. MATERIAL ONLY is the default, is what every quote written before today reads as whether or not it has the field, and prices to the cent of rev 218. Only the thirteen Eaton electrodes are set to WHOLE QUOTE. Checked by pricing all 47 quotes through both revisions: 34 identical, 13 moved, and the 13 are the package."},
   {rev:220, date:"11/15/2026", note:"PARTS CAN NOW BE TIED TOGETHER INTO ONE BATCH QUOTE. Every quote was standalone, so thirteen electrodes off one Eaton RFQ were thirteen unrelated rows and the job they add up to could only be totalled by hand. The header has a PACKAGE box beside the customer quote number \u2014 type a name, and every quote carrying that name is one batch quote. It types ahead off the packages already in use, so the fourteenth part joins the package instead of founding a near-miss of it, and the name is matched trimmed and case-blind so EATON 13 ELECTRODES and Eaton 13 Electrodes are one package and not two. A part quote under an assembly inherits its parent\u2019s package like it inherits the customer. A new PACKAGES tab lists each package, its parts, each one\u2019s price and annual value, and what the package is worth a year, with OPEN on every row back to its own sheet. NOTHING HERE MOVES A PRICE. What a package genuinely shares \u2014 setup across one campaign, the order fee charged once instead of thirteen times, the volume break read on the package annual rather than the part annual \u2014 is pricing policy, not arithmetic, and is not assumed: the view totals the quotes exactly as they stand. First use is Eaton 1093-1105. Two things turned up while building it. The thirteen carried NO PRICE AT ALL - perPc is written by autosave out of compute(), and a quote written into the file rather than typed into the app has never been through it - so the package shows a dash on any unpriced row and carries a PRICE THIS PACKAGE button that walks its quotes, computes each one off its own sheet, writes the price back exactly as autosave would and puts the quote that was open back afterwards. All thirteen price to the cent of their quote sheets. And money() threw on those nulls: isFinite(null) is true in Javascript, because null coerces to zero, so the guard passed and null.toLocaleString() did not - one unpriced quote was aborting the whole PAST QUOTES render. It coerces before it tests now."},
@@ -2359,7 +2366,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 222;
+const APP_REV = 223;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -6068,6 +6075,7 @@ function qDisp(k,q){
     case 'pc':   return money(q.perPc);
     case 'tot':  return qty? money((q.perPc||0)*qty) : '—';
     case 'mat':  return f.material||'—';
+    case 'pkg':  return (f.pkg||'').trim()||'—';
     /* quotes written before rev 147 have no scope recorded, and guessing one
        from whether a bill exists would put words in their mouth */
     case 'scope':return f.quoteScope||'—';
@@ -6130,6 +6138,11 @@ function renderSaved(){
     tot:  q=>(q.perPc||0)*(parseFloat((q.fields||{}).batchSize)||0),
     mat:  q=>String((q.fields||{}).material||'').toUpperCase(),
     scope:q=>String((q.fields||{}).quoteScope||'').toUpperCase(),
+    /* 11/15/2026 Richard: "should we add another column that shows if its got a
+       package ID?" Blank sorts to the BOTTOM either way, so the packaged quotes
+       group together instead of being split by a run of empties. */
+    pkg:  q=>{ const v=String((q.fields||{}).pkg||'').trim().toUpperCase();
+               return v || '\uFFFF'; },
   };
   const g0=get[qSortK]||get.date;
   const rows=arr.slice().sort((a,b)=>{
@@ -6139,7 +6152,7 @@ function renderSaved(){
   const th=(k,label,num)=>`<th data-s="${k}"${num?' class="num"':''}><span class="thlbl">${label}${qSortK===k?(qSortD>0?' ▲':' ▼'):''}</span><button class="fbtn${colFilters[k]?' on':''}" data-f="${k}" title="filter">▼</button></th>`;
   wrap.innerHTML = `<table class="qtable">
     <thead><tr>
-      ${th('no','Quote #')}${th('part','Part #')}<th></th>${th('scope','Type')}${th('cust','Customer')}${th('date','Date Quoted')}
+      ${th('no','Quote #')}${th('part','Part #')}<th></th>${th('scope','Type')}${th('pkg','Package')}${th('cust','Customer')}${th('date','Date Quoted')}
       ${th('qty','Annual Qty',1)}${th('pc','Price/Pc',1)}${th('tot','Batch $',1)}${th('mat','Material')}
     </tr></thead>
     <tbody>` + rows.map(q=>{
@@ -6156,6 +6169,7 @@ function renderSaved(){
         <td>${f.quoteScope==='ASSEMBLY'
               ? '<span class="scope-asm">\u{1F9E9} ASSEMBLY</span>'
               : (f.quoteScope==='COMPONENT' ? '<span class="scope-cmp">COMPONENT</span>' : '\u2014')}</td>
+        <td class="pkgcell">${f.pkg? '<span class="pkgtag">'+esc(f.pkg)+'</span>' : '\u2014'}</td>
         <td>${esc(f.customer)||'—'}</td>
         <td class="dt">${when}${f.dateRecd?'<span class="rcvd">RECEIVED '+fmtDay(f.dateRecd)+'</span>':''}</td>
         <td class="num">${annQty||'—'}</td>

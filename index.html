@@ -775,8 +775,17 @@
   .btn.ghost:hover{background:linear-gradient(180deg,#ffffff,#eae6df)}
   .savedwrap{margin:8px}
   .savedwrap h3{font-size:12px; margin:0 0 4px; text-transform:uppercase; letter-spacing:.03em}
+  .qsrow{display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+  .pkgbar{display:flex; align-items:center; gap:8px; margin:4px 0 8px}
+  .pkgbar label{font-family:var(--ui); font-size:11px; font-weight:800; letter-spacing:.05em;
+       text-transform:uppercase; color:var(--cp-dim)}
+  .pkgbar select{font-family:var(--ui); font-size:13px; font-weight:700; padding:8px 10px;
+       border:1px solid var(--cp-line-strong); border-radius:var(--r-sm);
+       background:var(--cp-mand, #fafa96); color:var(--cp-ink); max-width:280px}
+  .pkgbar .btn{font-size:12px; padding:8px 14px}
+  .pkgbar .btn:disabled{opacity:.45; cursor:default}
   .qsearch{
-    display:block; width:60%; max-width:492px; margin:4px 0 8px;
+    flex:1 1 300px; width:60%; max-width:492px; margin:4px 0 8px;
     font-family:var(--ui); font-size:13px; padding:9px 12px;
     border:1px solid var(--cp-line); border-radius:var(--r-sm); background:var(--cp-mand, #fafa96);
   }
@@ -1693,7 +1702,19 @@
       </div>
       <div class="qr-body">
         <div class="qmetrics" id="qMetrics"></div>
-        <input id="quoteSearch" class="qsearch" placeholder="🔍 Search quotes: quote #, customer, part #, material, buyer...">
+        <div class="qsrow">
+          <input id="quoteSearch" class="qsearch" placeholder="🔍 Search quotes: quote #, customer, part #, material, buyer...">
+          <!-- 11/15/2026 "id prefer the package button be here" - he lives on this
+               screen, so the package work belongs beside the search box rather than
+               on a tab he has to go to. Picking one filters the list to that package
+               AND arms the quote button, so pick-look-send is one row of controls. -->
+          <div class="pkgbar" id="pkgBar" hidden>
+            <label for="pkgPick2">Package</label>
+            <select id="pkgPick2"></select>
+            <button class="btn primary" id="pkgQuote2" disabled>QUOTE THIS PACKAGE</button>
+            <button class="btn ghost" id="pkgPrice2" disabled>PRICE IT</button>
+          </div>
+        </div>
         <div class="saved" id="savedList"></div>
         <div id="trashBox" hidden>
           <button class="trash-toggle" id="trashToggle">🗑 Deleted quotes (<span id="trashCount">0</span>) — click to show</button>
@@ -2149,6 +2170,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:225, date:"11/15/2026", note:"THE PACKAGE CONTROLS MOVED ONTO PAST QUOTES, BESIDE THE SEARCH BOX. Richard: \u201cid prefer the package button be here\u201d, pointing at the empty space to the right of the search. He lives on that screen, so the package work belongs there rather than on a tab he has to go to. A PACKAGE picker lists every package with its part count; choosing one filters the quote list to that package and arms QUOTE THIS PACKAGE and PRICE IT beside it \u2014 pick, look, send, in one row of controls. The picker drives the same column filter the PACKAGE column\u2019s own arrow uses, so there is one notion of which package you are looking at rather than two that can disagree, and it rebuilds whenever the list does, so a package named on a quote sheet appears here without a reload. The whole bar hides itself when no quote carries a package. The Packages tab is untouched."},
   {rev:224, date:"11/15/2026", note:"YOU CAN SEND A QUOTE ON A WHOLE PACKAGE NOW. Richard: \u201ci need to be able to send a quote on a package\u201d. Thirteen parts off one Eaton RFQ meant thirteen separate quotation sheets and nothing that added them up for the customer. QUOTE THIS PACKAGE on the Packages tab builds one CAMCO quotation on the same letterhead and the same terms as the single-part one, with a line per part \u2014 part number, material, annual quantity, minimum order, unit price and annual value \u2014 footed with the pieces and the dollars for the whole job, and headed with the span of quote numbers it covers. It opens in the same overlay E-MAIL uses, so Print / Save as PDF is one click. The prices are each quote\u2019s stored perPc, and a quote that has never been opened in the app has none: rather than print a blank line or quietly drop a part, an unpriced row says NOT PRICED in red and a banner at the top says how many are missing and to run PRICE THIS PACKAGE first. That banner does not print. A quotation that silently omits a part is worse than one that admits it is incomplete."},
   {rev:223, date:"11/15/2026", note:"PAST QUOTES HAS A PACKAGE COLUMN. Richard: \u201cshould we add another column that shows if its got a package ID?\u201d It sits between TYPE and CUSTOMER, prints the package name as a tag so a glance down the list separates the quotes that belong to a job from the standalone ones, and sorts and filters like every other column \u2014 so the filter arrow on it pulls up one package, or everything with no package at all. A quote with none shows a dash, and blanks sort to the bottom either way so the packaged quotes group together instead of being split by a run of empties."},
   {rev:222, date:"11/15/2026", note:"TEXT 20 PERCENT SMALLER ON THE QUOTE SHEET, PAST QUOTES AND ADMIN. Those three views carried zoom:1.2, so everything on them printed a fifth larger than the rest of the app - Richard, looking at the GitHub Sync screen: \u201cREDUCE TEXT SIZE BY 20%\u201d. 1.2 x 0.8 = 0.96. Ctrl+wheel still zooms on top of it. Also killed a lie on that same screen: with the boxes empty, TEST CONNECTION printed \u201cNETWORK ERROR: CANNOT READ PROPERTIES OF NULL (READING \u2018OWNER\u2019)\u201d in red. There was no network error - ghCfg() returns null when nothing is saved and c.owner threw. It now names which boxes are empty and tells you to press SAVE SETTINGS first."},
@@ -2367,7 +2389,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 224;
+const APP_REV = 225;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -6122,6 +6144,7 @@ function renderMetrics(){
 }
 function renderSaved(){
   renderMetrics();
+  if(typeof renderPkgBar==='function') renderPkgBar();
   const term=($('quoteSearch')&&$('quoteSearch').value.trim())||'';
   const arr = loadSaved().filter(q=>quoteMatches(q,term) && colFilterPass(q));
   const wrap=$('savedList');
@@ -9590,6 +9613,41 @@ $('quoteNo').textContent = activeQuoteNo;
 renderAll();
 renderSaved();
 if($('quoteSearch')) $('quoteSearch').addEventListener('input', renderSaved);
+
+/* The picker is rebuilt whenever the list is, so a package named on a quote sheet
+   shows up here without a reload. It drives the SAME column filter the PACKAGE
+   column's arrow uses - one notion of "which package am I looking at", not two. */
+function renderPkgBar(){
+  const bar=$('pkgBar'), sel=$('pkgPick2'); if(!bar||!sel) return;
+  const g=pkgGroups(), keys=Object.keys(g).sort();
+  bar.hidden = !keys.length;
+  if(!keys.length) return;
+  const cur=(colFilters.pkg && colFilters.pkg.size===1)
+            ? [...colFilters.pkg][0] : '';
+  sel.innerHTML='<option value="">\u2014 all quotes \u2014</option>'
+    + keys.map(k=>`<option value="${esc(g[k].name)}">${esc(g[k].name)} (${g[k].rows.length})</option>`).join('');
+  sel.value=cur;
+  const on=!!sel.value;
+  $('pkgQuote2').disabled=!on;
+  $('pkgPrice2').disabled=!on;
+}
+function pkgBarKey(){
+  const sel=$('pkgPick2');
+  return sel && sel.value ? sel.value.trim().toUpperCase() : null;
+}
+if($('pkgPick2')) $('pkgPick2').addEventListener('change', ()=>{
+  const v=$('pkgPick2').value;
+  if(v) colFilters.pkg=new Set([v]); else delete colFilters.pkg;
+  renderSaved();
+});
+if($('pkgQuote2')) $('pkgQuote2').addEventListener('click', ()=>{
+  const k=pkgBarKey(); if(k) showPackageQuote(k);
+});
+if($('pkgPrice2')) $('pkgPrice2').addEventListener('click', ()=>{
+  const k=pkgBarKey(); if(!k) return;
+  const b=$('pkgPrice2'); b.disabled=true; const t=b.textContent; b.textContent='PRICING\u2026';
+  setTimeout(()=>{ pricePackage(k); renderSaved(); b.textContent=t; b.disabled=false; }, 30);
+});
 
 /* ===== header minimize / expand ===== */
 let hdrMin=false;

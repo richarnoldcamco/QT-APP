@@ -1387,7 +1387,12 @@
       <td class="c-yellow val-c"><input id="barDia" type="number" step="0.001" value="0.500"></td>
       <td></td>
       <td class="lbl-r">Expected Scrap % For Extra Material</td>
-      <td class="c-yellow val-c"><input id="scrapPct" type="number" step="1" value="5">%</td>
+      <td class="c-yellow val-c"><input id="scrapPct" type="number" step="1" value="5">%
+          <select id="scrapMode" style="margin-left:5px;max-width:132px"
+            title="MATERIAL ONLY: the scrap % buys extra bar, the long-standing behaviour. WHOLE QUOTE: it also rides the rest of the quote, because scrapping a finished part loses the machining too. Per quote - this is not a global setting.">
+            <option value="MATERIAL">MATERIAL ONLY</option>
+            <option value="FULL">WHOLE QUOTE</option>
+          </select></td>
       <td class="lbl-r">Pcs / Bar — Saw To</td>
       <td class="c-blue" id="mPcsBar">—</td>
       <td></td>
@@ -2135,6 +2140,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:221, date:"11/15/2026", note:"THE SCRAP % IS A SWITCH ON THE QUOTE NOW, NOT A RULE FOR THE WHOLE BOOK. Rev 219 made the scrap allowance ride the whole quote instead of only the bar. Richard: \u201cthese were only for the eaton quote package; they are not permanent changes; scrap % is a field entry per quote.\u201d Measured against the live site it was not contained at all \u2014 it moved 37 of 47 quotes, because it changed the FORMULA and the percentage box cannot scope a formula: the AMCOM gear 1374194B went up $113.90 a piece, L3Harris Mason 19.7 percent, the Coldfinger $116.89, and the quotes outside the Eaton package carried $214,378 a year of increase between them. There is a MATERIAL ONLY / WHOLE QUOTE picker beside the Scrap % box now. MATERIAL ONLY is the default, is what every quote written before today reads as whether or not it has the field, and prices to the cent of rev 218. Only the thirteen Eaton electrodes are set to WHOLE QUOTE. Checked by pricing all 47 quotes through both revisions: 34 identical, 13 moved, and the 13 are the package."},
   {rev:220, date:"11/15/2026", note:"PARTS CAN NOW BE TIED TOGETHER INTO ONE BATCH QUOTE. Every quote was standalone, so thirteen electrodes off one Eaton RFQ were thirteen unrelated rows and the job they add up to could only be totalled by hand. The header has a PACKAGE box beside the customer quote number \u2014 type a name, and every quote carrying that name is one batch quote. It types ahead off the packages already in use, so the fourteenth part joins the package instead of founding a near-miss of it, and the name is matched trimmed and case-blind so EATON 13 ELECTRODES and Eaton 13 Electrodes are one package and not two. A part quote under an assembly inherits its parent\u2019s package like it inherits the customer. A new PACKAGES tab lists each package, its parts, each one\u2019s price and annual value, and what the package is worth a year, with OPEN on every row back to its own sheet. NOTHING HERE MOVES A PRICE. What a package genuinely shares \u2014 setup across one campaign, the order fee charged once instead of thirteen times, the volume break read on the package annual rather than the part annual \u2014 is pricing policy, not arithmetic, and is not assumed: the view totals the quotes exactly as they stand. First use is Eaton 1093-1105. Two things turned up while building it. The thirteen carried NO PRICE AT ALL - perPc is written by autosave out of compute(), and a quote written into the file rather than typed into the app has never been through it - so the package shows a dash on any unpriced row and carries a PRICE THIS PACKAGE button that walks its quotes, computes each one off its own sheet, writes the price back exactly as autosave would and puts the quote that was open back afterwards. All thirteen price to the cent of their quote sheets. And money() threw on those nulls: isFinite(null) is true in Javascript, because null coerces to zero, so the guard passed and null.toLocaleString() did not - one unpriced quote was aborting the whole PAST QUOTES render. It coerces before it tests now."},
   {rev:219, date:"11/13/2026", note:"THE SCRAP ALLOWANCE WAS BEING THROWN AWAY ON HALF THE QUOTES. The Scrap % box only ever grossed up the CALCULATED material cost, so the moment a quote used a material override the allowance vanished without a word - 22 of the 47 quotes on file, the thirteen Eaton electrodes among them, every one of them carrying 5 percent that was doing nothing. It is now a premium in its own right, listed beside the material and customer premiums. Scrapping five parts in a hundred costs five percent more of EVERYTHING, not five percent more metal, so it is charged on the whole operation cost less any material that was already grossed up for it - no quote pays it twice. The scrap reclaim stays inside that base on purpose, because a scrapped part is still sold as scrap."},
   {rev:218, date:"11/13/2026", note:"THE SAW WAS COSTED ON A CURVE, NOT ON TIME. The old line took a cost per inch, multiplied it by the bar diameter and two premium factors, then gave most of it back again through an amortisation term - which returned three cents a piece on an 0.875 copper bar that really takes half a minute to cut through. The saw is now costed the way every other operation is: a blade feeding through the bar at Saw Feed inches a minute, so one cut is diameter divided by that feed; plus the handling, which is one touch per usable bar length and a further touch every N bars, both spread over the pieces that come off a bar. All five figures are on the Admin settings page - Saw Feed, Usable Bar Length, Handling per Bar, Extra Handling and how often it applies. Set Saw Feed to 0 and the old curve comes back untouched. The saw row now reports a real cycle time, so it prints a cycle and a dollars per minute like any other line instead of two dashes. The rate follows the same chain as every other row: this row's $/Min, then the quote override, then the Saw line in the operations table. First use is Eaton 1093-1105 at 2 in/min through copper, 36 in usable, 30 seconds a bar and 60 seconds every fourth bar."},
@@ -2349,7 +2355,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 220;
+const APP_REV = 221;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -2642,7 +2648,17 @@ function compute(){
      is charged on the whole operation cost less any material that was already
      grossed up for it. The scrap reclaim sits inside that base, which is
      deliberate: a scrapped part is still sold as scrap. */
-  const scrapPrem  = scrap * (price - (matOverride==='No' ? matlPc : 0));
+  /* 11/15/2026. REV 219 made the scrap % ride the whole quote. Richard: "these were
+     only for the eaton quote package; they are not permanent changes; scrap % is a
+     field entry per quote". Measured against REV 218 it moved 37 of 47 quotes - the
+     gear 1374194B +$113.90, L3Harris Mason +19.7% - because it changed the FORMULA,
+     which the percentage field cannot scope. So it is a switch on the quote, default
+     MATERIAL ONLY, which is REV 218 to the cent. Only the thirteen Eaton electrodes
+     are set to WHOLE QUOTE. The material is already grossed up by the scrap % when it
+     is calculated rather than overridden, so that part is taken back out here and not
+     charged twice. */
+  const scrapWhole = ($('scrapMode') ? $('scrapMode').value : 'MATERIAL') === 'FULL';
+  const scrapPrem  = scrapWhole ? scrap * (price - (matOverride==='No' ? matlPc : 0)) : 0;
   const salesPrem  = $('salesman').value!=='NONE' ? price*0.05 : 0;   // AC36
   const slugPrem   = slugWeight>10 ? price*0.05 : 0;                  // AC37
   /* AC38 leadtime premium. Reduction = (estimate - requested) / estimate, looked
@@ -3363,7 +3379,7 @@ $('addOp').addEventListener('click', ()=>{
 /* ---- recompute on any header input ---- */
 const HDR_FIELDS = ['jobType','qtyBrk1','qtyBrk2','qtyBrk3','qtyBrk4','qtyBrk5','qtyBrk6','customer','partNo','dateRecd','annualUsage','batchSize','minOrderQty','buyer','quotedBy','salesman',
  'material','priceLevel','stockForm','barForm','barOverride','difficulty','nreSep','barDia','partLength',
- 'extraLength','chuckExtra','scrapPct','barLen','faiReq','faiDims','custQuoteNo','pkg','faiQty','margin','meCost','rateOvr','suCost',
+ 'extraLength','chuckExtra','scrapPct','scrapMode','barLen','faiReq','faiDims','custQuoteNo','pkg','faiQty','margin','meCost','rateOvr','suCost',
  'soFee','coFee','sawCost'];
 HDR_FIELDS.forEach(id=>{ const el=$(id); if(!el) return; el.addEventListener('input',renderAll); el.addEventListener('change',renderAll); });
 
@@ -6315,7 +6331,7 @@ function blankOps(){
 /* defaults for every yellow entry cell */
 const FIELD_DEFAULTS = {
   customer:'', partNo:'', buyer:'', annualUsage:'', batchSize:'', minOrderQty:'',
-  barDia:'', partLength:'', extraLength:'', chuckExtra:'', scrapPct:'5', barLen:'144',
+  barDia:'', partLength:'', extraLength:'', chuckExtra:'', scrapPct:'5', scrapMode:'MATERIAL', barLen:'144',
   barOverride:'', faiDims:'', faiQty:'0', margin:'0', rateOvr:'0',
   material:'304 SS', priceLevel:'Distributor Qty', barForm:'36 Inch Bar',
   stockForm:'Bar Stock', faiReq:'no', difficulty:'Medium', nreSep:'Yes',
@@ -9034,6 +9050,7 @@ const IMP_LABELS = [
   ['stockForm','R','bar stock casting or component','bar stock casting','stock form'],
   ['faiDims','R','if fai how many dimensions','fai dimensions','how many dimensions','fai dims'],
   ['scrapPct','R','expected scrap for extra material','expected scrap','scrap for extra','scrap'],
+  ['scrapMode','R','whether the scrap % buys extra bar only or rides the whole quote','scrap mode','scrap applies to'],
   ['quotedBy','R','quoted by','quoter','estimator','quoted'],
   ['salesman','R','salesman','sales person','sales rep'],
   ['nreSep','R','separate nre from total','separate nre'],
@@ -9120,6 +9137,9 @@ function parseQuoteGrid(grid){
   /* value cleanup for selects */
   if(fields.faiReq!=null) fields.faiReq=/^y/i.test(String(fields.faiReq))?'yes':'no';
   if(fields.scrapPct!=null && typeof fields.scrapPct==='number' && fields.scrapPct<1) fields.scrapPct=fields.scrapPct*100;
+  /* every quote written before 11/15/2026 priced the scrap % against the material
+     alone, so that is what a missing switch has to mean - never the new behaviour */
+  if(!fields.scrapMode) fields.scrapMode='MATERIAL';
   for(const k of Object.keys(fields)) fields[k]=String(fields[k]);
   /* ops table (header row already located above) */
   const ops=[];

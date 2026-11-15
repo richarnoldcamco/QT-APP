@@ -2149,6 +2149,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:224, date:"11/15/2026", note:"YOU CAN SEND A QUOTE ON A WHOLE PACKAGE NOW. Richard: \u201ci need to be able to send a quote on a package\u201d. Thirteen parts off one Eaton RFQ meant thirteen separate quotation sheets and nothing that added them up for the customer. QUOTE THIS PACKAGE on the Packages tab builds one CAMCO quotation on the same letterhead and the same terms as the single-part one, with a line per part \u2014 part number, material, annual quantity, minimum order, unit price and annual value \u2014 footed with the pieces and the dollars for the whole job, and headed with the span of quote numbers it covers. It opens in the same overlay E-MAIL uses, so Print / Save as PDF is one click. The prices are each quote\u2019s stored perPc, and a quote that has never been opened in the app has none: rather than print a blank line or quietly drop a part, an unpriced row says NOT PRICED in red and a banner at the top says how many are missing and to run PRICE THIS PACKAGE first. That banner does not print. A quotation that silently omits a part is worse than one that admits it is incomplete."},
   {rev:223, date:"11/15/2026", note:"PAST QUOTES HAS A PACKAGE COLUMN. Richard: \u201cshould we add another column that shows if its got a package ID?\u201d It sits between TYPE and CUSTOMER, prints the package name as a tag so a glance down the list separates the quotes that belong to a job from the standalone ones, and sorts and filters like every other column \u2014 so the filter arrow on it pulls up one package, or everything with no package at all. A quote with none shows a dash, and blanks sort to the bottom either way so the packaged quotes group together instead of being split by a run of empties."},
   {rev:222, date:"11/15/2026", note:"TEXT 20 PERCENT SMALLER ON THE QUOTE SHEET, PAST QUOTES AND ADMIN. Those three views carried zoom:1.2, so everything on them printed a fifth larger than the rest of the app - Richard, looking at the GitHub Sync screen: \u201cREDUCE TEXT SIZE BY 20%\u201d. 1.2 x 0.8 = 0.96. Ctrl+wheel still zooms on top of it. Also killed a lie on that same screen: with the boxes empty, TEST CONNECTION printed \u201cNETWORK ERROR: CANNOT READ PROPERTIES OF NULL (READING \u2018OWNER\u2019)\u201d in red. There was no network error - ghCfg() returns null when nothing is saved and c.owner threw. It now names which boxes are empty and tells you to press SAVE SETTINGS first."},
   {rev:221, date:"11/15/2026", note:"THE SCRAP % IS A SWITCH ON THE QUOTE NOW, NOT A RULE FOR THE WHOLE BOOK. Rev 219 made the scrap allowance ride the whole quote instead of only the bar. Richard: \u201cthese were only for the eaton quote package; they are not permanent changes; scrap % is a field entry per quote.\u201d Measured against the live site it was not contained at all \u2014 it moved 37 of 47 quotes, because it changed the FORMULA and the percentage box cannot scope a formula: the AMCOM gear 1374194B went up $113.90 a piece, L3Harris Mason 19.7 percent, the Coldfinger $116.89, and the quotes outside the Eaton package carried $214,378 a year of increase between them. There is a MATERIAL ONLY / WHOLE QUOTE picker beside the Scrap % box now. MATERIAL ONLY is the default, is what every quote written before today reads as whether or not it has the field, and prices to the cent of rev 218. Only the thirteen Eaton electrodes are set to WHOLE QUOTE. Checked by pricing all 47 quotes through both revisions: 34 identical, 13 moved, and the 13 are the package."},
@@ -2366,7 +2367,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 223;
+const APP_REV = 224;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -7702,7 +7703,9 @@ function renderPackages(){
          ? `<b>${unpriced}</b> of them carry no price yet, so the total below is short of the job.`
          : `worth <b>${money(tAnn)}</b> a year at the prices these quotes carry now.`}
        <button class="btn ${unpriced?'primary':'ghost'}" id="pkgPrice"
-               style="margin-left:10px">PRICE THIS PACKAGE</button></p>
+               style="margin-left:10px">PRICE THIS PACKAGE</button>
+       <button class="btn ${unpriced?'ghost':'primary'}" id="pkgQuote"
+               style="margin-left:6px">QUOTE THIS PACKAGE</button></p>
     <table class="qtable">
       <thead><tr>
         <th class="num">Quote #</th><th>Part #</th><th>Customer</th><th>Material</th>
@@ -7727,6 +7730,8 @@ function renderPackages(){
   body.querySelectorAll('button[data-open]').forEach(b=>b.onclick=()=>{
     loadQuote(b.dataset.open); switchView('quote');
   });
+  const qb=$('pkgQuote');
+  if(qb) qb.onclick=()=>showPackageQuote(PKGSEL);
   const pb=$('pkgPrice');
   if(pb) pb.onclick=()=>{
     pb.disabled=true; pb.textContent='PRICING\u2026';
@@ -8891,6 +8896,146 @@ function showEmailGen(on){
     +'attaching the print, formal quotation and full quote</div></div>';
   document.body.appendChild(el);
 }
+/* ================= PACKAGE QUOTATION =================
+   11/15/2026 Richard: "i need to be able to send a quote on a package". Thirteen
+   parts off one Eaton RFQ were thirteen separate quotation sheets, and nothing
+   added them up for the customer. This is the same CAMCO letterhead, the same
+   terms, and the same per-piece figures the engine produced - one line a part,
+   with the annual value of the job footed at the bottom.
+
+   The prices come from each quote's stored perPc. A quote that has never been
+   opened in the app has none, so PRICE THIS PACKAGE must be run first; rather
+   than print a blank line or silently drop a part, an unpriced row says so in
+   red and the total says how many are missing. A quotation that quietly omits
+   a part is worse than one that admits it is incomplete. */
+/* The overlay is the one E-MAIL already uses, so the package quotation lands in
+   the same place with the same BACK button rather than a second mechanism. */
+function showPackageQuote(key){
+  const doc=buildPackageQuote(key);
+  if(!doc){ alert('No such package.'); return; }
+  let ov=document.getElementById('quoteDocOverlay');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='quoteDocOverlay';
+    ov.style.cssText='position:fixed;inset:0;z-index:9990;background:#fff;display:flex;flex-direction:column';
+    ov.innerHTML='<div style="flex:0 0 auto;display:flex;align-items:center;gap:12px;'
+      +'background:#2a1315;color:#fff;padding:8px 14px;font:700 13px system-ui,sans-serif">'
+      +'<button id="quoteDocBack" style="font:700 13px system-ui;padding:6px 16px;border-radius:6px;'
+      +'border:1px solid #7a3b3b;background:#8a1c1c;color:#fff;cursor:pointer">\u2190 BACK</button>'
+      +'<span style="opacity:.8">QUOTE DOCUMENT</span></div>'
+      +'<iframe id="quoteDocFrame" style="flex:1 1 auto;border:0;width:100%"></iframe>';
+    document.body.appendChild(ov);
+    document.getElementById('quoteDocBack').addEventListener('click', ()=>{ ov.style.display='none'; });
+  }
+  ov.querySelector('span').textContent='PACKAGE QUOTATION \u2014 print or save as PDF from the button below';
+  ov.style.display='flex';
+  const fr=document.getElementById('quoteDocFrame'), w=fr.contentWindow;
+  w.document.open(); w.document.write(doc); w.document.close();
+}
+
+function buildPackageQuote(key){
+  const g=pkgGroups()[key]; if(!g) return null;
+  const rows=g.rows.slice().sort((a,b)=>Number(a.no)-Number(b.no));
+  const f0=(rows[0]||{}).fields||{};
+  const cust=f0.customer||'';
+  const cp=(TABLES.custPremium||[]).find(c=>String(c.name||'').trim().toUpperCase()===cust.trim().toUpperCase())||{};
+  const fob=(cp.fob||'').trim()||DEFAULT_FOB;
+  const payText=(cp.payTerms||'').trim()|| (cp.terms? ('Net '+cp.terms+' days') : 'Net 30 days');
+  const today=new Date();
+  const exp=new Date(today.getTime()+QUOTE_VALID_DAYS*86400000);
+  const cq=(f0.custQuoteNo||'').trim();
+  const num=v=>parseFloat(v)||0;
+
+  let tAnn=0, tQty=0, missing=0;
+  const lines=rows.map(q=>{
+    const f=q.fields||{};
+    const ann=num(f.annualUsage);
+    const has=(q.perPc!=null && isFinite(q.perPc) && q.perPc>0);
+    if(!has) missing++; else { tAnn += q.perPc*ann; }
+    tQty += ann;
+    return `<tr>
+      <td>${esc(f.partNo||'\u2014')}</td>
+      <td>${esc(f.material||'\u2014')}</td>
+      <td style="text-align:right">${ann? ann.toLocaleString() : '\u2014'}</td>
+      <td style="text-align:right">${num(f.minOrderQty)? num(f.minOrderQty).toLocaleString() : '\u2014'}</td>
+      <td style="text-align:right;font-weight:bold;color:#6e1414">${
+         has? money(q.perPc) : '<span style="color:#b00">NOT PRICED</span>'}</td>
+      <td style="text-align:right">${has&&ann? money(q.perPc*ann) : '\u2014'}</td>
+    </tr>`;
+  }).join('');
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>CAMCO Quotation \u2014 ${esc(g.name)}</title><style>
+    body{font-family:Segoe UI,Arial,sans-serif; color:#1a1a1a; margin:34px; font-size:13px}
+    .hd{display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #6e1414; padding-bottom:12px}
+    .hd img{height:54px}
+    .co{text-align:right; font-size:11px; color:#5f5b56; line-height:1.5}
+    h1{font-size:20px; letter-spacing:.06em; color:#6e1414; margin:18px 0 4px}
+    h2{font-size:13px; letter-spacing:.05em; color:#5f5b56; margin:0 0 12px; font-weight:700}
+    table{border-collapse:collapse; width:100%; margin:10px 0 16px}
+    th,td{border:1px solid #d8d6cf; padding:7px 9px; text-align:left}
+    th{background:#f5f2ef; font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:#5f5b56}
+    tbody tr:nth-child(even) td{background:#faf9f7}
+    tr.tot td{background:#f7f2f2; font-weight:bold; color:#6e1414; font-size:14px}
+    .terms{font-size:11.5px; color:#3a3a3a; line-height:1.7; margin-top:18px; border-top:1px solid #d8d6cf; padding-top:12px}
+    .sig{margin-top:26px; font-size:12px}
+    .warn{background:#fff3cd; border:1px solid #d9c26a; border-radius:6px; padding:8px 12px;
+          font-size:12px; font-weight:700; margin:10px 0}
+    @media print{ .bar,.warn{display:none} body{margin:14px} tr{page-break-inside:avoid} }
+  </style></head><body>
+    <div class="bar" style="margin-bottom:14px">
+      <button onclick="print()" style="font-size:13px;font-weight:700;padding:8px 16px;border-radius:8px;border:1px solid #4a0d0d;background:#6e1414;color:#fff;cursor:pointer">\u{1F5A8} Print / Save as PDF</button>
+    </div>
+    ${missing? '<div class="warn">\u26A0 '+missing+' of these parts carry no price yet. Run PRICE THIS PACKAGE before sending this to the customer.</div>' : ''}
+    <div class="hd">
+      <img src="${CAMCO_LOGO}" alt="CAMCO Manufacturing">
+      <div class="co"><b>Camco Manufacturing, Inc</b><br>
+        317 South Thomas Ave. \u00b7 Sayre, PA 18840<br>
+        (570) 731-4109 office \u00b7 (570) 731-4480 fax<br>
+        www.camcomanufacturing.com<br>
+        Cage Code 4RCW9 \u00b7 DUNS 12-853-9348</div>
+    </div>
+    <h1>QUOTATION</h1>
+    <h2>${esc(g.name)} \u2014 ${rows.length} PARTS</h2>
+    <table>
+      <tr><th>Our Quote #s</th><td>${esc(String(rows[0].no))}\u2013${esc(String(rows[rows.length-1].no))}</td>
+          <th>Date</th><td>${fmtDay(today)}</td></tr>
+      <tr><th>Your RFQ / Quote #</th><td>${cq?esc(cq):'\u2014'}</td>
+          <th>Valid Through</th><td>${fmtDay(exp)}</td></tr>
+      <tr><th>Customer</th><td>${esc(cust)}</td><th>Buyer</th><td>${esc(f0.buyer||'')}</td></tr>
+    </table>
+    <table>
+      <thead><tr><th>Part Number</th><th>Material</th><th style="text-align:right">Annual Qty</th>
+        <th style="text-align:right">Min Order</th><th style="text-align:right">Unit Price</th>
+        <th style="text-align:right">Annual Value</th></tr></thead>
+      <tbody>${lines}
+        <tr class="tot"><td colspan="2">TOTAL \u2014 ${rows.length} PARTS</td>
+          <td style="text-align:right">${tQty.toLocaleString()}</td>
+          <td></td><td></td>
+          <td style="text-align:right">${money(tAnn)}</td></tr>
+      </tbody>
+    </table>
+    <div class="terms">
+      <b>Terms &amp; Conditions</b><br>
+      Validity: this quotation is valid for <b>${QUOTE_VALID_DAYS} days</b> from the date above (through ${fmtDay(exp)}).<br>
+      Shipping: <b>${esc(fob)}</b><br>
+      Payment: <b>${esc(payText)}</b><br>
+      Unit prices are quoted per piece at the annual quantities shown; different quantities will be re-quoted.<br>
+      Lead time is quoted After Receipt of Order and is subject to material availability at time of order.<br>
+      Tooling, fixturing and first-article inspection charges, where applicable, are included in the unit prices above unless separately stated.
+    </div>
+    <div class="sig">
+      Quoted by: <b>${esc(f0.quotedBy||'')}</b><br>
+      <span style="font-size:11.5px; color:#5f5b56">Richard Arnold, President \u00b7 (607) 760-8775 cell \u00b7 rarnold@camcomfginc.com</span>
+    </div>
+    <div style="margin-top:20px; border-top:1px solid #d8d6cf; padding-top:10px; font-size:10.5px; color:#5f5b56; line-height:1.6">
+      <b>Quality certifications</b><br>
+      AS9100D / ISO 9001 \u2014 Aviation, Space &amp; Defense Quality Management System<br>
+      ISO 9001 \u2014 General Quality System<br>
+      ISO/IEC 17025 \u2014 Inspection &amp; Gage Calibration
+    </div>
+  </body></html>`;
+}
+
 function buildCustomerQuote(qno, r){
   const v=id=>($(id)&&$(id).value)||'';
   const cust=v('customer');

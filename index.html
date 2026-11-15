@@ -84,8 +84,11 @@
   .vtab.on{color:#fff; background:rgba(255,255,255,.10); border-bottom-color:#e0b8b4}
 
   main{padding:0}
-  #view-quote{overflow-x:auto; background:#fff; padding-bottom:8px; zoom:1.2}
-  main#view-admin{zoom:1.2}
+  #view-quote{overflow-x:auto; background:#fff; padding-bottom:8px; zoom:.96}
+  /* 11/15/2026 "REDUCE TEXT SIZE BY 20%" - these three views carried zoom:1.2,
+     so everything on them printed a fifth larger than the rest of the app.
+     1.2 x 0.8 = 0.96. Ctrl+wheel still zooms on top of this. */
+  main#view-admin{zoom:.96}
 
   /* ===== the sheet ===== */
   .sheet{
@@ -1006,7 +1009,7 @@
   .menu-big:hover{border-color:var(--cp-signal); color:var(--cp-signal)}
 
   /* ===== dedicated Past Quotes screen ===== */
-  main#view-quotes{zoom:1.2; padding:18px 22px; font-family:var(--ui)}
+  main#view-quotes{zoom:.96; padding:18px 22px; font-family:var(--ui)}
   /* 980px cut the OPEN/DELETE buttons off once part numbers stopped wrapping (rev 118).
    1120px is just enough to seat both buttons — full width was too much. */
 .quotes-shell{max-width:none}
@@ -2140,6 +2143,7 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:222, date:"11/15/2026", note:"TEXT 20 PERCENT SMALLER ON THE QUOTE SHEET, PAST QUOTES AND ADMIN. Those three views carried zoom:1.2, so everything on them printed a fifth larger than the rest of the app - Richard, looking at the GitHub Sync screen: \u201cREDUCE TEXT SIZE BY 20%\u201d. 1.2 x 0.8 = 0.96. Ctrl+wheel still zooms on top of it. Also killed a lie on that same screen: with the boxes empty, TEST CONNECTION printed \u201cNETWORK ERROR: CANNOT READ PROPERTIES OF NULL (READING \u2018OWNER\u2019)\u201d in red. There was no network error - ghCfg() returns null when nothing is saved and c.owner threw. It now names which boxes are empty and tells you to press SAVE SETTINGS first."},
   {rev:221, date:"11/15/2026", note:"THE SCRAP % IS A SWITCH ON THE QUOTE NOW, NOT A RULE FOR THE WHOLE BOOK. Rev 219 made the scrap allowance ride the whole quote instead of only the bar. Richard: \u201cthese were only for the eaton quote package; they are not permanent changes; scrap % is a field entry per quote.\u201d Measured against the live site it was not contained at all \u2014 it moved 37 of 47 quotes, because it changed the FORMULA and the percentage box cannot scope a formula: the AMCOM gear 1374194B went up $113.90 a piece, L3Harris Mason 19.7 percent, the Coldfinger $116.89, and the quotes outside the Eaton package carried $214,378 a year of increase between them. There is a MATERIAL ONLY / WHOLE QUOTE picker beside the Scrap % box now. MATERIAL ONLY is the default, is what every quote written before today reads as whether or not it has the field, and prices to the cent of rev 218. Only the thirteen Eaton electrodes are set to WHOLE QUOTE. Checked by pricing all 47 quotes through both revisions: 34 identical, 13 moved, and the 13 are the package."},
   {rev:220, date:"11/15/2026", note:"PARTS CAN NOW BE TIED TOGETHER INTO ONE BATCH QUOTE. Every quote was standalone, so thirteen electrodes off one Eaton RFQ were thirteen unrelated rows and the job they add up to could only be totalled by hand. The header has a PACKAGE box beside the customer quote number \u2014 type a name, and every quote carrying that name is one batch quote. It types ahead off the packages already in use, so the fourteenth part joins the package instead of founding a near-miss of it, and the name is matched trimmed and case-blind so EATON 13 ELECTRODES and Eaton 13 Electrodes are one package and not two. A part quote under an assembly inherits its parent\u2019s package like it inherits the customer. A new PACKAGES tab lists each package, its parts, each one\u2019s price and annual value, and what the package is worth a year, with OPEN on every row back to its own sheet. NOTHING HERE MOVES A PRICE. What a package genuinely shares \u2014 setup across one campaign, the order fee charged once instead of thirteen times, the volume break read on the package annual rather than the part annual \u2014 is pricing policy, not arithmetic, and is not assumed: the view totals the quotes exactly as they stand. First use is Eaton 1093-1105. Two things turned up while building it. The thirteen carried NO PRICE AT ALL - perPc is written by autosave out of compute(), and a quote written into the file rather than typed into the app has never been through it - so the package shows a dash on any unpriced row and carries a PRICE THIS PACKAGE button that walks its quotes, computes each one off its own sheet, writes the price back exactly as autosave would and puts the quote that was open back afterwards. All thirteen price to the cent of their quote sheets. And money() threw on those nulls: isFinite(null) is true in Javascript, because null coerces to zero, so the guard passed and null.toLocaleString() did not - one unpriced quote was aborting the whole PAST QUOTES render. It coerces before it tests now."},
   {rev:219, date:"11/13/2026", note:"THE SCRAP ALLOWANCE WAS BEING THROWN AWAY ON HALF THE QUOTES. The Scrap % box only ever grossed up the CALCULATED material cost, so the moment a quote used a material override the allowance vanished without a word - 22 of the 47 quotes on file, the thirteen Eaton electrodes among them, every one of them carrying 5 percent that was doing nothing. It is now a premium in its own right, listed beside the material and customer premiums. Scrapping five parts in a hundred costs five percent more of EVERYTHING, not five percent more metal, so it is charged on the whole operation cost less any material that was already grossed up for it - no quote pays it twice. The scrap reclaim stays inside that base on purpose, because a scrapped part is still sold as scrap."},
@@ -2355,7 +2359,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 221;
+const APP_REV = 222;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -7218,9 +7222,19 @@ const ADMIN_SECTIONS = {
         container.querySelector('#ghAutoSync').addEventListener('change',e=>localStorage.setItem('qs_autosync_off', e.target.checked?'':'1'));
         container.querySelector('#ghAppSync').addEventListener('change',e=>localStorage.setItem('qs_appsync_off', e.target.checked?'':'1'));
         container.querySelector('#ghTestBtn').addEventListener('click', async ()=>{
+          /* 11/15/2026. With the boxes empty ghCfg() returns null, and c.owner threw
+             "Cannot read properties of null (reading 'owner')" - printed in red as a
+             NETWORK ERROR, which it was not. Say what is actually missing instead. */
+          const c=ghCfg();
+          if(!c || !c.owner || !c.repo || !c.token){
+            const miss=[!c||!c.owner?'username':null, !c||!c.repo?'repository':null,
+                        !c||!c.token?'token':null].filter(Boolean);
+            ghStatus('Fill in the '+miss.join(', ')+' above, then press SAVE SETTINGS '
+                     +'before testing.', false);
+            return;
+          }
           ghStatus('Testing connection…', true);
           try{
-            const c=ghCfg();
             const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}`,{headers:{Authorization:'Bearer '+c.token}, cache:'no-store'});
             ghStatus(r.ok? '✓ Connected — repo reachable, token accepted.' : '✗ GitHub said '+r.status+' — check username/repo/token.', r.ok);
           }catch(e){ ghStatus('✗ Network error: '+e.message, false); }

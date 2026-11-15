@@ -1061,6 +1061,21 @@
   .qm-cn{color:var(--cp-dim); font-size:11px; white-space:nowrap}
   .qm-cv{font-weight:800; color:var(--cp-signal); font-variant-numeric:tabular-nums; white-space:nowrap}
   :root{--zebra:#f6f4f0}
+  .pkg-pick{display:flex; gap:0; flex-wrap:wrap; margin:0 0 15px;
+            border:1px solid var(--cp-line-strong); border-radius:var(--r-sm); overflow:hidden}
+  .pkg-pick button{font-family:var(--ui); font-size:12.5px; font-weight:700; letter-spacing:0;
+            padding:8px 15px; border:0; border-right:1px solid var(--cp-line-strong);
+            background:#fff; color:var(--cp-ink); cursor:pointer; box-shadow:none}
+  .pkg-pick button:last-child{border-right:0}
+  .pkg-pick button:hover{background:#efece7}
+  .pkg-pick button.on{background:var(--cp-signal); color:#fff}
+  .pkg-pick button .cnt{font-weight:800; opacity:.72; margin-left:7px}
+  .pkg-pick button.on .cnt{opacity:.85}
+  .qtable tr.pkgtot td{background:#e7e3dd; font-weight:800; font-size:13.5px;
+            border-top:2px solid var(--cp-line-strong)}
+  .pkg-sub{font-size:12.5px; color:var(--cp-dim); margin:0 0 13px}
+  .pkg-sub b{color:var(--cp-ink)}
+
   .qtable{width:100%; border-collapse:collapse; font-family:var(--ui); font-size:12.5px; background:#fff}
   .qtable th{
     text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em;
@@ -1299,6 +1314,7 @@
   </div>
   <nav class="viewtabs">
     <button class="vtab" data-view="menu">Menu</button>
+    <button class="vtab" data-view="packages">Packages</button>
     <button class="vtab" data-view="admin">Admin</button>
   </nav>
   <div class="topbtns">
@@ -1475,6 +1491,10 @@
     <tr>
       <td class="lbl-r">Customer Quote # <span class="note">(optional)</span></td>
       <td class="c-yellow val-c"><input id="custQuoteNo" type="text" placeholder="their RFQ / quote no."></td>
+      <td class="lbl-r">Package <span class="note">(optional)</span></td>
+      <td class="c-yellow val-c"><input id="pkg" type="text" list="pkgList"
+          placeholder="e.g. EATON 13 ELECTRODES"
+          title="Quotes carrying the same package name are one batch quote. Leave blank for a standalone part."></td>
       <td class="lbl-r">Component or Assembly?</td>
       <td class="c-yellow val-c"><select id="quoteScope" title="COMPONENT: one part. ASSEMBLY: this part is built from a bill of material."><option value="">— PICK —</option><option>COMPONENT</option><option>ASSEMBLY</option></select></td>
       <td class="lbl-r">Date Received</td>
@@ -1623,6 +1643,33 @@
 </main>
 
 <!-- ============ PAST QUOTES VIEW ============ -->
+<datalist id="pkgList"></datalist>
+
+<!-- ============ PACKAGES VIEW ============
+     11/15/2026. Quotes were standalone: thirteen parts off one Eaton RFQ were
+     thirteen unrelated rows and the job they add up to could only be totalled by
+     hand. A quote now carries a PACKAGE name in its header, and every quote
+     carrying the same name is one batch quote. Nothing here changes a price -
+     what a package SHARES (setup across a campaign, one order fee, the volume
+     break on the package annual) is a pricing policy, not arithmetic, and waits
+     on Richard's rules. This view only adds them up honestly. -->
+<main id="view-packages" hidden>
+  <div class="quotes-shell">
+    <div class="qr-card">
+      <div class="qr-head">
+        <h2>Packages</h2>
+        <p>Parts quoted together as one job. Put the same PACKAGE name in the header
+           of each quote and they gather here. A package changes no price &mdash; it
+           totals the quotes as they stand.</p>
+      </div>
+      <div class="qr-body">
+        <div class="pkg-pick" id="pkgPick"></div>
+        <div id="pkgBody"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
 <main id="view-quotes" hidden>
   <div class="quotes-shell">
     <div class="qr-card">
@@ -1702,7 +1749,12 @@ const ADMINDATA = {"custPremium": [{"name": "ADVANTAGE METALWORK AND FINISHING",
 <script>
 /* ============ Machining Quote Sheet — logic ============ */
 const $ = id => document.getElementById(id);
-const money = n => (isFinite(n)?n:0).toLocaleString('en-US',{style:'currency',currency:'USD'});
+/* isFinite(null) is TRUE - null coerces to 0 - so the old guard let null straight
+   through to null.toLocaleString() and threw. One quote with no price stored (the
+   Eaton thirteen, written into the file rather than typed into the app) was enough
+   to abort the whole PAST QUOTES render. Coerce first, then test. 11/15/2026. */
+const money = n => { const v = Number(n);
+  return (Number.isFinite(v)?v:0).toLocaleString('en-US',{style:'currency',currency:'USD'}); };
 const CAMCO_LOGO='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZ0AAACgAgMAAACqIln2AAAADFBMVEX8/v3Xx8ZfBgdWAgPJ4AEuAAAWzklEQVR42u2bT2xl133fP+fxvBHQmYaXEGnUFhCtukkciwayytDgITICCkiBn2pSqP8A6cJexDYir7OoFaDLAp0Csg3UKeCF/yDzaL07tQw4IsV7CFNZBRAFSAhQdKGFbCe8T7yHMNWMeA7vt4tz73uPM1T/wG2AADqrd/+d3/n9//sM/RqOYMxvtNaeHtXV7uxyZ83Fcdld2P7u8zvbxFF/32z399V/uNPfqT2sue4ilnM4z39+BDv0Hzz/Jw6eprx6mI9VUpRORvnyhjQ+uIg61QfdC6ZS1MGBajngKcX64EDS8eIW7cv37lXtS/1lPDkY6+/dFTjDSjq9GN+r/j5fP9aoW6/1gPobtQO+WXVXxwtbtHuNLqQPHICZSFUbpZeuAHqhrVudnE7iZb6+2W/b/vhhQOMXFwBdvDPb4msXe5LUnlQvAjyhsaSoSYbLIFPqrimML94sjnz32RQIgrOV2U4d7VcBcEAFwzlC28M7AGZlHcB8n23AMroxWkSo0Ulso9qqQ+CJqlXVXEjj1vUYjaVTSdVdICMUW80wekI9NaPLTJbUSrr4YI7Rjf+YWLH71sOtThjXDWDQtul3ChbMwuEC2MvQS635fgIofSfIf5LvAsPX3QzQWvi5LE/jQN2Hy4QpFpPmO49gueyoBhT5tZ5y7sgBo24LM0qQ2RB+bzQD9OW/+ecGkp9vWhxSrBaATT3pCB4z8kndSdOiFvLxafdePulw8wgceCg008lBzLStpOpnHdOqLN9Vo7vdS3Uvh++AUeyuznstm+TrSmqBJy56jvVMGgAfD52RKAkbPV0UELiiP6ntD+yvXnaU677r6bptXcdHsMNeZ1+QTsaSpNODV/KtSlJVSWpip5I3mnoBow6h2HbvP9E2UVKU1F6C2csI1ZV6OR2AeRaKzxGoKm864CnBJkBxXvQUflwBD2cWzFKPZvf+42b5SD7jmWD4lIMEjwOq6k6TBifaa1/WOJ6oOTnvDVvTxBO145NeU27U7UHVtPVFcw4DNTo4iLXajqcHe42i1Eg6/Su4OW6a2DRSU7WtTjtGPla3OqnVxLlJMdLpQTwZH1y0erd7a+/i9OCibtScww1VOni1rqWf9e9fxLpuJUkfwG9XUt10Otu0nb18Uq1OVL0cq1bd+QdtJzHNaS9Xj11o0qqSJudwQxNpIvWAbsSoSk2WxQfwp1Js9Govd6eZRyPe82+ysXV+26iXorNeZo5nunI/ZcPgjsB48HOZY+0c1v1yPCd6EvyRF4WeBrx8oOP8q6r3NK6ltmna485LVLV0IE2q+KAn8KmqSRXVPIDHVE0yR/LTJxtpko1d1DnmQjM9ag8a1XcBzIVOJdUnqquLugd0UEtVFeuZQ7p5UqmRNGl+Bo9NDiaSoppsMf/dpPchbdS73IitWkk61USqO69141SNYjvRwenMkd2ctLViFfcqqfdQEx00ktrmA7hZVVnxmsuZ2sWL08yQd3msUVa6RmpjI70LA4aHFDoCuRVmJjSZY1g/co2fWeyEAV8e+qyj23ips47GyXNu8yFXwBb1KkRlm1vAMQxYHVEZUnFo4re/8LX86WpBCD+pYnhu0Q0HPwHnCiiCqv1mP3VGxmAIHMKufvj8FxOrHGcnc1hiLPLnAJ+SDmLTSs1L9PLx25V0qqY6aKqm83xPtK3USFGvwRNNo1at6kzYxyRJB1XT/AIY8ZSk00oXv/jiWGrb5uA1GPAcOAtp+s92oSNGAbwJfJr1oiOdTSZReA9nYJcLDKYXfeshseWK5S8CJZsejMOMx5/FY7wxMEA+nbFsrK8X/BEJx82wXBTzW9FGnDvKHi+fqMgKt+qyOa//IW+x4qDwUMbXweBwjoFxWJ/eS7Jfmu/pHJ7Gb5oAvvcTZ7WFtA4OLo1DHYcyAQKJle/m6w2ggSUvjxO4+zDg9wKj8BbhtxYQWtH5VMfCFyG4Dinz+JoJlS38OhSWkM7StHt90+PfqCxLOSo1lmr3zdtMoPEYltlwMJA0iXHmKwH4M0lR7zevatJ2qvVknCibyYnjU40UG0knrQP+TJO2atUHhabRwSSe6AP41ESqG8W7DGxAspYwXQC01ZHk0xSmu79sR5kzHtgq2LXUsBYA7jAyDo7+oQ8v2HrGriEIBaV9A+sYmH3Mc8DxQjBuAqjz2n5RHswnEQXgpyMoyBG8uczMuj2de/2hqBNcOkaFg4KBvcM+THGLUf+mphyZJr0F6mTYJHZvsSrj1h3Fxqpl+XXIvvMOx+DDMMwwChhWA5lOh34fBtyKVtVypUXhXjHFe4605OL6Vn/vaHrHelLGCFQaB+oiZhfKreM0P+utKm+XlrzSurtjGRS8j0lDqgU4xsKqesnNG2+6VZjyCvgCZ+EmRM9+Rhb/LM52Z7XHWV8T8KZLR2TSkW6XT3u3sQDIgsUQXmMY+sjK+LrAaiNHVBGG+J/CHcA2MILQdICKdawjpgBs8Pp0GTwDzq2/hUt7ixgRUxAsQaHOfBduGMqRAbwzWLzHjZwHMKsEzstiFh8vJ9/JhM7ZWDVlsAyWb/H0nb2F4BYgDI/eSAkjPz2zs0fHBTozOMCwroSPqYu3jilGqXcy1lhHGnahpl9nVBgGJhQEt3+2vki647TOEB/Mhu2FO+nYbZRAGQrWwSeLy8bemgmA1UKmUZWdyRQRBINNAjdf/32/kDZQ8OvjLSze24Iqk84eurA0MlAUgGfZevbtEQDlH7mxn2fFomCrT78u7RqYOwyK1VTiit4+ArDEiiMQcClbX4BNbr03i7c3CbjUBaqFs2HNqdjvz+nLUhYCCBsCHs/ApNXi/YfqBYYwFYFQgt/IGG0a7ONeKWCsuWWmI2Bzz1AABQU6dPP8ezQyvWmvlovS4Rhgsx9Y1Ndlx1sUhVcRUBdIGODMGXAUWFbTGUvmaXrmuNnOXUoRwzHAza2NsAGHDCihaPTsFYzK5AzAJ1fZwnYnjSpKfAFYpgD3IYQsgyI9NTfJQhwVeGAIxSo4BozAX3K0yKNR8TjguSzmSSR+iHrXxKqqbOgKQOI+tqjTXOgO++CpU8PgBrCJrLla33BneL8JllI+5UM7jHEIj8VjHCFM6YX/GdLZ2uzzN6ebXj4AHMqmbIIcPm0dp6twKFJw+ADPHjo7T+UmaaqExxFTVRRHdUcHDaevLLD49uN+fb2z7CaIaZeIWZ5aekjuyp/fFCBZ1xMs4NmymDve9NLxrCmydzKsjhZt8uVGcatP6TRkFRh4QtDKaw9JN5fuPqTDEm+nti8IUOwjf9vZEHN1JVdRChNmnOwgDbG+S3Y7RzJwoTiGpUXpZuO4+PXhsmDjOYV+i7NyNCmtcMMj/JAALHllTnvSFf2IZerLBimXexj4YprS9JOLXgLrHOdbgNXhqN+heLb8zMhhIBTL+ySl1fduH2ZLMEqhnIutYon/acw1JYvHY+CbUlUp6sU5nIEkVe1fdQUdPejvSfrzutHlE5X0zqfyjXfhqWr2E4BvXtSSolwupklS4wbAprvqJSyASws8W1gejHXzZA9oAlekVsPVWSWi6M30AOL9UvUVXvr9xvujTVIoIWZhCAlS8H75VoU8l+EMQOMCCoSf10Qx2gfGXdRQ+9JPPXzzkVJilxzoQU+vy1lZTNFVUvvHko6fnNVonrparplt6cD0GaazdVcZ/uUC6vnWRf8DmBeQ6zHEMfwy9m/Rb3Gx8Eq/VX2l8Fzk+tcMddcF+n2hZ1HFiiufdSW0/02Zemdnh4/WR+uj9dH6aH20Plr/pJdhOLpyY9y3kLXL7FntZze7nrN2588e3qJ+++EgQruLLddceO87knowD7J03IdQsxDsvA/K9OL8tW7dfVIPrQcwWAgyQwizaJSrwWduJs3j0xQWUlbiQwgk//ANGCwEt8dFAc4E3MILJE8qMP5KurCUFqLdq5k2uPAw6aYwIMXdRICwd3s8CQZGBEhdWc2jaS2MmGo/zpp8icXoW3vez8oZabcnRpqV5kLX/dKkUhvVRKlyA0mnL1cH3wdMcxH31Lbn5qA62FNsH2Di3qnixTE3JMWDcXUMfKqaqI3SRK+q1vENtXuSFOOFVGc+dqFy1Xec99yg0UWrqn03l2ErqdW5ebnqeoe5MxqPGeSO6sEx8ERVz5qhlY7NonQ1auVgAGUCR1AKBizDhDVhURiMulqMTQ4qO2egdfnB1K3O4udAIZ/LM13OYyoPA5hayBlx6dlwrGJyJQQocJnTK67LnGQCEPxiW5m4UGIYAd4XcDhr6XZS+VjbaU7bSnrx5mIe0z25NE0lNWrPu1vxxU6hmuqd3FVboP87fSLTLOQzA7i4dLswBWM6OU0zlUmdjph8tsMAEaVgyYU4iizJP5XH54a8iTANsQR/Cw8E/nsGpKNyO89DyENRpMQ+5Kr8URh22crvQi6THXJpCw/IztVn12x61x/IUhd2BC6ztghl1yv/tz2FLzccLB1Z61Ce1cjFjAisgetUxwacz40QSBagJldkAshCXOijEd94sQP0K7cLlMEvAc5shPRKFT7Z9brw+GFW9V9DgvPYTTHY6IFcc4l+Y1lAETAJ9OI4j4p4C8Pbffc/vvVZD8vH7swCy7awo40i57RNNg8rixU9Ey7zbbuBugqYvnF/q+NjAvjeyBO2kCOprntA+p4JaIu9vb4BoiGZAYcelzY2wh28d4YAeIojBHhj50bubx0g5LG2gL8zjgIMWN7+0mxC40fW8RpuuE1ZcQvCYd/sE8CSLcA5FUaAAusr/cNZQyG+hcdgXCIBF0fTXmcv/8DPAF18443KwlOGYqsQFK7sxDs4sIeeFVJtCCZ3t4tc+TEkdTxCX8IBCZub23/hu86JXqnnUzR8Z+vMyRdME2w1e8206Fniy/0wRa6ufBmOnwHk4/jXHhSjr/y0NxAnnsz7XNobb4cqgCUtf2nRYXxREynWe2r/09zVAk90puFvu3rGO/Bk/7TKFqWbaOALirV0ogN9P499vLpXKar+xZVRkh8WL5Hs45YffePzGZXHM+nqaQXwmdzSHAVI4+5p3A9jsH0Z40drd4t05Ha37/0FwHdGd1Kpn6xs/uurBaXhV74FxPF3D7cX4omHww5imW9pl8UgJm/xw22804++m0/6hR80t8z58re//lDlavjcNtr9jSb5hl9xUI97kX/+8yPq8deuK5H9xmvnymDfmlsoeX20PlrzCGfN/WOA0e6sAPr/dz1g0KCmmgX1AlLa1z4kEvszdzdzPPswxUNDClczgb19UBOuYjJ3l3+6MbovKHIcAM5DEQB3HAwCe+t9V4yd5+ljh36s7nFx9rkfqwhm1Y1hq9rRfsAdbjPGJmx3Aod3dh/4rX/FC6oqtY2kg5hDszy3FdX2gz3tq+NKUqzG906qSTda18Z7L0tSe6+RpJOX53TqZ1jnc576Gbzw/5QX8xh8IX7MPALUxFoE7/cTTEld68TvBzVeVYyTElKaVhUqJ3UJlNpruj5+w2S8lwLsNgRsqsPET/YAJMF0P+HLnPHtF+WRT8vrwYZmd5XJXthf9wrJ8p5p9jE/NfJg7Zbh/mdXVkegEWeJrek+8rcas/O0LYju0HtX2JUEz7lqH8/lZfB26ScNI+CFPO64J8XJwasnUe3pvYvTqmkkKTYTqY3qovM4I8VBqyg1sal1kfkhXWSWSq9OJLVqLyRVrRpN4oPMo5w2jatKF7Xa9uDiIE+PnmqB5O0i5Q8OFHPupYumydlWq7ZpqivyIM2n415Qq3y8ptqLL0dNLtp+vzbWsf+Zp9xiq9NTVaoOpEqTqKZRIzVqq1o9RjPU227aNXaAmnYv5kOp1cFp08ZuGKeN0qSVYiaDNDm4kNqqzeNzbZvHmGPevl7EP7+gSqqlVg9m4t0N2lZq1dTSy2ryx80VQW2quMCptlWcJ6WZYrG7aCTFqA6lLN7VQufEYfxyASsq/CWwWuBRZ2oShSx+qbc8wZR2nkACfHLfdplEqpTskVwxhZRHQQIgxgoS6wre8ev9EC/DUwp+mgClUFhS05T7TJk6A5YQg/dhObBRsp+qSUg0Xp5KYX+sUMmUPgVINk1yTDmzDKczuepo0Tyq+E033BzzB1dswnWGIipbNz3AfPUfxR+1/+Yj1/9PoQLZB84jtLvmiKXZhliuOerXR7o/on7bUY4A6tdHuU/6sZfqb/Thv368TRzmAGTNsbtNLHeoPWvf0o/mAfKsznJjh6Xdr6zzB6X5lud/lDuOX/71jv56h1/+juP+DsC313ZyafNb23GYCwND9F93+OV/c6z9bio/vsPZDhflV87e9uY/j3DBPwKIHVqGO/wCu+a8nQUXjyznWdNDWUcBsPZSaXb0X56z78P223xiRPqYmwEazN7dS2dsaL9YSDDsdcQu+vG9h1bgE04pwL41JPjcLkcL444zQNyxBfbwDxe2L64Dwmw891F+O2OPWbpjGFrMf1gleH8NIJOn73IMZz8UIbqWdrjmwSgnyhbgBo5nlq7ByHrIZb7CfWh+5oCCVcAcXoPtah5+PAT4F0OVi4npYGETY4CjOSLXY2QpgLGu8gdKKFCBD+sOGHk++50F0j00wLds3PyPMVfR+tW/d/53erwu7g1vrjnG6fMz3u26Z8AIeBPBTS5Pvvrx6zACbGE8uLqfJr8iDarH84L4lDgG+v+uBaB2w+786+4S47BjfnUNIMF0Szgo3nYLTH3EjFjjePivbFcr/6kQ/D6TKy/N9aiL+w/79sD/MmP3j4q9RaG/GJZmhWV/LSC8Y3XX4/hMP6aYwodZRz2irGD2O/0KOJesNq82NwZzbfOWbVcemTkmVyzAJ75611xLs25tSwnB7VgU2jYm3b4eEGwWmHIUuOOAa5R/Nvh9rQnkyzvvlRg4LLApwfthbefeXz4KyLGfMTBo2gmce0SFmP9t6+FV8/MSwNmjgiPLMl+4t7N9nTAA+OQ6Zbh+N8prkc3rGZ+lJFnjaExSjNfZOsQqsmb4iEz9n601vgM4LJ4leA2MWTjU4IoaKFPfdggWj5Lu2Q+HVGZxTJyfGfhD4OfDdK1l2AcusbAD9tGGGhSwDe5DrODGKAtKYHU/H3zjYf7OfgRvr/dqQCw7yMvXPw+rH3TiWN69Q1rDxlduLV0r3vgqcPhhXmj+Z93rbYZ4C4DX6cekv/3n9hrSOfnKjcDh1XWKPsTBfmg89el8goJXCCIVBHeNMHC5YQmGonBmbtBWHvF7sHy9M/8b3w2TKTiKpOp1CnOtZbBn3MoU9HPi2EexsP5aQOeuF+bkQcndQboWUPLd31XcaIZRk8J1Jkerj6qt79pzwcsBnvtu0d8PZhS2MPWRYsTki7kqdJ5J93E3J10cA6/Av3x+Jpzmy3kWL5Cy8q0nQIfe/MA5e60ehVVnwMC4nFm0swULR555tJfw/vYVznkP0107ch5C7m6dOz5xN3Kd1EGzj7zPVHEEuhHL3mJ0wEw9t4Nd7zgUkByrcnhy52l3OEqLs4aDRVd8y4X3nOONTpgDFA/Z14S/xmQ4vw5xleFKDtl8bo9rsb8+WHCSKQTegr6xXyZw0Rm6Id0ZnvJznSoBKu9BHZE3s+hc+GBdxbVGNZhEqqZx4cRed9VvR+dgDeXcdk1nqYD2yjPXtwVBZeV1tvEooNUhrMKdrdU1l3ujLkHD9wB5kx0A4LHUzMKkCPB3FMDro5UcyWaCjJ/bMqPvPmpUx1zEcR4+vchHzKPPNVCjmZMKJOfLEV/PbVOVI1QSUDeeqrEY3wZ+9fWX+OHX/y8c2sfufeuabsdMvM0X/nL7Q3KBr/5gQav/J+DrzST6+NSIAAAAAElFTkSuQmCC';
 const QUOTE_VALID_DAYS=90;
 const DEFAULT_FOB='FOB Origin';
@@ -1756,7 +1808,7 @@ const ASM_HIDE = new Set(['material','priceLevel','barForm','barOverride','barDi
    from the parent and taken off the walk; everything genuinely about the part \u2014
    its material, its bar, its tolerances, its FAI \u2014 is still asked. */
 const CHILD_HIDE = new Set(['customer','buyer','quotedBy','salesman',
-                            'nreSep','custQuoteNo','faiQty']);
+                            'nreSep','custQuoteNo','pkg','faiQty']);
 /* Shown, but not editable here: it is worked out from the assembly. */
 const CHILD_LOCK = new Set(['annualUsage']);
 function lockChildFields(){
@@ -1783,6 +1835,7 @@ function syncFromParent(){
   put('customer', f.customer); put('buyer', f.buyer);
   put('quotedBy', f.quotedBy); put('salesman', f.salesman);
   put('nreSep', f.nreSep); put('custQuoteNo', f.custQuoteNo); put('faiQty', f.faiQty);
+  put('pkg', f.pkg);
   /* how many of this part per assembly, read off the parent's own bill */
   let per=1;
   try{
@@ -1930,6 +1983,7 @@ function refreshChoosers(){
   fill($('material'), MAT.map(m=>m.name), $('material').value || '316 SS');
   fill($('quotedBy'), TABLES.quoters, $('quotedBy').value || TABLES.quoters[0]);
   fill($('salesman'), TABLES.salesmen, $('salesman').value || 'NONE');
+  if(typeof refreshPkgList==='function') refreshPkgList();
 }
 refreshChoosers();
 
@@ -2081,6 +2135,8 @@ function openNewBuyer(name){
 ensureBuyers();
 /* ---- default operation rows (mirrors OP # 5,10,15... ladder) ---- */
 const CHANGE_LOG = [
+  {rev:220, date:"11/15/2026", note:"PARTS CAN NOW BE TIED TOGETHER INTO ONE BATCH QUOTE. Every quote was standalone, so thirteen electrodes off one Eaton RFQ were thirteen unrelated rows and the job they add up to could only be totalled by hand. The header has a PACKAGE box beside the customer quote number \u2014 type a name, and every quote carrying that name is one batch quote. It types ahead off the packages already in use, so the fourteenth part joins the package instead of founding a near-miss of it, and the name is matched trimmed and case-blind so EATON 13 ELECTRODES and Eaton 13 Electrodes are one package and not two. A part quote under an assembly inherits its parent\u2019s package like it inherits the customer. A new PACKAGES tab lists each package, its parts, each one\u2019s price and annual value, and what the package is worth a year, with OPEN on every row back to its own sheet. NOTHING HERE MOVES A PRICE. What a package genuinely shares \u2014 setup across one campaign, the order fee charged once instead of thirteen times, the volume break read on the package annual rather than the part annual \u2014 is pricing policy, not arithmetic, and is not assumed: the view totals the quotes exactly as they stand. First use is Eaton 1093-1105. Two things turned up while building it. The thirteen carried NO PRICE AT ALL - perPc is written by autosave out of compute(), and a quote written into the file rather than typed into the app has never been through it - so the package shows a dash on any unpriced row and carries a PRICE THIS PACKAGE button that walks its quotes, computes each one off its own sheet, writes the price back exactly as autosave would and puts the quote that was open back afterwards. All thirteen price to the cent of their quote sheets. And money() threw on those nulls: isFinite(null) is true in Javascript, because null coerces to zero, so the guard passed and null.toLocaleString() did not - one unpriced quote was aborting the whole PAST QUOTES render. It coerces before it tests now."},
+  {rev:219, date:"11/13/2026", note:"THE SCRAP ALLOWANCE WAS BEING THROWN AWAY ON HALF THE QUOTES. The Scrap % box only ever grossed up the CALCULATED material cost, so the moment a quote used a material override the allowance vanished without a word - 22 of the 47 quotes on file, the thirteen Eaton electrodes among them, every one of them carrying 5 percent that was doing nothing. It is now a premium in its own right, listed beside the material and customer premiums. Scrapping five parts in a hundred costs five percent more of EVERYTHING, not five percent more metal, so it is charged on the whole operation cost less any material that was already grossed up for it - no quote pays it twice. The scrap reclaim stays inside that base on purpose, because a scrapped part is still sold as scrap."},
   {rev:218, date:"11/13/2026", note:"THE SAW WAS COSTED ON A CURVE, NOT ON TIME. The old line took a cost per inch, multiplied it by the bar diameter and two premium factors, then gave most of it back again through an amortisation term - which returned three cents a piece on an 0.875 copper bar that really takes half a minute to cut through. The saw is now costed the way every other operation is: a blade feeding through the bar at Saw Feed inches a minute, so one cut is diameter divided by that feed; plus the handling, which is one touch per usable bar length and a further touch every N bars, both spread over the pieces that come off a bar. All five figures are on the Admin settings page - Saw Feed, Usable Bar Length, Handling per Bar, Extra Handling and how often it applies. Set Saw Feed to 0 and the old curve comes back untouched. The saw row now reports a real cycle time, so it prints a cycle and a dollars per minute like any other line instead of two dashes. The rate follows the same chain as every other row: this row's $/Min, then the quote override, then the Saw line in the operations table. First use is Eaton 1093-1105 at 2 in/min through copper, 36 in usable, 30 seconds a bar and 60 seconds every fourth bar."},
   {rev:217, date:"12/11/2026", note:"NOT EVERY OPERATION IS PRICED BY THE MINUTE. A final inspection that costs $10 a piece costs $10 a piece whether it takes twenty minutes or two, and no rate times no cycle time will land on that number once the premium columns have had their say. Every operation row now has a Flat $/Pc This Op column beside $/Min This Op. Leave it at 0 and nothing changes. Put a number in it and THAT is the operation cost - rate, cycle time and every premium column bypassed. The setup column is left alone on purpose, so the $500 first-run prove-out still lands on the row: an operation set to $10 flat reads $11.67 with the prove-out on it. Cycle time stays on the row because the traveler, the shift output and the leadtime still need it. First use is 1374194B - OP 100 in-process inspection at $15.00 a piece, OP 120 final inspection at $10.00 a piece."},
   {rev:216, date:"12/11/2026", note:"ROUGHING AND FINISHING DO NOT COST THE SAME MINUTE. Rev 215 let a quote carry one rate for all of it, which is still one rate too few: on the AMCOM spur gear the first two lathe operations are blanking work and the finish mill, the hobber and the hone are not. Every operation row now has its own $/Min This Op column, beside Cycle Time. Leave it at 0 and nothing changes. Put a number in it and THAT operation bills at that number. Three places a rate can come from now, most specific wins: the row, then the quote $/Min Override, then the shared Admin operations table. First use is 1374194B - $4.00/min on the two lathe operations, $8.00/min on the finishing."},
@@ -2293,7 +2349,7 @@ const CHANGE_LOG = [
   {rev:2,  date:"2026-07-21", note:"Buyers dropdown with auto-add + Admin list."},
   {rev:1,  date:"2026-07-21", note:"REV/date stamp introduced. (Earlier history: full workbook port, GitHub sync, drawings, importer, past-quotes screen.)"},
 ];
-const APP_REV = 218;
+const APP_REV = 220;
 const BUILD_DATE = "2026-08-15";
 const BUILD_TIME = "19:20";           /* increments every build — check both machines match */
 const BUILD_UTC  = "2026-07-25T18:50:00Z";  /* true build instant; badge renders this in Eastern */
@@ -2578,6 +2634,15 @@ function compute(){
   /* --- premiums / adders (AC34..AC40) --- */
   const price      = opCostSum;                                       // AC34 base
   const matlPrem   = matlPc > 0.4*price ? matlPc*0.15 : 0;            // AC35
+  /* rev 219: the scrap allowance as a real premium. scrapPct was only ever
+     grossing up the CALCULATED material cost, so any quote with a material
+     override lost it completely - 22 of 47 on file, the thirteen Eaton
+     electrodes among them. Scrapping five percent of the parts costs five
+     percent more of everything, not five percent more copper, so the premium
+     is charged on the whole operation cost less any material that was already
+     grossed up for it. The scrap reclaim sits inside that base, which is
+     deliberate: a scrapped part is still sold as scrap. */
+  const scrapPrem  = scrap * (price - (matOverride==='No' ? matlPc : 0));
   const salesPrem  = $('salesman').value!=='NONE' ? price*0.05 : 0;   // AC36
   const slugPrem   = slugWeight>10 ? price*0.05 : 0;                  // AC37
   /* AC38 leadtime premium. Reduction = (estimate - requested) / estimate, looked
@@ -2603,7 +2668,7 @@ function compute(){
   /* annual-volume discount (negative adder) */
   const volDisc = annVolLookup(annual)*price;
 
-  let perPcPre = price + matlPrem + salesPrem + slugPrem + leadPrem + faiPerPc + custPrem; /* volume discount already applied per-op */
+  let perPcPre = price + matlPrem + scrapPrem + salesPrem + slugPrem + leadPrem + faiPerPc + custPrem; /* volume discount already applied per-op */
   /* margin markup */
   const perPc = margin<1 ? perPcPre/(1-margin) : perPcPre;
 
@@ -2611,7 +2676,7 @@ function compute(){
   const batchTotal = perPc*batch;
 
   return {
-    perPc, price, matlPc, matlPrem, salesPrem, slugPrem, faiPerPc, custPrem, volDisc,
+    perPc, price, matlPc, matlPrem, scrapPrem, salesPrem, slugPrem, faiPerPc, custPrem, volDisc,
     leadPrem, leadRedPct, reqLeadDays, leadFactor,
     leadMatl:matBucket, leadSub:subBucket, leadOther,
     sawPc, opCostSum, baseCostSum, batchTotal, nre, maxLead, faiTotal,
@@ -3298,7 +3363,7 @@ $('addOp').addEventListener('click', ()=>{
 /* ---- recompute on any header input ---- */
 const HDR_FIELDS = ['jobType','qtyBrk1','qtyBrk2','qtyBrk3','qtyBrk4','qtyBrk5','qtyBrk6','customer','partNo','dateRecd','annualUsage','batchSize','minOrderQty','buyer','quotedBy','salesman',
  'material','priceLevel','stockForm','barForm','barOverride','difficulty','nreSep','barDia','partLength',
- 'extraLength','chuckExtra','scrapPct','barLen','faiReq','faiDims','custQuoteNo','faiQty','margin','meCost','rateOvr','suCost',
+ 'extraLength','chuckExtra','scrapPct','barLen','faiReq','faiDims','custQuoteNo','pkg','faiQty','margin','meCost','rateOvr','suCost',
  'soFee','coFee','sawCost'];
 HDR_FIELDS.forEach(id=>{ const el=$(id); if(!el) return; el.addEventListener('input',renderAll); el.addEventListener('change',renderAll); });
 
@@ -7500,6 +7565,136 @@ $('resetData').addEventListener('click', async ()=>{
   TABLES = factoryTables(); saveTables(); reindex(); refreshChoosers(); applySettingsDefaults(); renderAll(); renderAdmin();
 });
 
+/* ================= PACKAGES =================
+   A package is nothing but a name shared by several quotes. Grouping is done on
+   the trimmed, upper-cased name so "Eaton 13 Electrodes" and "EATON 13
+   ELECTRODES" are one package and not two. */
+let PKGSEL = null;
+function pkgKey(q){ return String(((q.fields||{}).pkg)||'').trim().toUpperCase(); }
+function pkgGroups(){
+  const g={};
+  for(const q of loadSaved()){
+    const k=pkgKey(q); if(!k) continue;
+    (g[k] = g[k] || {name:String(q.fields.pkg).trim(), rows:[]}).rows.push(q);
+  }
+  return g;
+}
+/* the header's type-ahead: offer the package names already in use, so the
+   fourteenth part joins the package instead of founding a near-miss of it */
+function refreshPkgList(){
+  const dl=$('pkgList'); if(!dl) return;
+  dl.innerHTML = Object.values(pkgGroups())
+    .map(g=>`<option value="${esc(g.name)}">`).join('');
+}
+/* The thirteen Eaton quotes arrived in the file with no perPc on them: the price
+   is written by autosave, out of compute(), and a quote that has never been opened
+   in the app has never been through it. Rather than print a dash and leave it, this
+   walks the package - loading each quote, computing it, writing the price back
+   exactly as autosave does - and puts the quote that was open back when it is done.
+   It fixes PAST QUOTES for the same rows in passing, because it is the same field. */
+function pricePackage(key){
+  const g=pkgGroups()[key]; if(!g) return 0;
+  const was=activeQuoteNo, wasSuspend=suspendAutosave;
+  let done=0;
+  try{
+    for(const q of g.rows){
+      loadQuote(q.no);
+      const r=compute();
+      if(!r || !isFinite(r.perPc)) continue;
+      const arr=loadSaved();
+      const hit=arr.find(x=>String(x.no)===String(q.no));
+      if(hit){ hit.perPc=r.perPc; hit.updated=Date.now(); persist(arr); done++; }
+    }
+  } finally {
+    if(was!=null) { try{ loadQuote(was); }catch(e){} }
+    suspendAutosave=wasSuspend;
+  }
+  return done;
+}
+
+function renderPackages(){
+  refreshPkgList();
+  const g=pkgGroups(), keys=Object.keys(g).sort();
+  const pick=$('pkgPick'), body=$('pkgBody');
+  if(!keys.length){
+    pick.innerHTML='';
+    body.innerHTML='<div class="empty-note">No packages yet. Put the same PACKAGE '
+      + 'name in the header of two or more quotes and they will gather here.</div>';
+    return;
+  }
+  if(!PKGSEL || !g[PKGSEL]) PKGSEL=keys[0];
+  pick.innerHTML = keys.map(k=>`<button data-k="${esc(k)}"${k===PKGSEL?' class="on"':''}>`
+    + `${esc(g[k].name)}<span class="cnt">${g[k].rows.length}</span></button>`).join('');
+  pick.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    PKGSEL=b.dataset.k; renderPackages();
+  });
+
+  const rows=g[PKGSEL].rows.slice().sort((a,b)=>Number(a.no)-Number(b.no));
+  const num = v => parseFloat(v)||0;
+  let tAnn=0, tBatch=0, tQty=0, unpriced=0;
+  const body_rows = rows.map(q=>{
+    const f=q.fields||{};
+    const has=(q.perPc!=null && isFinite(q.perPc) && q.perPc>0);
+    const pc=has?q.perPc:0, ann=num(f.annualUsage), batch=num(f.batchSize);
+    if(!has) unpriced++;
+    tAnn += pc*ann; tBatch += pc*batch; tQty += ann;
+    return `<tr>
+      <td class="num">${esc(String(q.no))}</td>
+      <td><b>${esc(f.partNo||'')}</b></td>
+      <td>${esc(f.customer||'')}</td>
+      <td>${esc(f.material||'')}</td>
+      <td class="num">${ann.toLocaleString()}</td>
+      <td class="num">${batch.toLocaleString()}</td>
+      <td class="num money">${has?money(pc):'&mdash;'}</td>
+      <td class="num money">${has?money(pc*ann):'&mdash;'}</td>
+      <td><button class="btn ghost" data-open="${esc(String(q.no))}">OPEN</button></td>
+    </tr>`;
+  }).join('');
+
+  body.innerHTML = `
+    <p class="pkg-sub"><b>${rows.length}</b> quotes &middot;
+       <b>${tQty.toLocaleString()}</b> pieces a year &middot;
+       ${unpriced
+         ? `<b>${unpriced}</b> of them carry no price yet, so the total below is short of the job.`
+         : `worth <b>${money(tAnn)}</b> a year at the prices these quotes carry now.`}
+       <button class="btn ${unpriced?'primary':'ghost'}" id="pkgPrice"
+               style="margin-left:10px">PRICE THIS PACKAGE</button></p>
+    <table class="qtable">
+      <thead><tr>
+        <th class="num">Quote #</th><th>Part #</th><th>Customer</th><th>Material</th>
+        <th class="num">Annual Qty</th><th class="num">Batch</th>
+        <th class="num">Price Each</th><th class="num">Annual $</th><th></th>
+      </tr></thead>
+      <tbody>${body_rows}
+        <tr class="pkgtot">
+          <td></td><td>PACKAGE TOTAL</td><td></td><td></td>
+          <td class="num">${tQty.toLocaleString()}</td>
+          <td class="num">&mdash;</td>
+          <td class="num">&mdash;</td>
+          <td class="num">${money(tAnn)}</td><td></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="pkg-sub" style="margin:13px 0 0">PRICE EACH is what each quote carries
+      as it stands. A package does not yet share setup, the order fee or the volume
+      break &mdash; those are pricing decisions, not arithmetic, and are not assumed
+      here. BATCH is each part's own order quantity, so there is no package batch to
+      total.</p>`;
+  body.querySelectorAll('button[data-open]').forEach(b=>b.onclick=()=>{
+    loadQuote(b.dataset.open); switchView('quote');
+  });
+  const pb=$('pkgPrice');
+  if(pb) pb.onclick=()=>{
+    pb.disabled=true; pb.textContent='PRICING\u2026';
+    setTimeout(()=>{ const n=pricePackage(PKGSEL);
+      switchView('packages');
+      renderPackages();
+      const b2=$('pkgPrice');
+      if(b2) b2.title = n+' of '+rows.length+' priced from their own sheets just now';
+    }, 30);
+  };
+}
+
 /* ---- view switching ---- */
 function switchView(v){
   if(v==='quote' && typeof intakePending!=='undefined' && intakePending){
@@ -7510,11 +7705,13 @@ function switchView(v){
   $('view-quote').hidden = v!=='quote';
   $('view-admin').hidden = v!=='admin';
   $('view-quotes').hidden = v!=='quotes';
+  $('view-packages').hidden = v!=='packages';
   const showBtns = (v==='quote'||v==='quotes');
   document.querySelector('.qbadge').style.visibility = showBtns?'visible':'hidden';
   document.querySelector('.topbtns').style.visibility = showBtns?'visible':'hidden';
   if(v==='admin') renderAdmin();
   if(v==='quotes'){ renderSaved(); renderTrash(); setTimeout(()=>{ const s=$('quoteSearch'); if(s) s.focus(); },50); }
+  if(v==='packages') renderPackages();
   if(v==='quote' && window.__fitPage) setTimeout(window.__fitPage, 0);
 }
 document.querySelector('.brand').style.cursor='pointer';
